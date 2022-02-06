@@ -4,12 +4,12 @@
     <PathDelim Value="\"/>
     <Version Value="10"/>
     <BuildModes Active="Default"/>
-    <Units Count="33">
+    <Units Count="36">
       <Unit0>
         <Filename Value="fpcunitproject1.lpr"/>
         <IsPartOfProject Value="True"/>
-        <EditorIndex Value="3"/>
-        <CursorPos X="3" Y="6"/>
+        <EditorIndex Value="2"/>
+        <CursorPos Y="3"/>
         <UsageCount Value="200"/>
         <Loaded Value="True"/>
       </Unit0>
@@ -17,8 +17,8 @@
         <Filename Value="auf_ram_var.pas"/>
         <IsPartOfProject Value="True"/>
         <EditorIndex Value="1"/>
-        <TopLine Value="262"/>
-        <CursorPos X="5" Y="266"/>
+        <TopLine Value="393"/>
+        <CursorPos X="24" Y="414"/>
         <UsageCount Value="200"/>
         <Loaded Value="True"/>
       </Unit1>
@@ -27,8 +27,8 @@
         <IsPartOfProject Value="True"/>
         <UnitName Value="Apiglio_Useful"/>
         <IsVisibleTab Value="True"/>
-        <TopLine Value="1885"/>
-        <CursorPos Y="1899"/>
+        <TopLine Value="1033"/>
+        <CursorPos X="34" Y="1039"/>
         <UsageCount Value="201"/>
         <Loaded Value="True"/>
       </Unit2>
@@ -38,10 +38,10 @@
         <ComponentName Value="Frame_AufScript"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Frame"/>
-        <EditorIndex Value="2"/>
-        <TopLine Value="251"/>
-        <CursorPos X="49" Y="265"/>
-        <UsageCount Value="107"/>
+        <EditorIndex Value="3"/>
+        <TopLine Value="222"/>
+        <CursorPos Y="236"/>
+        <UsageCount Value="140"/>
         <Loaded Value="True"/>
         <LoadedDesigner Value="True"/>
       </Unit3>
@@ -49,22 +49,21 @@
         <Filename Value="aufscript_command.pas"/>
         <IsPartOfProject Value="True"/>
         <EditorIndex Value="4"/>
-        <TopLine Value="89"/>
         <CursorPos X="28" Y="105"/>
-        <UsageCount Value="29"/>
+        <UsageCount Value="62"/>
         <Loaded Value="True"/>
       </Unit4>
       <Unit5>
         <Filename Value="auf.pas"/>
         <UnitName Value="Auf"/>
-        <UsageCount Value="192"/>
+        <UsageCount Value="190"/>
       </Unit5>
       <Unit6>
         <Filename Value="K:\lazarus\fpc\3.0.0\source\rtl\objpas\classes\classesh.inc"/>
         <EditorIndex Value="-1"/>
         <TopLine Value="607"/>
         <CursorPos X="3" Y="603"/>
-        <UsageCount Value="10"/>
+        <UsageCount Value="8"/>
       </Unit6>
       <Unit7>
         <Filename Value="D:\Lazarus\lcl\extctrls.pp"/>
@@ -72,29 +71,29 @@
         <EditorIndex Value="-1"/>
         <TopLine Value="1012"/>
         <CursorPos X="31" Y="1026"/>
-        <UsageCount Value="3"/>
+        <UsageCount Value="1"/>
       </Unit7>
       <Unit8>
         <Filename Value="D:\Lazarus\lcl\controls.pp"/>
         <UnitName Value="Controls"/>
         <EditorIndex Value="-1"/>
-        <TopLine Value="1135"/>
-        <CursorPos X="23" Y="1147"/>
-        <UsageCount Value="10"/>
+        <TopLine Value="1658"/>
+        <CursorPos X="46" Y="1670"/>
+        <UsageCount Value="9"/>
       </Unit8>
       <Unit9>
         <Filename Value="D:\Lazarus\fpc\3.0.4\source\rtl\objpas\classes\classesh.inc"/>
         <EditorIndex Value="-1"/>
         <TopLine Value="88"/>
         <CursorPos X="18" Y="102"/>
-        <UsageCount Value="10"/>
+        <UsageCount Value="8"/>
       </Unit9>
       <Unit10>
         <Filename Value="D:\Lazarus\lcl\include\wincontrol.inc"/>
         <EditorIndex Value="-1"/>
         <TopLine Value="5385"/>
-        <CursorPos X="32" Y="5355"/>
-        <UsageCount Value="10"/>
+        <CursorPos Y="5398"/>
+        <UsageCount Value="9"/>
       </Unit10>
       <Unit11>
         <Filename Value="D:\Lazarus\lcl\lclclasses.pp"/>
@@ -102,14 +101,14 @@
         <EditorIndex Value="-1"/>
         <TopLine Value="121"/>
         <CursorPos Y="135"/>
-        <UsageCount Value="3"/>
+        <UsageCount Value="1"/>
       </Unit11>
       <Unit12>
         <Filename Value="D:\Lazarus\lcl\include\control.inc"/>
         <EditorIndex Value="-1"/>
-        <TopLine Value="1559"/>
-        <CursorPos Y="1566"/>
-        <UsageCount Value="10"/>
+        <TopLine Value="2240"/>
+        <CursorPos Y="2253"/>
+        <UsageCount Value="9"/>
       </Unit12>
       <Unit13>
         <Filename Value="D:\Lazarus\lcl\interfaces\win32\win32wscontrols.pp"/>
@@ -117,21 +116,21 @@
         <EditorIndex Value="-1"/>
         <TopLine Value="198"/>
         <CursorPos Y="217"/>
-        <UsageCount Value="5"/>
+        <UsageCount Value="3"/>
       </Unit13>
       <Unit14>
         <Filename Value="D:\Lazarus\fpc\3.0.4\source\packages\fcl-fpcunit\src\consoletestrunner.pas"/>
         <EditorIndex Value="-1"/>
         <TopLine Value="10"/>
         <CursorPos X="7" Y="27"/>
-        <UsageCount Value="3"/>
+        <UsageCount Value="1"/>
       </Unit14>
       <Unit15>
         <Filename Value="D:\Lazarus\lcl\include\customform.inc"/>
         <EditorIndex Value="-1"/>
         <TopLine Value="1464"/>
-        <CursorPos Y="1477"/>
-        <UsageCount Value="10"/>
+        <CursorPos Y="1478"/>
+        <UsageCount Value="9"/>
       </Unit15>
       <Unit16>
         <Filename Value="D:\Lazarus\lcl\forms.pp"/>
@@ -139,14 +138,14 @@
         <EditorIndex Value="-1"/>
         <TopLine Value="244"/>
         <CursorPos X="43" Y="258"/>
-        <UsageCount Value="3"/>
+        <UsageCount Value="1"/>
       </Unit16>
       <Unit17>
         <Filename Value="D:\Lazarus\fpc\3.0.4\source\rtl\win\wininc\unifun.inc"/>
         <EditorIndex Value="-1"/>
         <TopLine Value="183"/>
         <CursorPos X="25" Y="196"/>
-        <UsageCount Value="3"/>
+        <UsageCount Value="1"/>
       </Unit17>
       <Unit18>
         <Filename Value="D:\Lazarus\fpc\3.0.4\source\packages\fcl-base\src\custapp.pp"/>
@@ -154,28 +153,28 @@
         <EditorIndex Value="-1"/>
         <TopLine Value="94"/>
         <CursorPos X="33" Y="118"/>
-        <UsageCount Value="3"/>
+        <UsageCount Value="1"/>
       </Unit18>
       <Unit19>
         <Filename Value="D:\Lazarus\lcl\include\application.inc"/>
         <EditorIndex Value="-1"/>
         <TopLine Value="362"/>
         <CursorPos Y="377"/>
-        <UsageCount Value="10"/>
+        <UsageCount Value="18"/>
       </Unit19>
       <Unit20>
         <Filename Value="D:\Lazarus\lcl\include\buttoncontrol.inc"/>
         <EditorIndex Value="-1"/>
         <TopLine Value="8"/>
         <CursorPos Y="22"/>
-        <UsageCount Value="3"/>
+        <UsageCount Value="9"/>
       </Unit20>
       <Unit21>
         <Filename Value="D:\Lazarus\lcl\include\buttons.inc"/>
         <EditorIndex Value="-1"/>
         <TopLine Value="156"/>
         <CursorPos Y="170"/>
-        <UsageCount Value="3"/>
+        <UsageCount Value="9"/>
       </Unit21>
       <Unit22>
         <Filename Value="D:\Lazarus\lcl\lclmessageglue.pas"/>
@@ -183,14 +182,14 @@
         <EditorIndex Value="-1"/>
         <TopLine Value="109"/>
         <CursorPos Y="123"/>
-        <UsageCount Value="10"/>
+        <UsageCount Value="9"/>
       </Unit22>
       <Unit23>
         <Filename Value="D:\Lazarus\lcl\interfaces\win32\win32callback.inc"/>
         <EditorIndex Value="-1"/>
         <TopLine Value="2652"/>
         <CursorPos Y="2675"/>
-        <UsageCount Value="10"/>
+        <UsageCount Value="9"/>
       </Unit23>
       <Unit24>
         <Filename Value="D:\Lazarus\lcl\interfaces\win32\win32wsforms.pp"/>
@@ -198,51 +197,51 @@
         <EditorIndex Value="-1"/>
         <TopLine Value="374"/>
         <CursorPos Y="387"/>
-        <UsageCount Value="3"/>
+        <UsageCount Value="9"/>
       </Unit24>
       <Unit25>
         <Filename Value="D:\Lazarus\lcl\interfaces\win32\win32wsstdctrls.pp"/>
         <UnitName Value="Win32WSStdCtrls"/>
         <EditorIndex Value="-1"/>
-        <TopLine Value="1446"/>
-        <CursorPos Y="1459"/>
-        <UsageCount Value="10"/>
+        <TopLine Value="1794"/>
+        <CursorPos Y="1807"/>
+        <UsageCount Value="9"/>
       </Unit25>
       <Unit26>
         <Filename Value="D:\Lazarus\lcl\interfaces\win32\win32object.inc"/>
         <EditorIndex Value="-1"/>
-        <TopLine Value="410"/>
-        <CursorPos Y="423"/>
-        <UsageCount Value="10"/>
+        <TopLine Value="418"/>
+        <CursorPos X="13" Y="422"/>
+        <UsageCount Value="9"/>
       </Unit26>
       <Unit27>
         <Filename Value="D:\Lazarus\fpc\3.0.4\source\rtl\inc\ustringh.inc"/>
         <EditorIndex Value="-1"/>
         <TopLine Value="123"/>
         <CursorPos X="20" Y="137"/>
-        <UsageCount Value="6"/>
+        <UsageCount Value="4"/>
       </Unit27>
       <Unit28>
         <Filename Value="D:\Lazarus\fpc\3.0.4\source\rtl\inc\ustrings.inc"/>
         <EditorIndex Value="-1"/>
         <TopLine Value="2086"/>
         <CursorPos X="25" Y="2106"/>
-        <UsageCount Value="6"/>
+        <UsageCount Value="4"/>
       </Unit28>
       <Unit29>
         <Filename Value="D:\Lazarus\components\synedit\synedit.pp"/>
         <UnitName Value="SynEdit"/>
         <EditorIndex Value="-1"/>
-        <TopLine Value="394"/>
-        <CursorPos X="34" Y="5"/>
-        <UsageCount Value="6"/>
+        <TopLine Value="6022"/>
+        <CursorPos Y="6035"/>
+        <UsageCount Value="9"/>
       </Unit29>
       <Unit30>
         <Filename Value="D:\Lazarus\lcl\include\trackbar.inc"/>
         <EditorIndex Value="-1"/>
         <TopLine Value="162"/>
         <CursorPos Y="176"/>
-        <UsageCount Value="6"/>
+        <UsageCount Value="4"/>
       </Unit30>
       <Unit31>
         <Filename Value="D:\Lazarus\lcl\stdctrls.pp"/>
@@ -250,141 +249,162 @@
         <EditorIndex Value="-1"/>
         <TopLine Value="985"/>
         <CursorPos X="18" Y="999"/>
-        <UsageCount Value="10"/>
+        <UsageCount Value="8"/>
       </Unit31>
       <Unit32>
         <Filename Value="D:\Lazarus\lcl\include\customedit.inc"/>
         <EditorIndex Value="-1"/>
         <TopLine Value="499"/>
         <CursorPos Y="513"/>
-        <UsageCount Value="10"/>
+        <UsageCount Value="8"/>
       </Unit32>
+      <Unit33>
+        <Filename Value="D:\Lazarus\lcl\include\progressbar.inc"/>
+        <EditorIndex Value="-1"/>
+        <TopLine Value="158"/>
+        <CursorPos Y="172"/>
+        <UsageCount Value="9"/>
+      </Unit33>
+      <Unit34>
+        <Filename Value="D:\Lazarus\components\synedit\syneditlines.pas"/>
+        <UnitName Value="SynEditLines"/>
+        <EditorIndex Value="-1"/>
+        <TopLine Value="302"/>
+        <CursorPos Y="316"/>
+        <UsageCount Value="9"/>
+      </Unit34>
+      <Unit35>
+        <Filename Value="D:\Lazarus\fpc\3.0.4\source\rtl\win\wininc\messages.inc"/>
+        <EditorIndex Value="-1"/>
+        <TopLine Value="1321"/>
+        <CursorPos X="15" Y="1335"/>
+        <UsageCount Value="9"/>
+      </Unit35>
     </Units>
-    <JumpHistory Count="28" HistoryIndex="27">
+    <JumpHistory Count="30" HistoryIndex="29">
       <Position1>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1675" TopLine="1658"/>
+        <Caret Line="1913" TopLine="1893"/>
       </Position1>
       <Position2>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1613" TopLine="1599"/>
+        <Caret Line="1914" Column="11" TopLine="1893"/>
       </Position2>
       <Position3>
-        <Filename Value="fpcunitproject1.lpr"/>
-        <Caret Line="6" Column="5"/>
+        <Filename Value="apiglio_useful.pas"/>
+        <Caret Line="1044" Column="24" TopLine="1031"/>
       </Position3>
       <Position4>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1674" TopLine="1660"/>
+        <Caret Line="1045" TopLine="1031"/>
       </Position4>
       <Position5>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1675" TopLine="1660"/>
+        <Caret Line="1923" TopLine="1909"/>
       </Position5>
       <Position6>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1613" TopLine="1599"/>
+        <Caret Line="1924" TopLine="1909"/>
       </Position6>
       <Position7>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1674" TopLine="1660"/>
+        <Caret Line="1925" TopLine="1909"/>
       </Position7>
       <Position8>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1675" TopLine="1660"/>
+        <Caret Line="1932" TopLine="1909"/>
       </Position8>
       <Position9>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1613" TopLine="1599"/>
+        <Caret Line="1907" TopLine="1893"/>
       </Position9>
       <Position10>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1674" TopLine="1660"/>
+        <Caret Line="1908" TopLine="1893"/>
       </Position10>
       <Position11>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1675" TopLine="1660"/>
+        <Caret Line="1910" TopLine="1893"/>
       </Position11>
       <Position12>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1613" TopLine="1599"/>
+        <Caret Line="1908" TopLine="1893"/>
       </Position12>
       <Position13>
-        <Filename Value="aufscript_command.pas"/>
-        <Caret Line="105" Column="28" TopLine="89"/>
+        <Filename Value="apiglio_useful.pas"/>
+        <Caret Line="1913" TopLine="1893"/>
       </Position13>
       <Position14>
-        <Filename Value="aufscript_frame.pas"/>
-        <Caret Line="290" Column="35" TopLine="286"/>
+        <Filename Value="apiglio_useful.pas"/>
+        <Caret Line="1914" TopLine="1893"/>
       </Position14>
       <Position15>
-        <Filename Value="aufscript_frame.pas"/>
-        <Caret Line="36" Column="51" TopLine="19"/>
+        <Filename Value="apiglio_useful.pas"/>
+        <Caret Line="1915" TopLine="1893"/>
       </Position15>
       <Position16>
-        <Filename Value="aufscript_frame.pas"/>
-        <Caret Line="266" Column="38" TopLine="253"/>
+        <Filename Value="apiglio_useful.pas"/>
+        <Caret Line="1916" TopLine="1893"/>
       </Position16>
       <Position17>
-        <Filename Value="aufscript_frame.pas"/>
-        <Caret Line="265" Column="27" TopLine="251"/>
+        <Filename Value="apiglio_useful.pas"/>
+        <Caret Line="1917" TopLine="1894"/>
       </Position17>
       <Position18>
-        <Filename Value="auf_ram_var.pas"/>
-        <Caret Line="45" Column="43" TopLine="33"/>
+        <Filename Value="apiglio_useful.pas"/>
+        <Caret Line="1907" TopLine="1894"/>
       </Position18>
       <Position19>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="12" Column="31"/>
+        <Caret Line="1918" TopLine="1895"/>
       </Position19>
       <Position20>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="2673" Column="108" TopLine="2657"/>
+        <Caret Line="1957" TopLine="1944"/>
       </Position20>
       <Position21>
-        <Filename Value="auf_ram_var.pas"/>
-        <Caret Line="104" TopLine="104"/>
+        <Filename Value="apiglio_useful.pas"/>
+        <Caret Line="1046" TopLine="1033"/>
       </Position21>
       <Position22>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="2689" Column="32" TopLine="2671"/>
+        <Caret Line="1049" TopLine="1033"/>
       </Position22>
       <Position23>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="2627" Column="34" TopLine="2624"/>
+        <Filename Value="auf_ram_var.pas"/>
+        <Caret Line="414" Column="28" TopLine="392"/>
       </Position23>
       <Position24>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="129" Column="19" TopLine="116"/>
+        <Filename Value="auf_ram_var.pas"/>
+        <Caret Line="413" Column="48" TopLine="393"/>
       </Position24>
       <Position25>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1904" Column="27" TopLine="1866"/>
+        <Filename Value="auf_ram_var.pas"/>
+        <Caret Line="405" Column="24" TopLine="393"/>
       </Position25>
       <Position26>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="2657" Column="37" TopLine="2635"/>
+        <Caret Line="1044" TopLine="1033"/>
       </Position26>
       <Position27>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1903" Column="36" TopLine="1888"/>
+        <Caret Line="1038" Column="29" TopLine="1033"/>
       </Position27>
       <Position28>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="2664" Column="37" TopLine="2643"/>
+        <Caret Line="1046" TopLine="1033"/>
       </Position28>
+      <Position29>
+        <Filename Value="apiglio_useful.pas"/>
+        <Caret Line="1049" TopLine="1033"/>
+      </Position29>
+      <Position30>
+        <Filename Value="auf_ram_var.pas"/>
+        <Caret Line="414" Column="24" TopLine="393"/>
+      </Position30>
     </JumpHistory>
   </ProjectSession>
   <Debugging>
-    <BreakPoints Count="1">
-      <Item1>
-        <Kind Value="bpkSource"/>
-        <WatchScope Value="wpsLocal"/>
-        <WatchKind Value="wpkWrite"/>
-        <Source Value="apiglio_useful.pas"/>
-        <Line Value="1197"/>
-      </Item1>
-    </BreakPoints>
     <Watches Count="1">
       <Item1>
         <Expression Value="result.head"/>

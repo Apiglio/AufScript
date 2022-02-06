@@ -147,6 +147,14 @@ begin
   (Sender as TAufScript).Pause;
   Application.ProcessMessages;
 end;
+procedure frm_renew_clearscreen(Sender:TObject);
+var Frame:TFrame_AufScript;
+begin
+  Frame:=(Sender as TAufScript).Owner as TFrame_AufScript;
+  Frame.Memo_out.Clear;
+  Application.ProcessMessages;
+end;
+
 
 
 { TFrame_AufScript }
@@ -199,8 +207,8 @@ begin
   Button_ScriptLoad.Left:=CommonGap;
   Button_ScriptSave.Left:=CommonGap*2 + L2;
 
-  Button_Stop.Enabled:=false;
-  Button_Pause.Enabled:=false;
+  //Button_Stop.Enabled:=false;
+  //Button_Pause.Enabled:=false;
 
   ProgressBar.Left:=CommonGap;
   ProgressBar.Width:=Self.Width - 2*CommonGap;
@@ -292,6 +300,7 @@ begin
   Self.Auf.Script.IO_fptr.echo:=@frm_renew_writeln;
   Self.Auf.Script.IO_fptr.print:=@frm_renew_write;
   Self.Auf.Script.IO_fptr.pause:=@frm_renew_readln;
+  Self.Auf.Script.IO_fptr.clear:=@frm_renew_clearscreen;
   Self.Auf.Script.IO_fptr.error:=@frm_renew_writeln;
   Self.Auf.Script.Func_process.beginning:=@frm_renew_beginning;
   Self.Auf.Script.Func_process.ending:=@frm_renew_ending;
@@ -309,6 +318,9 @@ begin
   Self.ProcessBarH:=ARF_ProcessBarH;
   tmp:=Self.MemoProportion;
   Self.TrackBar.Position:=round(100*(1-tmp/(1+tmp)));
+
+  Button_Stop.Enabled:=false;
+  Button_Pause.Enabled:=false;
 
 end;
 
