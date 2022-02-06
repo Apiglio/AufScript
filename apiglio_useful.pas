@@ -14,11 +14,11 @@ INTERFACE
 
 uses
   Windows, Classes, SysUtils, Registry, Dos, WinCrt, FileUtil, Forms, Controls, StdCtrls, ExtCtrls,
-  Interfaces, SynEdit, LazUTF8, Auf_Ram_Var, SynHighlighterAuf;
+  Interfaces, SynEdit, LazUTF8, Auf_Ram_Var, SynHighlighterAuf, RegExpr;
 
 const
 
-  AufScript_Version='beta 2.0';
+  AufScript_Version='beta 2.1';
 
   c_divi=[' ',','];//隔断符号
   c_iden=['~','@','$','#','?',':','&'];//变量符号，前后缀符号
@@ -393,6 +393,7 @@ var
 
   Auf:TAuf;
   GlobalExpressionList:TAufExpressionList;
+  RegCalc:TRegExpr;
 
   procedure de_writeln(Sender:Tobject;str:string);
   procedure de_write(Sender:TObject;str:string);
@@ -1389,6 +1390,7 @@ end;
 
 procedure cj_mode(mode:string;Sender:TObject);//比较两个变量，满足条件则跳转至ofs  cj var1,var2,ofs
 var a,b:double;
+    sa,sb:string;
     ofs:smallint;
     is_not,is_call:boolean;//是否有N前缀或C后缀
     core_mode:string;//去除前后缀的mode
@@ -1419,46 +1421,57 @@ begin
   else is_call:=false;
 
   ofs:=0;
-  if not AAuf.CheckArgs(4) then exit;//取消默认跳转数值
-  //if AAuf.ArgsCount<3 then begin AufScpt.send_error('警告：'+AAuf.nargs[0].arg+'需要两个变量，该语句未执行。');exit end;
-  {
-  if AAuf.ArgsCount>3 then
-    begin
-  }
-      case AAuf.nargs[3].pre of
-        '$':ofs:=pByte(AufScpt.Pointer(AAuf.nargs[3].pre,Usf.to_i(AAuf.nargs[3].arg)))^;
-        '@':ofs:=pLong(AufScpt.Pointer(AAuf.nargs[3].pre,Usf.to_i(AAuf.nargs[3].arg)))^;
-        '~':ofs:=round(pDouble(AufScpt.Pointer(AAuf.nargs[3].pre,Usf.to_i(AAuf.nargs[3].arg)))^);
-        '&"':ofs:=RawStrToDword(AAuf.nargs[3].arg) - AufScpt.PSW.run_parameter.current_line_number;
-        '':ofs:=Usf.to_i(AAuf.nargs[3].arg);
-        else begin AufScpt.send_error('警告：地址偏移参数有误，语句未执行');exit end;
-      end;
-  {
-    end
-  else
-    begin
-      if is_not then ofs:=-2
-      else ofs:=2;
-    end;
-  }
-  if ofs=0 then begin AufScpt.send_error('警告：'+AAuf.nargs[0].arg+'需要非零的地址偏移量，该语句未执行。');exit end;
-  try
-    b:=AufScpt.TryToDouble(AAuf.nargs[2]);
-  except
-    AufScpt.send_error('警告：'+AAuf.nargs[0].arg+'的第二个参数不能转换为double类型，语句未执行。');exit;
+  if not AAuf.CheckArgs(4) then exit;
+
+  case AAuf.nargs[3].pre of
+    '$':ofs:=pByte(AufScpt.Pointer(AAuf.nargs[3].pre,Usf.to_i(AAuf.nargs[3].arg)))^;
+    '@':ofs:=pLong(AufScpt.Pointer(AAuf.nargs[3].pre,Usf.to_i(AAuf.nargs[3].arg)))^;
+    '~':ofs:=round(pDouble(AufScpt.Pointer(AAuf.nargs[3].pre,Usf.to_i(AAuf.nargs[3].arg)))^);
+    '&"':ofs:=RawStrToDword(AAuf.nargs[3].arg) - AufScpt.PSW.run_parameter.current_line_number;
+    '':ofs:=Usf.to_i(AAuf.nargs[3].arg);
+    else begin AufScpt.send_error('警告：地址偏移参数有误，语句未执行');exit end;
   end;
-  try
-    a:=AufScpt.TryToDouble(AAuf.nargs[1]);
-  except
-    AufScpt.send_error('警告：'+AAuf.nargs[0].arg+'的第一个参数不能转换为double类型，语句未执行。');exit;
+
+  if ofs=0 then begin
+    AufScpt.send_error('警告：'+AAuf.nargs[0].arg+'需要非零的地址偏移量，该语句未执行。');
+    exit;
+  end;
+  if core_mode[3]<>'s' then begin
+    try
+      b:=AufScpt.TryToDouble(AAuf.nargs[2]);
+    except
+      AufScpt.send_error('警告：'+AAuf.nargs[0].arg+'的第二个参数不能转换为double类型，语句未执行。');exit;
+    end;
+    try
+      a:=AufScpt.TryToDouble(AAuf.nargs[1]);
+    except
+      AufScpt.send_error('警告：'+AAuf.nargs[0].arg+'的第一个参数不能转换为double类型，语句未执行。');exit;
+    end;
+  end else begin
+    try
+      sb:=AufScpt.TryToString(AAuf.nargs[2]);
+    except
+      AufScpt.send_error('警告：'+AAuf.nargs[0].arg+'的第二个参数不能转换为string类型，语句未执行。');exit;
+    end;
+    try
+      sa:=AufScpt.TryToString(AAuf.nargs[1]);
+    except
+      AufScpt.send_error('警告：'+AAuf.nargs[0].arg+'的第一个参数不能转换为string类型，语句未执行。');exit;
+    end;
   end;
   case core_mode of
-    'ife':if (a=b) xor is_not then switch_addr(AufScpt.currentLine+ofs,is_call);
     'cje':if (a=b) xor is_not then switch_addr(AufScpt.currentLine+ofs,is_call);
-    'ifl':if (a<b) xor is_not then switch_addr(AufScpt.currentLine+ofs,is_call);
     'cjl':if (a<b) xor is_not then switch_addr(AufScpt.currentLine+ofs,is_call);
-    'ifm':if (a>b) xor is_not then switch_addr(AufScpt.currentLine+ofs,is_call);
     'cjm':if (a>b) xor is_not then switch_addr(AufScpt.currentLine+ofs,is_call);
+
+    'cjs':if (sa=sb) xor is_not then switch_addr(AufScpt.currentLine+ofs,is_call);
+    'cjsub':if (pos(sa,sb)>0) xor is_not then switch_addr(AufScpt.currentLine+ofs,is_call);
+    'cjsreg':
+      begin
+        RegCalc.Expression:=sa;
+        if RegCalc.Exec(sb) xor is_not then switch_addr(AufScpt.currentLine+ofs,is_call);
+      end;
+
   end;
 
 end;
@@ -4230,6 +4243,19 @@ begin
   Self.add_func('cjlc,小于则跳转调用',@cj,'v1,v2,:label/ofs','如果v1小于v2则跳转，并将当前地址压栈');
   Self.add_func('ncjlc,大等则跳转调用',@cj,'v1,v2,:label/ofs','如果v1不小于v2则跳转，并将当前地址压栈');
 
+  Self.add_func('cjs,字符串相等则跳转',@cj,'s1,s2,:label/ofs','如果s1相等s2则跳转');
+  Self.add_func('ncjs,字符串不相等则跳转',@cj,'s1,s2,:label/ofs','如果s1不相等s2则跳转');
+  Self.add_func('cjsc,字符串相等则跳转调用',@cj,'s1,s2,:label/ofs','如果s1相等s2则跳转，并将当前地址压栈');
+  Self.add_func('ncjsc,字符串不相等则跳转调用',@cj,'s1,s2,:label/ofs','如果s1不相等s2则跳转，并将当前地址压栈');
+  Self.add_func('cjsub,字符串包含则跳转',@cj,'sub,str,:label/ofs','如果str包含sub则跳转');
+  Self.add_func('ncjsub,字符串不包含则跳转',@cj,'sub,str,:label/ofs','如果str不包含sub则跳转');
+  Self.add_func('cjsubc,字符串包含则跳转调用',@cj,'sub,str,:label/ofs','如果str包含sub则跳转，并将当前地址压栈');
+  Self.add_func('ncjsubc,字符串不包含则跳转调用',@cj,'sub,str,:label/ofs','如果str不包含sub则跳转，并将当前地址压栈');
+  Self.add_func('cjsreg,符合正则表达式则跳转',@cj,'reg,str,:label/ofs','如果str符合reg则跳转');
+  Self.add_func('ncjsreg,不符合正则表达式则跳转',@cj,'reg,str,:label/ofs','如果str不符合reg则跳转');
+  Self.add_func('cjsregc,符合正则表达式则跳转调用',@cj,'reg,str,:label/ofs','如果str符合reg则跳转，并将当前地址压栈');
+  Self.add_func('ncjsregc,不符合正则表达式则跳转调用',@cj,'reg,str,:label/ofs','如果str不符合reg则跳转，并将当前地址压栈');
+
 
   {$ifdef TEST_MODE}
   Self.add_func('debugln',@_debugln,'var','调试函数');
@@ -4311,6 +4337,9 @@ INITIALIZATION
   GlobalExpressionList.TryAddExp('AufScriptAuthor',narg('"','Apiglio&Apemiro','"'));
   GlobalExpressionList.TryAddExp('AufScriptVersion',narg('"',AufScript_Version,'"'));
 
+  RegCalc:=TRegExpr.Create;
+
+
   Usf:=TUsf.Create;
 
 
@@ -4319,7 +4348,12 @@ INITIALIZATION
 
   //RegisterTest(TAuf);
 
+FINALIZATION
 
+  Usf.Free;
+  RegCalc.Free;
+  GlobalExpressionList.Free;
+  Auf.Free;
 
 END.
 
