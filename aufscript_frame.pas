@@ -18,8 +18,9 @@ const
 type
 
   { TFrame_AufScript }
-  ptrFuncStr = procedure(str:string) of Object;
-  TFrame_AufScript = class(TFrame)
+  TNotifyStringEvent = procedure(sender:TObject;str:string) of Object;
+  ptrFuncStr         = procedure(str:string) of Object;
+  TFrame_AufScript   = class(TFrame)
     Button_run: TButton;
     Button_pause: TButton;
     Button_stop: TButton;
@@ -58,6 +59,10 @@ type
     procedure TrackBarChange(Sender: TObject);
     procedure TrackBarMouseEnter(Sender: TObject);
     procedure TrackBarMouseLeave(Sender: TObject);
+  protected
+    FOnChangeTitle:TNotifyStringEvent;
+  public
+    property OnChangeTitle:TNotifyStringEvent read FOnChangeTitle write FOnChangeTitle;
 
   private
     ProgressBarEnabled:boolean;
@@ -198,6 +203,7 @@ begin
       AufScpt.send_error('命令行设置需要至少两个参数，未成功设置！');
       exit
     end;
+
   case lowercase(AAuf.args[1]) of
     'procbar':
       begin
@@ -239,7 +245,10 @@ begin
           else AufScpt.writeln('Wrap之后需要使用on或off进行设置。');
         end;
       end;
-    else AufScpt.send_error('未知的命令行设置项，未成功设置！');
+    else begin
+      //AufScpt.send_error('未知的命令行设置项，未成功设置！')
+      if AufScpt.Func_process.Setting<>nil then AufScpt.Func_process.Setting(AufScpt);
+    end;
   end;
 end;
 
@@ -308,6 +317,7 @@ begin
   if OpenDialog.Execute then
     try
       Memo_cmd.Lines.LoadFromFile(OpenDialog.FileName);
+      if FOnChangeTitle<>nil then FOnChangeTitle(Self,ExtractFilename(OpenDialog.FileName));
     except
       MessageBox(0,Usf.ExPChar(utf8towincp('载入文件失败')),'Error',MB_OK);
     end;
@@ -401,6 +411,7 @@ begin
   if SaveDialog.Execute then
     try
       Memo_cmd.Lines.SaveToFile(SaveDialog.FileName);
+      if FOnChangeTitle<>nil then FOnChangeTitle(Self,ExtractFilename(SaveDialog.FileName));
     except
       MessageBox(0,Usf.ExPChar(utf8towincp('保存文件失败')),'Error',MB_OK);
     end;
@@ -535,6 +546,8 @@ begin
   Button_Pause.Enabled:=false;
 
   //Self.HighLighterReNew;
+
+  //FOnChangeTitle:=nil;
 
 end;
 

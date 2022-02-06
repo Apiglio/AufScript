@@ -341,10 +341,25 @@ begin
       else
         begin
           case str[pi] of
-            'a','c','d','f','A','C','D','F':
+            'a','c','d','f','A','C','D','F','b','B':
               begin
                 is_hex:=true;
                 is_ne:=true;
+                {
+                case str[pi] of 'b','B':
+                  begin
+                    'B','b':
+                      begin
+                        if pi=length(str) then begin
+                          if is_binary and (not have_symbol) and (not have_dot) then begin result:=4;exit end
+                          else begin result:=0;exit end;
+                        end;
+                        is_hex:=true;
+                        is_ne:=true;
+                      end;
+                  end;
+                  }
+                  //B结尾二进制不启用
               end;
             '.':
               begin
@@ -365,18 +380,6 @@ begin
                 is_hex:=true;
                 is_float:=true;
               end;
-            {
-            'B','b':
-              begin
-                if pi=length(str) then begin
-                  if is_binary and (not have_symbol) and (not have_dot) then begin result:=4;exit end
-                  else begin result:=0;exit end;
-                end;
-                is_hex:=true;
-                is_ne:=true;
-              end;
-            }
-            //B结尾二进制不启用
             'H','h':
               begin
                 if (pi=length(str)) and (not have_symbol) and (not have_dot) then begin result:=3;exit end
@@ -418,21 +421,13 @@ begin
     goto skipp;
   end;
 
-  posi:=pos(lowercase(element),Self.FInternalFunc);
-  pose:=pos(lowercase(element),Self.FExternalFunc);
-  if (posi<2)and(pose<2) then begin
-    fTokenID := tkText;
-  end else begin
-    if (Self.FInternalFunc[posi-1] = ',') and (Self.FInternalFunc[posi+length(element)] = ',') then begin
-      fTokenID := tkKey;
-    end else begin
-      if (Self.FExternalFunc[pose-1] = ',') and (Self.FExternalFunc[pose+length(element)] = ',') then begin
-        fTokenID := tkKey;
-      end else begin
-        fTokenID := tkText;
-      end;
-    end;
-  end;
+  posi:=pos(','+lowercase(element)+',',Self.FInternalFunc);
+  pose:=pos(','+lowercase(element)+',',Self.FExternalFunc);
+  if (posi<=0) and (pose<=0) then
+    fTokenID := tkText
+  else
+    fTokenID := tkKey;
+
 
 skipp:
   //for poss:=0 to offset-1 do inc(Run);

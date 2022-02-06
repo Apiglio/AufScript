@@ -31,6 +31,7 @@ type
     procedure FormDestroy(Sender:TObject);
   public
     procedure test;
+    procedure ChangeMainTitle(Sender:TObject;str:string);
   end;
 
   {$else}
@@ -100,6 +101,10 @@ procedure TMyTestForm.test;
 begin
   MessageBox(0,'TEST:OK','TEST',MB_OK);
 end;
+procedure TMyTestForm.ChangeMainTitle(Sender:TObject;str:string);
+begin
+  Self.Caption:=str;
+end;
 procedure TMyTestForm.InitializeForm;
 begin
   Self.Caption:='Auf GUI Tester';
@@ -117,6 +122,7 @@ begin
   AufFrame.FrameResize(nil);
   AufFrame.AufGenerator;
   AufFrame.Auf.Script.add_func('ptest',@project_test,'','测试');
+  AufFrame.OnChangeTitle:=@ChangeMainTitle;
   {$endif}
   Self.ResizeForm(nil);
   Self.OnResize:=@Self.ResizeForm;
