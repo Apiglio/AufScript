@@ -11,7 +11,7 @@ program fpcunitproject1;
 {$mode objfpc}{$H+}
 
 uses
-  Classes, StdCtrls, ExtCtrls, Sysutils, Forms, consoletestrunner, Interfaces,
+  Classes, StdCtrls, ExtCtrls, Sysutils, Forms, consoletestrunner, Interfaces, Controls,
   LazUTF8, Windows, Apiglio_Useful, auf_ram_var, aufscript_frame, aufscript_command;
 
 type
@@ -147,11 +147,15 @@ begin
   Self.AufMemo.Left:=gap;
   Self.AufMemo.Top:=gap;
   {$else}
+  {
   Self.AufFrame.Width:=Self.Width-2*gap;
   Self.AufFrame.Height:=Self.Height-2*gap;
   Self.AufFrame.Left:=gap;
   Self.AufFrame.Top:=gap;
+  }
+  Self.AufFrame.Align:=alClient;
   Self.AufFrame.FrameResize(nil);
+
   {$endif}
 
 end;
