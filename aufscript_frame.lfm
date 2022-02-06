@@ -35,9 +35,9 @@ object Frame_AufScript: TFrame_AufScript
     AnchorSideTop.Side = asrBottom
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
-    AnchorSideBottom.Control = Button_stop
+    AnchorSideBottom.Control = Button_ScriptLoad
     Left = 276
-    Height = 232
+    Height = 233
     Top = 34
     Width = 213
     Anchors = [akTop, akRight, akBottom]
@@ -58,12 +58,13 @@ object Frame_AufScript: TFrame_AufScript
   end
   object Button_run: TButton
     AnchorSideLeft.Control = Memo_out
+    AnchorSideTop.Control = Button_ScriptLoad
     AnchorSideBottom.Control = ProgressBar
     Left = 276
-    Height = 28
-    Top = 271
+    Height = 27
+    Top = 272
     Width = 68
-    Anchors = [akLeft, akBottom]
+    Anchors = [akTop, akLeft, akBottom]
     BorderSpacing.Bottom = 5
     Caption = '运行'
     OnClick = Button_runClick
@@ -74,12 +75,13 @@ object Frame_AufScript: TFrame_AufScript
   object Button_pause: TButton
     AnchorSideLeft.Control = Memo_out
     AnchorSideLeft.Side = asrCenter
+    AnchorSideTop.Control = Button_ScriptLoad
     AnchorSideBottom.Control = ProgressBar
     Left = 348
-    Height = 28
-    Top = 271
+    Height = 27
+    Top = 272
     Width = 68
-    Anchors = [akLeft, akBottom]
+    Anchors = [akTop, akLeft, akBottom]
     BorderSpacing.Bottom = 5
     Caption = '暂停'
     OnClick = Button_pauseClick
@@ -88,14 +90,15 @@ object Frame_AufScript: TFrame_AufScript
     TabOrder = 2
   end
   object Button_stop: TButton
+    AnchorSideTop.Control = Button_ScriptLoad
     AnchorSideRight.Control = Memo_out
     AnchorSideRight.Side = asrBottom
     AnchorSideBottom.Control = ProgressBar
     Left = 421
-    Height = 28
-    Top = 271
+    Height = 27
+    Top = 272
     Width = 68
-    Anchors = [akRight, akBottom]
+    Anchors = [akTop, akRight, akBottom]
     BorderSpacing.Bottom = 5
     Caption = '中止'
     OnClick = Button_stopClick
@@ -107,8 +110,8 @@ object Frame_AufScript: TFrame_AufScript
     AnchorSideLeft.Control = Memo_cmd
     AnchorSideBottom.Control = ProgressBar
     Left = 5
-    Height = 28
-    Top = 271
+    Height = 27
+    Top = 272
     Width = 68
     Anchors = [akLeft, akBottom]
     BorderSpacing.Bottom = 5
@@ -119,14 +122,15 @@ object Frame_AufScript: TFrame_AufScript
     TabOrder = 4
   end
   object Button_ScriptSave: TButton
+    AnchorSideTop.Control = Button_ScriptLoad
     AnchorSideRight.Control = Memo_cmd
     AnchorSideRight.Side = asrBottom
     AnchorSideBottom.Control = ProgressBar
     Left = 108
-    Height = 28
-    Top = 271
+    Height = 27
+    Top = 272
     Width = 68
-    Anchors = [akRight, akBottom]
+    Anchors = [akTop, akRight, akBottom]
     BorderSpacing.Bottom = 5
     Caption = '保存...'
     OnClick = Button_ScriptSaveClick
@@ -140,7 +144,7 @@ object Frame_AufScript: TFrame_AufScript
     AnchorSideTop.Side = asrBottom
     AnchorSideBottom.Control = Button_ScriptLoad
     Left = 5
-    Height = 232
+    Height = 233
     Top = 34
     Width = 171
     BorderSpacing.Left = 5

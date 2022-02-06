@@ -377,7 +377,7 @@ type
         TypeAllowance:TAufRamVarTypeSet;out res:TAufRamVar):boolean;inline;
       //尝试将第ArgNumber个参数转为ARV，若不满足类型和长度要求则返回false，并send_error
 
-      function TryArgToAddr(ArgNumber:byte;out res:dword):boolean;inline;
+      function TryArgToAddr(ArgNumber:byte;out res:{20210612改dword为}pRam):boolean;inline;
       //尝试将第ArgNumber个参数转为绝对地址，若不满足类型和长度要求则返回false，并send_error
 
       function RangeCheck(target,min,max:int64):boolean;inline;
