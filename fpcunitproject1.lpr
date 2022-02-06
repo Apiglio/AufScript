@@ -58,6 +58,42 @@ var
   v1,v2:TAufRamVar;
 
 
+
+procedure project_test(Sender:TObject);
+var tmp:TAufRamVar;
+    AufScpt:TAufScript;
+    AAuf:TAuf;
+    re1,re2,res:TRealStr;
+    integ,fract:TDecimalStr;
+    sgn:char;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+
+  AufScpt.writeln('arv_to_dec_fraction:'+arv_to_dec_fraction(AufScpt.RamVar(AAuf.nargs[1])));
+  {
+  try
+    re1.data:=AufScpt.TryToString(AAuf.nargs[1]);
+  except
+    AufScpt.send_error('Cannot convert to string');
+  end;
+  try
+    re2.data:=AufScpt.TryToString(AAuf.nargs[2]);
+  except
+    AufScpt.send_error('Cannot convert to string');
+  end;
+  }
+  //AufScpt.writeln(IntToStr(RealStr_Comp(re1,re2)));
+  //res:=RealStr_Abs_Add(re1,re2);
+  //res:=RealStr_Abs_Sub(re1,re2);
+  //res:=RealStr_Abs_Mul(re1,re2);
+  //res:=RealStr_Abs_Div(re1,re2,32);
+  //AufScpt.writeln(res.data);
+
+  //AufScpt.writeln(IntToStr(numberic_check(AAuf.args[1])));
+end;
+
+
 {$ifdef GUI_TEST}
 { TMyTestForm }
 procedure TMyTestForm.test;
@@ -74,11 +110,13 @@ begin
   {$ifndef AufFrame}
   AufMemo:=TMemo_AufScript.Create(Self);
   AufMemo.Parent:=Self;
+  AufMemo.Auf.Script.add_func('ptest',@project_test,'','测试');
   {$else}
   AufFrame:=TFrame_AufScript.Create(Self);
   AufFrame.Parent:=Self;
   AufFrame.FrameResize(nil);
   AufFrame.AufGenerator;
+  AufFrame.Auf.Script.add_func('ptest',@project_test,'','测试');
   {$endif}
   Self.ResizeForm(nil);
   Self.OnResize:=@Self.ResizeForm;
@@ -119,6 +157,8 @@ end;
 
 {$endif}
 
+
+
 procedure test(str:string);
 begin
   writeln(str);
@@ -143,6 +183,8 @@ BEGIN
   Auf.Free;
   Auf:=TAuf.Create(nil);
   Auf.Script.InternalFuncDefine;
+  Auf.Script.add_func('ptest',@project_test,'','测试');
+
 
   writeln;
   writeln;

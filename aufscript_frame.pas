@@ -53,6 +53,8 @@ type
     procedure Memo_cmdMouseLeave(Sender: TObject);
     procedure Memo_outMouseEnter(Sender: TObject);
     procedure Memo_outMouseLeave(Sender: TObject);
+    procedure ProgressBarMouseEnter(Sender: TObject);
+    procedure ProgressBarMouseLeave(Sender: TObject);
     procedure TrackBarChange(Sender: TObject);
     procedure TrackBarMouseEnter(Sender: TObject);
     procedure TrackBarMouseLeave(Sender: TObject);
@@ -407,8 +409,23 @@ end;
 procedure TFrame_AufScript.Memo_cmdKeyUp(Sender: TObject; var Key: Word;
   Shift: TShiftState);
 begin
-  if (Key<>120) or (Shift<>[]) then exit;
-  Self.Auf.Script.command(Self.Memo_cmd.Lines);
+  //if (Key<>120) or (Shift<>[]) then exit;
+  if Shift=[] then
+    begin
+      case Key of
+        120:Self.Auf.Script.command(Self.Memo_cmd.Lines);
+        else ;
+      end;
+    end
+  else if Shift*[ssCtrl,ssAlt,ssShift]=[ssCtrl] then
+    begin
+      case Key of
+        ord('S'):Self.Button_ScriptSaveClick(Self.Button_ScriptSave);
+        ord('O'):Self.Button_ScriptLoadClick(Self.Button_ScriptLoad);
+        else ;
+      end;
+    end
+  else ;
 end;
 
 procedure TFrame_AufScript.Memo_cmdMouseEnter(Sender: TObject);
@@ -427,6 +444,16 @@ begin
 end;
 
 procedure TFrame_AufScript.Memo_outMouseLeave(Sender: TObject);
+begin
+  InstantHelper('');
+end;
+
+procedure TFrame_AufScript.ProgressBarMouseEnter(Sender: TObject);
+begin
+  InstantHelper('进度条，默认显示当前脚本执行行数。通过SET ProcBar指令可以自定义显示。');
+end;
+
+procedure TFrame_AufScript.ProgressBarMouseLeave(Sender: TObject);
 begin
   InstantHelper('');
 end;
