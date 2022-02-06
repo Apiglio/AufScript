@@ -154,20 +154,30 @@ begin
 end;
 procedure frm_renew_writeln(Sender:TObject;str:string);
 var Frame:TFrame_AufScript;
+    AufScpt:TAufScript;
+    str_list:TStrings;
 begin
-  Frame:=(Sender as TAufScript).Owner as TFrame_AufScript;
-  Frame.Memo_out.lines[Frame.Memo_out.Lines.Count-1]:=
-  Frame.Memo_out.lines[Frame.Memo_out.Lines.Count-1]+str;
-  Frame.Memo_out.lines.add('');
-  Application.ProcessMessages;
+  AufScpt:=Sender as TAufScript;
+  Frame:=AufScpt.Owner as TFrame_AufScript;
+  if AufScpt.PSW.print_mode.is_screen then str_list:=Frame.Memo_out.Lines
+  else str_list:=AufScpt.PSW.print_mode.str_list;
+  str_list[str_list.Count-1]:=
+  str_list[str_list.Count-1]+str;
+  str_list.add('');
+  if AufScpt.PSW.print_mode.is_screen then Application.ProcessMessages;
 end;
 procedure frm_renew_write(Sender:TObject;str:string);
 var Frame:TFrame_AufScript;
+    AufScpt:TAufScript;
+    str_list:TStrings;
 begin
-  Frame:=(Sender as TAufScript).Owner as TFrame_AufScript;
-  Frame.Memo_out.lines[Frame.Memo_out.Lines.Count-1]:=
-  Frame.Memo_out.lines[Frame.Memo_out.Lines.Count-1]+str;
-  Application.ProcessMessages;
+  AufScpt:=Sender as TAufScript;
+  Frame:=AufScpt.Owner as TFrame_AufScript;
+  if AufScpt.PSW.print_mode.is_screen then str_list:=Frame.Memo_out.Lines
+  else str_list:=AufScpt.PSW.print_mode.str_list;
+  str_list[str_list.Count-1]:=
+  str_list[str_list.Count-1]+str;
+  if AufScpt.PSW.print_mode.is_screen then Application.ProcessMessages;
 end;
 procedure frm_renew_readln(Sender:TObject);
 var Frame:TFrame_AufScript;
@@ -532,6 +542,8 @@ begin
   Self.Auf.Script.Func_process.pre:=@frm_renew_pre;
   Self.Auf.Script.Func_process.mid:=@frm_renew_mid;
   Self.Auf.Script.Func_process.post:=@frm_renew_post;
+
+  Self.Auf.Script.PSW.print_mode.resume_when_run_close:=true;
 
   Self.ProgressBarEnabled:=true;
   Self.CommonGap:=ARF_CommonGap;
