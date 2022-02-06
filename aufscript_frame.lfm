@@ -10,6 +10,15 @@ object Frame_AufScript: TFrame_AufScript
   TabOrder = 0
   DesignLeft = 1333
   DesignTop = 650
+  object ProgressBar: TProgressBar
+    Left = 8
+    Height = 10
+    Top = 285
+    Width = 385
+    ParentShowHint = False
+    ShowHint = True
+    TabOrder = 6
+  end
   object Memo_out: TMemo
     Left = 208
     Height = 208
@@ -20,6 +29,8 @@ object Frame_AufScript: TFrame_AufScript
     Font.Name = 'Consolas'
     Font.Pitch = fpFixed
     Font.Quality = fqDraft
+    OnMouseEnter = Memo_outMouseEnter
+    OnMouseLeave = Memo_outMouseLeave
     ParentFont = False
     ScrollBars = ssAutoBoth
     TabOrder = 0
@@ -32,6 +43,8 @@ object Frame_AufScript: TFrame_AufScript
     Width = 68
     Caption = '运行'
     OnClick = Button_runClick
+    OnMouseEnter = Button_runMouseEnter
+    OnMouseLeave = Button_runMouseLeave
     TabOrder = 1
   end
   object Button_pause: TButton
@@ -41,6 +54,8 @@ object Frame_AufScript: TFrame_AufScript
     Width = 68
     Caption = '暂停'
     OnClick = Button_pauseClick
+    OnMouseEnter = Button_pauseMouseEnter
+    OnMouseLeave = Button_pauseMouseLeave
     TabOrder = 2
   end
   object Button_stop: TButton
@@ -50,6 +65,8 @@ object Frame_AufScript: TFrame_AufScript
     Width = 68
     Caption = '中止'
     OnClick = Button_stopClick
+    OnMouseEnter = Button_stopMouseEnter
+    OnMouseLeave = Button_stopMouseLeave
     TabOrder = 3
   end
   object Button_ScriptLoad: TButton
@@ -59,6 +76,8 @@ object Frame_AufScript: TFrame_AufScript
     Width = 68
     Caption = '加载...'
     OnClick = Button_ScriptLoadClick
+    OnMouseEnter = Button_ScriptLoadMouseEnter
+    OnMouseLeave = Button_ScriptLoadMouseLeave
     TabOrder = 4
   end
   object Button_ScriptSave: TButton
@@ -68,14 +87,9 @@ object Frame_AufScript: TFrame_AufScript
     Width = 68
     Caption = '保存...'
     OnClick = Button_ScriptSaveClick
+    OnMouseEnter = Button_ScriptSaveMouseEnter
+    OnMouseLeave = Button_ScriptSaveMouseLeave
     TabOrder = 5
-  end
-  object ProgressBar: TProgressBar
-    Left = 8
-    Height = 10
-    Top = 285
-    Width = 385
-    TabOrder = 6
   end
   inline Memo_cmd: TSynEdit
     Left = 8
@@ -91,6 +105,8 @@ object Frame_AufScript: TFrame_AufScript
     ParentFont = False
     TabOrder = 7
     OnKeyUp = Memo_cmdKeyUp
+    OnMouseEnter = Memo_cmdMouseEnter
+    OnMouseLeave = Memo_cmdMouseLeave
     Gutter.Width = 59
     Gutter.MouseActions = <>
     RightGutter.Width = 0
@@ -519,6 +535,7 @@ object Frame_AufScript: TFrame_AufScript
     MouseActions = <>
     MouseTextActions = <>
     MouseSelActions = <>
+    Options = [eoAutoIndent, eoBracketHighlight, eoGroupUndo, eoHideRightMargin, eoScrollPastEol, eoSmartTabs, eoTabsToSpaces, eoTrimTrailingSpaces]
     VisibleSpecialChars = [vscSpace, vscTabAtLast]
     ScrollBars = ssAutoBoth
     SelectedColor.BackPriority = 50
@@ -584,6 +601,8 @@ object Frame_AufScript: TFrame_AufScript
     Max = 100
     OnChange = TrackBarChange
     Position = 50
+    OnMouseEnter = TrackBarMouseEnter
+    OnMouseLeave = TrackBarMouseLeave
     ParentShowHint = False
     ShowHint = True
     TabOrder = 8

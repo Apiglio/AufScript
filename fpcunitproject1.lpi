@@ -35,7 +35,7 @@
         <PackageName Value="FCL"/>
       </Item3>
     </RequiredPackages>
-    <Units Count="5">
+    <Units Count="6">
       <Unit0>
         <Filename Value="fpcunitproject1.lpr"/>
         <IsPartOfProject Value="True"/>
@@ -60,6 +60,11 @@
         <Filename Value="aufscript_command.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit4>
+      <Unit5>
+        <Filename Value="synhighlighterauf.pas"/>
+        <IsPartOfProject Value="True"/>
+        <UnitName Value="SynHighlighterAuf"/>
+      </Unit5>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
