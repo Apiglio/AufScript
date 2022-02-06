@@ -1,0 +1,16 @@
+AufScript.Tutorial/*
+backup/*
+his/*
+manual/*
+scpt/*
+测试脚本/*
+规划计划/*
+*.o
+*.exe
+*.bak
+*.ppu
+*.compiled
+*.obj
+*.auf
+*.var
+*.tmp
