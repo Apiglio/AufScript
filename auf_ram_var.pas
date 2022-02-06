@@ -9,6 +9,7 @@ uses
 
 type
   TAufRamVarType = (ARV_Raw=0,ARV_FixNum=1,ARV_Float=2,ARV_Char=3);
+  TAufRamVarTypeSet = set of TAufRamVarType;
   TAufRamVar = record
     VarType:TAufRamVarType;
     Head:pbyte;
@@ -92,6 +93,7 @@ type
 
   function ARV_EqlZero(inp:TAufRamVar):boolean;
   function ARV_comp(ina,inb:TAufRamVar):smallint;//ina<=>inb
+  function ARV_offset_count(ina,inb:TAufRamVar;offset_threshold:byte):dword;//统计每个字节差距大于offset_threshold的字节数量
 
   procedure ARV_shl(var inp:TAufRamVar;bit:qword);
   procedure ARV_shr(var inp:TAufRamVar;bit:qword);
@@ -858,11 +860,9 @@ var asgn,bsgn:char;
 begin
   RealStrToDecimalStr(ina,ai,af,asgn);
   RealStrToDecimalStr(inb,bi,bf,bsgn);
-  { TODO : 这里ARV整数显示为小数点后数字的方法只接受4000H，更高的情况会陷入死循环，需要处理。
-以下是测试代码：
 
-mov $4[],00008000h
-ptest $4[] }
+  {主要问题是太慢，并非8000H之后开始死循环}
+
   if asgn=bsgn then begin
     result:=RealStr_Abs_Div(ina,inb,MaxDivDigit);
     result.data[1]:='+';
@@ -1121,6 +1121,22 @@ begin
       dec(ib);
     end;
   result:=0;
+end;
+
+function ARV_offset_count(ina,inb:TAufRamVar;offset_threshold:byte):dword;//统计每个字节差距大于offset_threshold的字节数量
+var ia:dword;
+begin
+  result:=0;
+  if ina.size*inb.size=0 then exit;
+  if ina.size<>inb.size then exit;
+  ia:=ina.size;
+  repeat
+    dec(ia);
+    if abs((ina.Head+ia)^ - (inb.Head+ia)^) > offset_threshold then
+      begin
+        inc(result);
+      end;
+  until ia=0;
 end;
 
 procedure ARV_shl(var inp:TAufRamVar;bit:qword);
@@ -1573,20 +1589,20 @@ begin
   until digit=0;
   lastdigit:=digit;
   MaxDivDigit:=ina.size*8+2;
-  writeln('MDD=',MaxDivDigit);
-  writeln('lastDigit=',LastDigit);
+  //writeln('MDD=',MaxDivDigit);
+  //writeln('lastDigit=',LastDigit);
   if assignedARV(ina) then
     begin
       digit:=0;
       repeat
         pi:=digit div 8;
         pj:=digit mod 8;
-        writeln('base=',base.data);
+        //writeln('base=',base.data);
         if bits_check((ina.Head+pi)^,pj) then acc:=acc+base;
         tmp:=base/RealStr('2');
         base:=tmp;
         inc(digit);
-        writeln('acc=',acc.data);
+        //writeln('acc=',acc.data);
 
       until digit>lastdigit;
       delete(acc.data,1,2);
@@ -1622,7 +1638,7 @@ begin
                  raise Exception.Create('警告：暂不支持字符型的to_dword转换');
                  result:=0;
                end;
-    else begin raise Exception.Create('错误的ARV类型，不能转换为字符');result:=0;exit end;
+    else begin raise Exception.Create('错误的ARV类型，不能转换为dword');result:=0;exit end;
   end;
 end;
 function arv_to_double(ina:TAufRamVar):double;

@@ -1,20 +1,29 @@
 object Frame_AufScript: TFrame_AufScript
   Left = 0
-  Height = 308
+  Height = 319
   Top = 0
-  Width = 564
-  ClientHeight = 308
-  ClientWidth = 564
+  Width = 494
+  ClientHeight = 319
+  ClientWidth = 494
   DesignTimePPI = 120
   ParentFont = False
   TabOrder = 0
-  DesignLeft = 1333
-  DesignTop = 650
+  DesignLeft = 1186
+  DesignTop = 555
   object ProgressBar: TProgressBar
-    Left = 8
+    AnchorSideLeft.Control = Owner
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    AnchorSideBottom.Control = Owner
+    AnchorSideBottom.Side = asrBottom
+    Left = 5
     Height = 10
-    Top = 285
-    Width = 385
+    Top = 304
+    Width = 484
+    Anchors = [akLeft, akRight, akBottom]
+    BorderSpacing.Left = 5
+    BorderSpacing.Right = 5
+    BorderSpacing.Bottom = 5
     OnMouseEnter = ProgressBarMouseEnter
     OnMouseLeave = ProgressBarMouseLeave
     ParentShowHint = False
@@ -22,10 +31,19 @@ object Frame_AufScript: TFrame_AufScript
     TabOrder = 6
   end
   object Memo_out: TMemo
-    Left = 208
-    Height = 208
-    Top = 32
-    Width = 184
+    AnchorSideTop.Control = TrackBar
+    AnchorSideTop.Side = asrBottom
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    AnchorSideBottom.Control = Button_stop
+    Left = 276
+    Height = 232
+    Top = 34
+    Width = 213
+    Anchors = [akTop, akRight, akBottom]
+    BorderSpacing.Top = 5
+    BorderSpacing.Right = 5
+    BorderSpacing.Bottom = 5
     Font.CharSet = ANSI_CHARSET
     Font.Height = -17
     Font.Name = 'Consolas'
@@ -39,10 +57,14 @@ object Frame_AufScript: TFrame_AufScript
     WordWrap = False
   end
   object Button_run: TButton
-    Left = 7
-    Height = 32
-    Top = 248
+    AnchorSideLeft.Control = Memo_out
+    AnchorSideBottom.Control = ProgressBar
+    Left = 276
+    Height = 28
+    Top = 271
     Width = 68
+    Anchors = [akLeft, akBottom]
+    BorderSpacing.Bottom = 5
     Caption = '运行'
     OnClick = Button_runClick
     OnMouseEnter = Button_runMouseEnter
@@ -50,10 +72,15 @@ object Frame_AufScript: TFrame_AufScript
     TabOrder = 1
   end
   object Button_pause: TButton
-    Left = 86
-    Height = 32
-    Top = 248
+    AnchorSideLeft.Control = Memo_out
+    AnchorSideLeft.Side = asrCenter
+    AnchorSideBottom.Control = ProgressBar
+    Left = 348
+    Height = 28
+    Top = 271
     Width = 68
+    Anchors = [akLeft, akBottom]
+    BorderSpacing.Bottom = 5
     Caption = '暂停'
     OnClick = Button_pauseClick
     OnMouseEnter = Button_pauseMouseEnter
@@ -61,10 +88,15 @@ object Frame_AufScript: TFrame_AufScript
     TabOrder = 2
   end
   object Button_stop: TButton
-    Left = 166
-    Height = 32
-    Top = 248
+    AnchorSideRight.Control = Memo_out
+    AnchorSideRight.Side = asrBottom
+    AnchorSideBottom.Control = ProgressBar
+    Left = 421
+    Height = 28
+    Top = 271
     Width = 68
+    Anchors = [akRight, akBottom]
+    BorderSpacing.Bottom = 5
     Caption = '中止'
     OnClick = Button_stopClick
     OnMouseEnter = Button_stopMouseEnter
@@ -72,10 +104,14 @@ object Frame_AufScript: TFrame_AufScript
     TabOrder = 3
   end
   object Button_ScriptLoad: TButton
-    Left = 245
-    Height = 32
-    Top = 248
+    AnchorSideLeft.Control = Memo_cmd
+    AnchorSideBottom.Control = ProgressBar
+    Left = 5
+    Height = 28
+    Top = 271
     Width = 68
+    Anchors = [akLeft, akBottom]
+    BorderSpacing.Bottom = 5
     Caption = '加载...'
     OnClick = Button_ScriptLoadClick
     OnMouseEnter = Button_ScriptLoadMouseEnter
@@ -83,10 +119,15 @@ object Frame_AufScript: TFrame_AufScript
     TabOrder = 4
   end
   object Button_ScriptSave: TButton
-    Left = 324
-    Height = 32
-    Top = 248
+    AnchorSideRight.Control = Memo_cmd
+    AnchorSideRight.Side = asrBottom
+    AnchorSideBottom.Control = ProgressBar
+    Left = 108
+    Height = 28
+    Top = 271
     Width = 68
+    Anchors = [akRight, akBottom]
+    BorderSpacing.Bottom = 5
     Caption = '保存...'
     OnClick = Button_ScriptSaveClick
     OnMouseEnter = Button_ScriptSaveMouseEnter
@@ -94,10 +135,18 @@ object Frame_AufScript: TFrame_AufScript
     TabOrder = 5
   end
   inline Memo_cmd: TSynEdit
-    Left = 8
-    Height = 208
-    Top = 32
-    Width = 184
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = TrackBar
+    AnchorSideTop.Side = asrBottom
+    AnchorSideBottom.Control = Button_ScriptLoad
+    Left = 5
+    Height = 232
+    Top = 34
+    Width = 171
+    BorderSpacing.Left = 5
+    BorderSpacing.Top = 5
+    BorderSpacing.Bottom = 5
+    Anchors = [akTop, akLeft, akBottom]
     Font.CharSet = ANSI_CHARSET
     Font.Height = -17
     Font.Name = 'Consolas'
@@ -595,25 +644,33 @@ object Frame_AufScript: TFrame_AufScript
     end
   end
   object TrackBar: TTrackBar
-    Left = 8
-    Height = 16
+    AnchorSideLeft.Control = Owner
+    AnchorSideTop.Control = Owner
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    Left = 5
+    Height = 24
     Hint = '调整代码框和输出框的宽度比例'
-    Top = 8
-    Width = 384
+    Top = 5
+    Width = 484
     Max = 100
     OnChange = TrackBarChange
     Position = 50
+    Anchors = [akTop, akLeft, akRight]
+    BorderSpacing.Left = 5
+    BorderSpacing.Top = 5
+    BorderSpacing.Right = 5
     OnMouseEnter = TrackBarMouseEnter
     OnMouseLeave = TrackBarMouseLeave
     ParentShowHint = False
     TabOrder = 8
   end
   object OpenDialog: TOpenDialog
-    left = 443
-    top = 84
+    left = 200
+    top = 48
   end
   object SaveDialog: TSaveDialog
-    left = 443
-    top = 168
+    left = 200
+    top = 120
   end
 end

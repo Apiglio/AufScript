@@ -257,27 +257,28 @@ end;
 
 procedure TFrame_AufScript.FrameResize(Sender: TObject);
 var Memo_Left,Memo_Right:word;
-    ButtonTop:word;
+    //ButtonTop:word;
     L2,R3:word;
 begin
 
-  TrackBar.Top:=CommonGap;
-  TrackBar.Left:=CommonGap;
-  TrackBar.Width:=Self.Width - 2*CommonGap;
-  TrackBar.Height:=TrackBarHeight;
+  //TrackBar.Top:=CommonGap;
+  //TrackBar.Left:=CommonGap;
+  //TrackBar.Width:=Self.Width - 2*CommonGap;
+  //TrackBar.Height:=TrackBarHeight;
 
   Memo_Left:=round(MemoProportion * (Self.Width - 3*CommonGap) / (MemoProportion + 1));
   Memo_Right:=Self.Width - Memo_Left - 3*CommonGap;
 
-  Memo_cmd.Left:=CommonGap;
-  Memo_out.Left:=CommonGap*2 + Memo_Left;
-  Memo_cmd.Top:=2*CommonGap+TrackBarHeight;
-  Memo_out.Top:=Memo_cmd.Top;
+  //Memo_cmd.Left:=CommonGap;
+  //Memo_out.Left:=CommonGap*2 + Memo_Left;
+  //Memo_cmd.Top:=2*CommonGap+TrackBarHeight;
+  //Memo_out.Top:=Memo_cmd.Top;
   Memo_cmd.Width:=Memo_Left;
   Memo_out.Width:=Memo_Right;
-  Memo_cmd.Height:=Self.Height - 5*CommonGap - ButtonHeight - ProcessBarH - TrackBarHeight;
-  Memo_out.Height:=Memo_cmd.Height;
+  //Memo_cmd.Height:=Self.Height - 5*CommonGap - ButtonHeight - ProcessBarH - TrackBarHeight;
+  //Memo_out.Height:=Memo_cmd.Height;
 
+  {
   ButtonTop:=CommonGap*3+Memo_cmd.Height+TrackBarHeight;
   Button_Run.Top:=ButtonTop;
   Button_Stop.Top:=ButtonTop;
@@ -289,6 +290,8 @@ begin
   Button_Pause.Height:=ButtonHeight;
   Button_ScriptLoad.Height:=ButtonHeight;
   Button_ScriptSave.Height:=ButtonHeight;
+  }
+
   L2:=(Memo_Left - CommonGap) div 2;
   R3:=(Memo_Right - 2*CommonGap) div 3;
   Button_Run.Width:=R3;
@@ -296,16 +299,16 @@ begin
   Button_Pause.Width:=R3;
   Button_ScriptLoad.Width:=L2;
   Button_ScriptSave.Width:=L2;
-  Button_Run.Left:=Memo_Left+2*CommonGap;
-  Button_Stop.Left:=Memo_Left+3*CommonGap+R3;
-  Button_Pause.Left:=Memo_Left+4*CommonGap+2*R3;
-  Button_ScriptLoad.Left:=CommonGap;
-  Button_ScriptSave.Left:=CommonGap*2 + L2;
+  //Button_Run.Left:=Memo_Left+2*CommonGap;
+  //Button_Stop.Left:=Memo_Left+3*CommonGap+R3;
+  //Button_Pause.Left:=Memo_Left+4*CommonGap+2*R3;
+  //Button_ScriptLoad.Left:=CommonGap;
+  //Button_ScriptSave.Left:=CommonGap*2 + L2;
 
-  ProgressBar.Left:=CommonGap;
-  ProgressBar.Width:=Self.Width - 2*CommonGap;
-  ProgressBar.Top:=ButtonTop + ButtonHeight +CommonGap;
-  ProgressBar.Height:=ProcessBarH;
+  //ProgressBar.Left:=CommonGap;
+  //ProgressBar.Width:=Self.Width - 2*CommonGap;
+  //ProgressBar.Top:=ButtonTop + ButtonHeight +CommonGap;
+  //ProgressBar.Height:=ProcessBarH;
 end;
 
 procedure TFrame_AufScript.Button_ScriptLoadClick(Sender: TObject);
