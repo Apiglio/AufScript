@@ -15,6 +15,8 @@ object Frame_AufScript: TFrame_AufScript
     Height = 10
     Top = 285
     Width = 385
+    OnMouseEnter = ProgressBarMouseEnter
+    OnMouseLeave = ProgressBarMouseLeave
     ParentShowHint = False
     ShowHint = True
     TabOrder = 6
@@ -535,8 +537,8 @@ object Frame_AufScript: TFrame_AufScript
     MouseActions = <>
     MouseTextActions = <>
     MouseSelActions = <>
-    Options = [eoAutoIndent, eoBracketHighlight, eoGroupUndo, eoHideRightMargin, eoScrollPastEol, eoSmartTabs, eoTabsToSpaces, eoTrimTrailingSpaces]
     VisibleSpecialChars = [vscSpace, vscTabAtLast]
+    RightEdge = 255
     ScrollBars = ssAutoBoth
     SelectedColor.BackPriority = 50
     SelectedColor.ForePriority = 50
@@ -604,7 +606,6 @@ object Frame_AufScript: TFrame_AufScript
     OnMouseEnter = TrackBarMouseEnter
     OnMouseLeave = TrackBarMouseLeave
     ParentShowHint = False
-    ShowHint = True
     TabOrder = 8
   end
   object OpenDialog: TOpenDialog

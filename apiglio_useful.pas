@@ -65,6 +65,7 @@ type
       procedure reg_add(_key,_var,_data:string);
       function reg_query(_key,_var:string):string;
       procedure each_file(path:ansistring;func_ptr:pFuncFileByte);//查找路径下所有文件，并将目标字符串作为函数自变量运行func_ptr，例如Usf.each_file('F:\Temp',@writeln)
+      procedure each_file_in_folder(path:ansistring;func_ptr:pFuncFileByte);//查找文件夹中所有文件，并将目标字符串作为函数自变量运行func_ptr
 
       function fsel(address:string):byte;
       procedure fassign(address:string;fid:byte);overload;
@@ -1838,6 +1839,56 @@ begin
 
 
 end;
+procedure math_hr_arithmetic(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    a,b,c:TRealStr;
+    oup:TAufRamVar;
+    tmplen:dword;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  try
+    a.data:=AufScpt.TryToString(AAuf.nargs[1]);
+    oup:=AufScpt.RamVar(AAuf.nargs[1]);
+    if oup.VarType<>ARV_Char then begin
+      raise Exception.Create('');
+      AufScpt.send_error('警告：第一个参数不是字符串变量类型');
+    end;
+  except
+    AufScpt.send_error('警告：第一个参数解析错误，'+AAuf.nargs[0].arg+'语句未执行。');exit;
+  end;
+  try
+    b.data:=AufScpt.TryToString(AAuf.nargs[2]);
+  except
+    AufScpt.send_error('警告：第二个参数不能转换为string类型，'+AAuf.nargs[0].arg+'语句未执行。');exit;
+  end;
+  case AAuf.nargs[0].arg of
+    'h_add':c:=a+b;
+    'h_sub':c:=a-b;
+    'h_mul':a:=a*b;
+    'h_div':;
+    'h_mod':;
+    'h_divreal':
+      begin
+        MaxDivDigit:=oup.size;
+        c:=a/b;
+        tmplen:=length(c.data);
+        while tmplen>oup.size do
+          begin
+            if c.data[tmplen]<>'.' then delete(c.data,tmplen,1)
+            else if tmplen-1>oup.size then begin c.data:='error';exit;end
+            else delete(c.data,tmplen,1);
+            tmplen:=length(c.data);
+          end;
+      end;
+  end;
+
+  initiate_arv_str(c.data,oup);
+  //AufScpt.writeln(c.data);
+
+end;
 
 
 procedure text_str(Sender:TObject);
@@ -2238,24 +2289,41 @@ begin
   Reg.Destroy;
 end;
 procedure TUsf.each_file(path:ansistring;func_ptr:pFuncFileByte);//开始备份指定盘符，从Ucrawer搬运
-var Rec:SearchRec;
+var Rec:^SearchRec;
+    ARec:SearchRec;
   begin
+    Rec:=@ARec;
+    //getmem(Rec,sizeof(Rec));
     //非文件夹
-    findfirst(path+'\*.*',$2F,Rec);
+    findfirst(path+'\*.*',$2F,Rec^);
     while dosError=0 do begin
-      //if need(path+'\'+Rec.name,Rec.size) then mov(path+'\'+Rec.name);
-      func_ptr(path+'\'+Rec.name);
-
-      findnext(Rec);
+      func_ptr(path+'\'+Rec^.name);
+      findnext(Rec^);
     end;
-    findclose(Rec);
+    findclose(Rec^);
     //文件夹递归
-    findfirst(path+'\*',$10,Rec);
+    findfirst(path+'\*',$10,Rec^);
     while dosError=0 do begin
-      if (Rec.name<>'.')and(Rec.name<>'..') then each_file(path+'\'+Rec.name,func_ptr);
-      findnext(Rec);
+      if (Rec^.name<>'.')and(Rec^.name<>'..') then each_file(path+'\'+Rec^.name,func_ptr);
+      findnext(Rec^);
     end;
-    findclose(Rec);
+    findclose(Rec^);
+    //freemem(Rec{,sizeof(Rec)});
+  end;
+procedure TUsf.each_file_in_folder(path:ansistring;func_ptr:pFuncFileByte);
+var Rec:^SearchRec;
+    ARec:SearchRec;
+  begin
+    Rec:=@ARec;
+    //getmem(Rec,sizeof(Rec));
+    //非文件夹
+    findfirst(path+'\*.*',$2F,Rec^);
+    while dosError=0 do begin
+      func_ptr(path+'\'+Rec^.name);
+      findnext(Rec^);
+    end;
+    findclose(Rec^);
+    //freemem(Rec{,sizeof(Rec)});
   end;
 
 function TUsf.fsel(address:string):byte;
@@ -3536,13 +3604,20 @@ begin
   Self.add_func('or', @math_logic_or, 'var1,var2','位或');
   Self.add_func('xor',@math_logic_xor,'var1,var2','异或');
 
-
+  {
   Self.add_func('h_add',@math_h_arithmetic,'#[],#[]','高精加');
   Self.add_func('h_sub',@math_h_arithmetic,'#[],#[]','高精减');
   Self.add_func('h_mul',@math_h_arithmetic,'#[],#[]','高精乘');
   Self.add_func('h_div',@math_h_arithmetic,'#[],#[]','高精整除');
   Self.add_func('h_mod',@math_h_arithmetic,'#[],#[]','高精求余');
   Self.add_func('h_divreal',@math_h_arithmetic,'#[],#[]','高精实数除');
+  }
+  Self.add_func('h_add',@math_hr_arithmetic,'#[],#[]','高精加');
+  Self.add_func('h_sub',@math_hr_arithmetic,'#[],#[]','高精减');
+  Self.add_func('h_mul',@math_hr_arithmetic,'#[],#[]','高精乘');
+  //Self.add_func('h_div',@math_hr_arithmetic,'#[],#[]','高精整除');
+  //Self.add_func('h_mod',@math_hr_arithmetic,'#[],#[]','高精求余');
+  Self.add_func('h_divreal',@math_hr_arithmetic,'#[],#[]','高精实数除');
 
 
 

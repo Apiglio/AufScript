@@ -20,9 +20,13 @@ type
   TDecimalStr = record
     data:string;
   end;
+  //+000000000000000
+  //-000000000000000
   TRealStr = record
     data:string;
   end;
+  //+000000.00000
+  //-.0000000
 
   function DecimalStr(str:string):TDecimalStr;
   function number_std(var s:string):char; //标准化DecimalStr为绝对值，同时返回符号
@@ -46,9 +50,21 @@ type
   operator >=(ina,inb:TDecimalStr):boolean;
   operator <=(ina,inb:TDecimalStr):boolean;
 
+  procedure RealStrToDecimalStr(const inp:TRealStr;var integ,fract:TDecimalStr;var sgn:char);//将实数串分为三个部分，sgn=#0时转换错误
+  function RealStr(str:string):TRealStr;
+
   function RealStr_Comp(ina,inb:TRealStr):smallint;
+  function RealStr_Abs_Comp(ina,inb:TRealStr):smallint;
+
+  function RealStr_Abs_Add(ina,inb:TRealStr):TRealStr;
+  function RealStr_Abs_Sub(ina,inb:TRealStr):TRealStr;//a为被减数，b为减数
+  function RealStr_Abs_Mul(ina,inb:TRealStr):TRealStr;
+  function RealStr_Abs_Div(ina,inb:TRealStr;fraction_length:longint):TRealStr;//Ia为被除数, Ib为除数，fl为小数数位
+
   operator +(ina,inb:TRealStr):TRealStr;
   operator -(ina,inb:TRealStr):TRealStr;
+  operator *(ina,inb:TRealStr):TRealStr;
+  operator /(ina,inb:TRealStr):TRealStr;
   operator >(ina,inb:TRealStr):boolean;
   operator <(ina,inb:TRealStr):boolean;
   operator =(ina,inb:TRealStr):boolean;
@@ -444,6 +460,8 @@ begin
   while length(ina.data)<length(inb.data) do ina.data:='0'+ina.data;
   outB:=ina;
   outA.data:='';
+  while ina.data[1] in ['+','-','0'] do begin delete(ina.data,1,1);if ina.data='' then break end;
+  //writeln('ina=',ina.data);
   while length(outA.data)<length(outB.data) do outA.data:='0'+outA.data;
   for digit:=length(ina.data)-length(inb.data) downto 0 do
     begin
@@ -456,7 +474,10 @@ begin
           outB:=outB-tmpDiv;
           tmpAdd.data:='1'+zerotile;
           outA:=outA+tmpAdd;
+          while length(outA.data)>length(ina.data) do delete(outA.data,1,1);//实数高精做好后原本的math_h_arithmetics取消后直接修改运算符
         end;
+      //writeln('tmpD=',tmpDiv.data);
+      //writeln('outA=',outA.data);
     end;
   if outA.data[1] in ['+','-'] then delete(outA.data,1,1);
   if outB.data[1] in ['+','-'] then delete(outB.data,1,1);
@@ -529,41 +550,357 @@ end;
 
 
 
-function RealStr_Comp(ina,inb:TRealStr):smallint;
+function RawDecimalAdd(var oup:TDecimalStr;const ina,inb:TDecimalStr):boolean;
+var pi:longint;
+    tmp,yc:byte;
 begin
+  if length(ina.data)<>length(inb.data) then raise Exception.Create('RawDecimalAdd需要相同长度的变量');
+  yc:=0;
+  oup.data:=ina.data;
+  for pi:=length(ina.data) downto 1 do
+    begin
+      tmp:=ord(ina.data[pi])+ord(inb.data[pi])-ord('0')-ord('0')+yc;
+      if tmp>=10 then begin yc:=1;tmp:=tmp mod 10;end
+      else yc:=0;
+      oup.data[pi]:=chr(ord('0')+tmp);
+    end;
+  if yc<>0 then result:=true
+  else result:=false;
+end;
+function RawDecimalSub(var oup:TDecimalStr;const ina,inb:TDecimalStr):boolean;
+var pi:longint;
+    tmp,yc:smallint;
+begin
+  if length(ina.data)<>length(inb.data) then raise Exception.Create('RawDecimalSub需要相同长度的变量');
+  yc:=0;
+  oup.data:=ina.data;
+  for pi:=length(ina.data) downto 1 do
+    begin
+      tmp:=ord(ina.data[pi])-ord(inb.data[pi])-yc;
+      if tmp<0 then begin yc:=1;tmp:=tmp + 10;end
+      else yc:=0;
+      oup.data[pi]:=chr(ord('0')+tmp);
+    end;
+  if yc<>0 then result:=true
+  else result:=false;
+end;
+
+
+procedure RealStrToDecimalStr(const inp:TRealStr;var integ,fract:TDecimalStr;var sgn:char);
+//将实数串分为三个部分，sgn=#0时转换错误
+var poss:longint;
+begin
+  sgn:=#0;
+  if inp.data='' then exit;
+  poss:=pos('.',inp.data);
+  if poss>0 then
+    begin
+      integ.data:=inp.data;
+      fract.data:=inp.data;
+      delete(integ.data,poss,length(integ.data));
+      delete(fract.data,1,poss);
+    end
+  else
+    begin
+      integ.data:=inp.data;
+      fract.data:='';
+    end;
+  if integ.data='' then integ.data:='0';
+  case integ.data[1] of
+    '-','+':begin sgn:=integ.data[1];delete(integ.data,1,1);end;
+    else sgn:='+';
+  end;
+  if integ.data='' then integ.data:='0';
+  poss:=length(fract.data);
+  if poss<>0 then
+  while fract.data[poss]='0' do
+    begin
+      delete(fract.data,poss,1);
+      dec(poss);
+      if poss=0 then break;
+    end;
+  for poss:=1 to length(integ.data) do if not (integ.data[poss] in ['0'..'9']) then begin sgn:=#0;exit;end;
+  for poss:=1 to length(fract.data) do if not (fract.data[poss] in ['0'..'9']) then begin sgn:=#0;exit;end;
 
 end;
-operator +(ina,inb:TRealStr):TRealStr;
+function RealStr(str:string):TRealStr;
 begin
+  result.data:=str;
+end;
+function RealStr_Abs_Comp(ina,inb:TRealStr):smallint;
+var ai,af,bi,bf:TDecimalStr;
+    asgn,bsgn:char;
+    pi,min_len:longint;
+begin
+  RealStrToDecimalStr(ina,ai,af,asgn);
+  RealStrToDecimalStr(inb,bi,bf,bsgn);
+  result:=DecimalStr_Abs_Comp(ai,bi);
+  if result<>0 then exit;
+  min_len:=length(af.data);
+  pi:=length(bf.data);
+  if pi<min_len then min_len:=pi;
+  for pi:=1 to min_len do
+    begin
+      if ord(af.data[pi])>ord(bf.data[pi]) then begin result:=1;exit end
+      else if ord(af.data[pi])<ord(bf.data[pi]) then begin result:=-1;exit end
+      else ;
+    end;
+  if length(af.data)>pi then result:=1;
+  if length(bf.data)>pi then result:=-1;
+end;
+function RealStr_Comp(ina,inb:TRealStr):smallint;
+var ai,af,bi,bf:TDecimalStr;
+    asgn,bsgn:char;
+begin
+  RealStrToDecimalStr(ina,ai,af,asgn);
+  RealStrToDecimalStr(inb,bi,bf,bsgn);
+  if asgn<>bsgn then
+    begin
+      if asgn='+' then result:=1
+      else result:=-1;
+      exit;
+    end
+  else
+    begin
+      result:=RealStr_Abs_Comp(ina,inb);
+      if asgn='-' then result:=-result;
+    end;
+end;
+function RealStr_Abs_Add(ina,inb:TRealStr):TRealStr;
+var ai,af,bi,bf,ci,cf:TDecimalStr;
+    asgn,bsgn:char;
+begin
+  RealStrToDecimalStr(ina,ai,af,asgn);
+  RealStrToDecimalStr(inb,bi,bf,bsgn);
+  while length(af.data)>length(bf.data) do bf.data:=bf.data+'0';
+  while length(bf.data)>length(af.data) do af.data:=af.data+'0';
 
+  if RawDecimalAdd(cf,af,bf) then
+    ci:=ai+bi+DecimalStr('1')
+  else
+    ci:=ai+bi;
+
+  if cf.data<>'' then if cf.data[1] in ['+','-'] then delete(cf.data,1,1);
+  result.data:=ci.data;
+  if cf.data<>'' then result.data:=result.data+'.'+cf.data;
+end;
+function RealStr_Abs_Sub(ina,inb:TRealStr):TRealStr;//a为被减数，b为减数
+var ai,af,bi,bf,ci,cf:TDecimalStr;
+    asgn,bsgn:char;
+begin
+  RealStrToDecimalStr(ina,ai,af,asgn);
+  RealStrToDecimalStr(inb,bi,bf,bsgn);
+  while length(af.data)>length(bf.data) do bf.data:=bf.data+'0';
+  while length(bf.data)>length(af.data) do af.data:=af.data+'0';
+
+  if RawDecimalSub(cf,af,bf) then
+    ci:=ai-bi-DecimalStr('1')
+  else
+    ci:=ai-bi;
+
+  if cf.data<>'' then if cf.data[1] in ['+','-'] then delete(cf.data,1,1);
+  result.data:=ci.data;
+  if cf.data<>'' then result.data:=result.data+'.'+cf.data;
+end;
+function RealStr_Abs_Mul(ina,inb:TRealStr):TRealStr;
+var ai,af,bi,bf,ci,cf:TDecimalStr;
+    asgn,bsgn:char;
+    ae,be:longint;
+begin
+  RealStrToDecimalStr(ina,ai,af,asgn);
+  RealStrToDecimalStr(inb,bi,bf,bsgn);
+  ae:=length(af.data);
+  be:=length(bf.data);
+  ai.data:=ai.data+af.data;
+  bi.data:=bi.data+bf.data;
+  ci:=ai*bi;
+  ae:=ae+be;
+  if ci.data<>'' then if ci.data[1] in ['+','-'] then delete(ci.data,1,1);
+  be:=pos('.',ci.data);
+  if be>0 then delete(ci.data,be,2);
+  while length(ci.data)<ae+1 do ci.data:='0'+ci.data;
+  cf.data:=ci.data;
+  be:=length(ci.data);
+  delete(cf.data,1,be-ae);
+  delete(ci.data,be-ae+1,be);
+  result.data:='u'+ci.data;
+  if cf.data<>'' then result.data:=result.data+'.'+cf.data;
+end;
+function RealStr_Abs_Div(ina,inb:TRealStr;fraction_length:longint):TRealStr;//Ia为被除数, Ib为除数，fl为小数数位
+label FixN;
+var ai,af,bi,bf,ci,cf:TDecimalStr;
+    asgn,bsgn:char;
+    ae,be:longint;
+begin
+  RealStrToDecimalStr(ina,ai,af,asgn);
+  RealStrToDecimalStr(inb,bi,bf,bsgn);
+  ae:=length(af.data);
+  be:=length(bf.data);
+  if be<=ae then begin
+    bi.data:=bi.data+bf.data;
+    ai.data:=ai.data+af.data;
+    delete(ai.data,length(ai.data)-ae+be+1,ae-be);
+    delete(af.data,1,length(af.data)-ae+be);
+  end else begin
+    bi.data:=bi.data+bf.data;
+    ai.data:=ai.data+af.data;
+    af.data:='';
+    while be>ae do
+      begin
+        ai.data:=ai.data+'0';
+        inc(ae);
+      end;
+  end;
+  while bi.data[1] in ['+','-','0'] do delete(bi.data,1,1);//如果是0会直接报错
+  //writeln('a=',ai.data+'.'+af.data);
+  //writeln('b=',bi.data);
+  ci:=ai div bi;
+  bf:=ai mod bi;
+  //writeln('ci=',ci.data);
+  //writeln('bf=',bf.data);
+  if (bf=DecimalStr('0'))and(af.data='') then goto FixN; //   0.125 -> 0.0625开始错误
+  {len}ae:=length(af.data);
+  bf.data:=bf.data+af.data+'0';
+  if bf.data[1] in ['-','+'] then delete(bf.data,1,1);
+  cf.data:='';
+  while length(cf.data)<fraction_length do
+    begin
+      //writeln('bf=',bf.data);
+      //writeln('bi=',bi.data);
+      DecimalStr_Abs_Div(bf,bi,af,ai);
+      //writeln('af=',af.data);
+      //writeln('ai=',ai.data);
+      //writeln;
+      //writeln('cf=',cf.data);
+      //writeln;
+      while length(af.data)<={len}ae do af.data:='0'+af.data;
+      cf.data:=cf.data+af.data;
+      if ai=DecimalStr('0') then break;
+      bf.data:=ai.data+'0';
+      {len}ae:=0;
+    end;
+FixN:
+  result.data:=ci.data;
+  if cf.data<>'' then result.data:=result.data+'.'+cf.data;
+end;
+
+operator +(ina,inb:TRealStr):TRealStr;
+var asgn,bsgn:char;
+    ai,af,bi,bf:TDecimalStr;
+    //res:TRealStr;
+begin
+  RealStrToDecimalStr(ina,ai,af,asgn);
+  RealStrToDecimalStr(inb,bi,bf,bsgn);
+  if asgn=bsgn then begin
+    result:=RealStr_Abs_Add(ina,inb);
+    result.data[1]:=asgn;
+  end else begin
+    case RealStr_Abs_Comp(ina,inb) of
+      1:
+      begin
+        result:=RealStr_Abs_Sub(ina,inb);
+        result.data[1]:=asgn;
+      end;
+     -1:
+      begin
+        result:=RealStr_Abs_Sub(inb,ina);
+        result.data[1]:=bsgn;
+      end;
+     else result.data:='+0';
+    end;
+  end;
 end;
 operator -(ina,inb:TRealStr):TRealStr;
+var asgn,bsgn:char;
+    ai,af,bi,bf:TDecimalStr;
+    //res:TRealStr;
 begin
-
+  RealStrToDecimalStr(ina,ai,af,asgn);
+  RealStrToDecimalStr(inb,bi,bf,bsgn);
+  if asgn=bsgn then begin
+    case RealStr_Abs_Comp(ina,inb) of
+      1:
+      begin
+        result:=RealStr_Abs_Sub(ina,inb);
+        result.data[1]:=asgn;
+      end;
+     -1:
+      begin
+        result:=RealStr_Abs_Sub(inb,ina);
+        result.data[1]:=asgn;
+      end;
+     else result.data:='+0';
+    end;
+  end else begin
+    result:=RealStr_Abs_Add(ina,inb);
+    result.data[1]:=asgn;
+  end;
 end;
+operator *(ina,inb:TRealStr):TRealStr;
+var asgn,bsgn:char;
+    ai,af,bi,bf:TDecimalStr;
+    //res:TRealStr;
+begin
+  RealStrToDecimalStr(ina,ai,af,asgn);
+  RealStrToDecimalStr(inb,bi,bf,bsgn);
+  if asgn=bsgn then begin
+    result:=RealStr_Abs_Mul(ina,inb);
+    result.data[1]:='+';
+  end else begin
+    result:=RealStr_Abs_Mul(ina,inb);
+    result.data[1]:='-';
+  end;
+end;
+operator /(ina,inb:TRealStr):TRealStr;//使用之前需要设置MaxDivDigit
+var asgn,bsgn:char;
+    ai,af,bi,bf:TDecimalStr;
+    //res:TRealStr;
+begin
+  RealStrToDecimalStr(ina,ai,af,asgn);
+  RealStrToDecimalStr(inb,bi,bf,bsgn);
+  { TODO : 这里ARV整数显示为小数点后数字的方法只接受4000H，更高的情况会陷入死循环，需要处理。
+以下是测试代码：
+
+mov $4[],00008000h
+ptest $4[] }
+  if asgn=bsgn then begin
+    result:=RealStr_Abs_Div(ina,inb,MaxDivDigit);
+    result.data[1]:='+';
+  end else begin
+    result:=RealStr_Abs_Div(ina,inb,MaxDivDigit);
+    result.data[1]:='-';
+  end;
+end;
+
 operator >(ina,inb:TRealStr):boolean;
 begin
-
+  if RealStr_Comp(ina,inb)>0 then result:=true
+  else result:=false;
 end;
 operator <(ina,inb:TRealStr):boolean;
 begin
-
+  if RealStr_Comp(ina,inb)<0 then result:=true
+  else result:=false;
 end;
 operator =(ina,inb:TRealStr):boolean;
 begin
-
+  if RealStr_Comp(ina,inb)=0 then result:=true
+  else result:=false;
 end;
 operator <>(ina,inb:TRealStr):boolean;
 begin
-
+  if RealStr_Comp(ina,inb)<>0 then result:=true
+  else result:=false;
 end;
 operator >=(ina,inb:TRealStr):boolean;
 begin
-
+  if RealStr_Comp(ina,inb)>=0 then result:=true
+  else result:=false;
 end;
 operator <=(ina,inb:TRealStr):boolean;
 begin
-
+  if RealStr_Comp(ina,inb)<=0 then result:=true
+  else result:=false;
 end;
 
 
@@ -1216,7 +1553,8 @@ begin
 end;
 function arv_to_dec_fraction(ina:TAufRamVar):string;//小数点后
 var pi,pj:dword;
-    acc,base,tmp:TDecimalStr;
+    digit,lastdigit:dword;
+    acc,base,tmp:TRealStr;
   function bits_check(byt,bit:byte):boolean;
   var tmp:byte;
   begin
@@ -1228,19 +1566,30 @@ begin
   result:='';
   acc.data:='+0.0';
   base.data:='+0.5';
-  MaxDivDigit:=round(ina.size*8*0.31)+3;//0.31为lg2近似值
+  digit:=ina.size*8;
+  repeat
+    dec(digit);
+    if bits_check((ina.Head + digit div 8)^,digit mod 8) then break;
+  until digit=0;
+  lastdigit:=digit;
+  MaxDivDigit:=ina.size*8+2;
   writeln('MDD=',MaxDivDigit);
+  writeln('lastDigit=',LastDigit);
   if assignedARV(ina) then
     begin
-      for pi:=0 to ina.size-1 do for pj:=0 to 7 do
-        begin
-          writeln('base=',base.data);
-          writeln('acc=',acc.data);
+      digit:=0;
+      repeat
+        pi:=digit div 8;
+        pj:=digit mod 8;
+        writeln('base=',base.data);
+        if bits_check((ina.Head+pi)^,pj) then acc:=acc+base;
+        tmp:=base/RealStr('2');
+        base:=tmp;
+        inc(digit);
+        writeln('acc=',acc.data);
 
-          if bits_check((ina.Head+pi)^,pj) then acc:=acc+base;
-          tmp:=base/DecimalStr('2');
-          base:=tmp;
-        end;
+      until digit>lastdigit;
+      delete(acc.data,1,2);
       result:=acc.data;
     end
   else
