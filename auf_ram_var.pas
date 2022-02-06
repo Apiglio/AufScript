@@ -1668,7 +1668,7 @@ begin
                    begin
                      result:=result+chr((ina.Head+pi)^);
                    end;
-                 while result[1]=#0 do delete(result,1,1);
+                 while length(result)>0 do if result[1]=#0 then delete(result,1,1) else break;
                  result:=wincptoutf8(result);
                end;
     else begin raise Exception.Create('错误的ARV类型，不能转换为字符串');result:='';exit end;
