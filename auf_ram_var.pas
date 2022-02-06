@@ -61,18 +61,40 @@ type
   procedure newARV(var inp:TAufRamVar;Size:dword);
   procedure freeARV(inp:TAufRamVar);
   function assignedARV(inp:TAufRamVar):boolean;
+  procedure copyARV(ori_arv:TAufRamVar;var new_arv:TAufRamVar);
 
   procedure fixnum_add(ina,inb:TAufRamVar;var oup:TAufRamVar);
   procedure fixnum_sub(ina,inb:TAufRamVar;var oup:TAufRamVar);
 
-
+  {
   procedure ARV_add(ina,inb:TAufRamVar;var oup:TAufRamVar);
   procedure ARV_sub(ina,inb:TAufRamVar;var oup:TAufRamVar);
   procedure ARV_mul(ina,inb:TAufRamVar;var oup:TAufRamVar);
   procedure ARV_div(ina,inb:TAufRamVar;var oup:TAufRamVar);
   procedure ARV_mod(ina,inb:TAufRamVar;var oup:TAufRamVar);
+  }
 
+  function ARV_EqlZero(inp:TAufRamVar):boolean;
   function ARV_comp(ina,inb:TAufRamVar):smallint;//ina<=>inb
+
+  procedure ARV_shl(var inp:TAufRamVar;bit:qword);
+  procedure ARV_shr(var inp:TAufRamVar;bit:qword);
+  procedure ARV_not(var inp:TAufRamVar);
+  procedure ARV_and(var ina:TAufRamVar;const inb:TAufRamVar);
+  procedure ARV_or(var ina:TAufRamVar;const inb:TAufRamVar);
+  procedure ARV_xor(var ina:TAufRamVar;const inb:TAufRamVar);
+
+  procedure ARV_add(var ina:TAufRamVar;const inb:TAufRamVar);
+  procedure ARV_add2(var ina:TAufRamVar;const inb:TAufRamVar);
+  procedure ARV_sub(var ina:TAufRamVar;const inb:TAufRamVar);
+  procedure ARV_mul(var ina:TAufRamVar;const inb:TAufRamVar);
+  procedure ARV_mul2(var ina:TAufRamVar;const inb:TAufRamVar);
+
+  procedure ARV_div(var ina:TAufRamVar;const inb:TAufRamVar);
+  procedure ARV_mod(var ina:TAufRamVar;const inb:TAufRamVar);
+
+
+
   {
   operator <(ina,inb:TAufRamVar):boolean;
   operator <=(ina,inb:TAufRamVar):boolean;
@@ -85,6 +107,7 @@ type
   function arv_to_s(ina:TAufRamVar):string;
   function arv_to_hex(ina:TAufRamVar):string;
   function arv_to_dec(ina:TAufRamVar):string;
+  function arv_to_dec_fraction(ina:TAufRamVar):string;//小数点后
   function arv_to_dword(ina:TAufRamVar):dword;
   function arv_to_double(ina:TAufRamVar):double;
 
@@ -94,7 +117,6 @@ type
   procedure dword_to_arv(d:dword;oup:TAufRamVar);
   procedure double_to_arv(d:double;oup:TAufRamVar);
 
-  procedure copy_arv(ori_arv:TAufRamVar;var new_arv:TAufRamVar);
   procedure initiate_arv(exp:string;var arv:TAufRamVar);//根据字符串创建最大相似的ARV
   procedure initiate_arv_str(exp:RawByteString;var arv:TAufRamVar);//根据字符串创建字符串的ARV
 
@@ -131,6 +153,7 @@ end;
 function DecimalStr_Comp(ina,inb:TDecimalStr):smallint;
 var minus:smallint;
     digit:longint;
+
     function cmp(a,b:longint):smallint;
     begin
       if a>b then result:=1
@@ -504,6 +527,8 @@ begin
   //if repeated then result.data:=result.data+'...';
 end;
 
+
+
 function RealStr_Comp(ina,inb:TRealStr):smallint;
 begin
 
@@ -547,14 +572,16 @@ end;
 procedure newARV(var inp:TAufRamVar;Size:dword);
 begin
   inp.Is_Temporary:=true;
-  inp.Stream.Free;
+  if not assigned(inp.Stream) then inp.Stream.Free;
   inp.Stream:=TMemoryStream.Create;
   inp.Stream.Size:=Size;
   inp.Size:=size;
   inp.Head:=inp.Stream.Memory;
   inp.VarType:=ARV_Raw;
-  inp.Stream.Position:=Size-1;
-  inp.stream.WriteByte($00);
+  //inp.Stream.Position:=Size-1;
+  //inp.stream.WriteByte($00);
+  inp.Stream.Position:=0;
+  while inp.Stream.Position<inp.size do inp.Stream.WriteByte($00);
 end;
 
 procedure freeARV(inp:TAufRamVar);
@@ -567,6 +594,36 @@ function assignedARV(inp:TAufRamVar):boolean;
 begin
   if inp.Is_Temporary and (inp.Stream=nil) then begin result:=false;exit end;
   result:=true;//暂时没有检验超界的办法
+end;
+
+procedure copyARV(ori_arv:TAufRamVar;var new_arv:TAufRamVar);
+var pi:integer;
+begin
+  {
+  if new_arv.Is_Temporary then
+    begin
+      new_arv.size:=ori_arv.size;
+      new_arv.Stream.Size:=new_arv.size;
+    end;
+  }
+  pi:=0;
+  while pi<new_arv.size do
+    begin
+      if pi<ori_arv.size then (new_arv.Head+pi)^:=(ori_arv.Head+pi)^
+      else (new_arv.Head+pi)^:=0;
+      inc(pi);
+    end;
+end;
+
+procedure fillARV(target:byte;var arv:TAufRamVar);
+var pi:integer;
+begin
+  pi:=0;
+  while pi<arv.size do
+    begin
+      (arv.Head+pi)^:=target;
+      inc(pi);
+    end;
 end;
 
 procedure fixnum_add(ina,inb:TAufRamVar;var oup:TAufRamVar);    //这里要改一下，可以按正常的记录类型来搞
@@ -654,14 +711,10 @@ begin
   //ina.VarType;
 end;
 
-function ARV_comp(ina,inb:TAufRamVar):smallint;//ina<=>inb
-begin
-  if (ina.VarType=ARV_Char) or (inb.VarType=ARV_Char) then raise Exception.Create('字符类型AufRamVar不能比较');
-  ////////////////////
-end;
 
 
 
+{
 procedure ARV_add(ina,inb:TAufRamVar;var oup:TAufRamVar);
 begin
   if (ina.VarType=ARV_FixNum) and (inb.VarType=ARV_FixNum) then fixnum_add(ina,inb,oup)
@@ -684,6 +737,275 @@ procedure ARV_mod(ina,inb:TAufRamVar;var oup:TAufRamVar);
 begin
   //
 end;
+}
+
+
+function ARV_EqlZero(inp:TAufRamVar):boolean;
+var pi:dword;
+begin
+  pi:=0;
+  while pi<inp.size do
+    begin
+      if (inp.Head+pi)^<>0 then begin result:=false;exit end;
+      inc(pi);
+    end;
+  result:=true;
+end;
+function ARV_comp(ina,inb:TAufRamVar):smallint;//ina<=>inb
+var ia,ib:dword;
+begin
+  if ina.size*inb.size=0 then exit;
+  ia:=ina.size;
+  ib:=inb.size;
+  repeat
+    dec(ia);
+    dec(ib);
+    if (ina.Head+ia)^=(inb.Head+ib)^ then
+      begin
+        //
+      end
+    else if (ina.Head+ia)^>(inb.Head+ib)^ then
+      begin
+        result:=1;exit;
+      end
+    else
+      begin
+        result:=-1;exit;
+      end;
+  until (ia=0) or (ib=0);
+  while ia>0 do
+    begin
+      if (ina.Head+ia)^<>0 then begin result:=1;exit;end;
+      dec(ia);
+    end;
+  while ib>0 do
+    begin
+      if (inb.Head+ib)^<>0 then begin result:=-1;exit;end;
+      dec(ib);
+    end;
+  result:=0;
+end;
+
+procedure ARV_shl(var inp:TAufRamVar;bit:qword);
+var pi:dword;
+    byte_ofs,bit_ofs:dword;
+    atmp,btmp:byte;
+begin
+  pi:=inp.size;
+  byte_ofs:=bit div 8;
+  bit_ofs:=bit mod 8;
+  repeat
+    dec(pi);
+    if pi<inp.Size+byte_ofs then atmp:=(inp.Head+pi-byte_ofs)^ shl bit_ofs
+    else atmp:=0;
+    if pi<inp.Size+byte_ofs+1 then btmp:=(inp.Head+pi-byte_ofs-1)^ shr (8 - bit_ofs)
+    else btmp:=0;
+    (inp.Head+pi)^:=atmp or btmp;
+  until pi=0;
+end;
+procedure ARV_shr(var inp:TAufRamVar;bit:qword);
+var pi:dword;
+    byte_ofs,bit_ofs:dword;
+    atmp,btmp:byte;
+begin
+  pi:=0;
+  byte_ofs:=bit div 8;
+  bit_ofs:=bit mod 8;
+  while pi<inp.size do
+    begin
+      if pi+byte_ofs<inp.Size then atmp:=(inp.Head+pi+byte_ofs)^ shr bit_ofs
+      else atmp:=0;
+      if pi+byte_ofs+1<inp.Size then btmp:=(inp.Head+pi+byte_ofs+1)^ shl (8 - bit_ofs)
+      else btmp:=0;
+      (inp.Head+pi)^:=atmp or btmp;
+      inc(pi);
+    end;
+end;
+procedure ARV_not(var inp:TAufRamVar);
+var pi:dword;
+begin
+  for pi:=0 to inp.size-1 do (inp.Head+pi)^:=not (inp.Head+pi)^;
+end;
+procedure ARV_and(var ina:TAufRamVar;const inb:TAufRamVar);
+var pi,len:dword;
+begin
+  if ina.size<inb.size then len:=ina.size
+  else len:=inb.size;
+  for pi:=0 to len-1 do (ina.Head+pi)^:=(ina.Head+pi)^ and (inb.Head+pi)^;
+  for pi:=len to ina.size-1 do (ina.Head+pi)^:=0;
+end;
+procedure ARV_or(var ina:TAufRamVar;const inb:TAufRamVar);
+var pi,len:dword;
+begin
+  if ina.size<inb.size then len:=ina.size
+  else len:=inb.size;
+  for pi:=0 to len-1 do (ina.Head+pi)^:=(ina.Head+pi)^ or (inb.Head+pi)^;
+end;
+procedure ARV_xor(var ina:TAufRamVar;const inb:TAufRamVar);
+var pi,len:dword;
+begin
+  if ina.size<inb.size then len:=ina.size
+  else len:=inb.size;
+  for pi:=0 to len-1 do (ina.Head+pi)^:=(ina.Head+pi)^ xor (inb.Head+pi)^;
+end;
+
+procedure ARV_add(var ina:TAufRamVar;const inb:TAufRamVar);
+var pi,len:dword;
+    yc:byte;
+    tmp:word;
+begin
+  if ina.size<inb.size then len:=ina.size
+  else len:=inb.size;
+  yc:=0;
+  for pi:=0 to len-1 do
+    begin
+      tmp:=(ina.Head+pi)^ + (inb.Head+pi)^ + yc;
+      yc:=tmp div 256;
+      (ina.Head+pi)^:=tmp mod 256;
+    end;
+  for pi:=len to ina.size do
+    begin
+      tmp:=(ina.Head+pi)^ + yc;
+      yc:=tmp div 256;
+      (ina.Head+pi)^:=tmp mod 256;
+    end;
+end;
+
+procedure ARV_add2(var ina:TAufRamVar;const inb:TAufRamVar);deprecated;
+//原理上应该更快，但是函数实现方法慢了很多，可以作为预备优化方式
+var pi,len:dword;
+    yc:byte;
+    tmp:word;
+    xo,an,t:TAufRamVar;
+begin
+  newARV(xo,ina.size);
+  newARV(an,ina.size);
+  newARV(t,ina.size);
+  copyARV(inb,t);
+  repeat
+    copyARV(ina,xo);
+    ARV_xor(xo,t);
+    copyARV(ina,an);
+    ARV_and(an,t);
+    ARV_shl(an,1);
+    copyARV(xo,ina);
+    copyARV(an,t);
+  until ARV_EqlZero(an);
+  copyARV(ina,xo);
+  freeARV(t);
+  freeARV(xo);
+  freeARV(an);
+end;
+
+procedure ARV_sub(var ina:TAufRamVar;const inb:TAufRamVar);
+var pi,len:dword;
+    yc:byte;
+    tmp:smallint;
+begin
+  if ina.size<inb.size then len:=ina.size
+  else len:=inb.size;
+  yc:=0;
+  for pi:=0 to len-1 do
+    begin
+      tmp:=(ina.Head+pi)^ - (inb.Head+pi)^ - yc;
+      if tmp<0 then begin
+        inc(tmp,256);
+        yc:=1;
+      end else yc:=0;
+      (ina.Head+pi)^:=tmp;
+    end;
+  for pi:=len to ina.size do
+    begin
+      tmp:=(ina.Head+pi)^ - yc;
+      if tmp<0 then begin
+        inc(tmp,256);
+        yc:=1;
+      end else yc:=0;
+      (ina.Head+pi)^:=tmp;
+    end;
+end;
+
+procedure ARV_mul(var ina:TAufRamVar;const inb:TAufRamVar);
+var pi:dword;
+begin
+
+end;
+procedure ARV_mul2(var ina:TAufRamVar;const inb:TAufRamVar);
+var tmp,acc,add:TAufRamVar;
+begin
+  newARV(tmp,ina.size);
+  newARV(acc,ina.size);
+  newARV(add,ina.size);
+  copyARV(inb,tmp);
+  copyARV(ina,add);
+  while not ARV_EqlZero(tmp) do
+    begin
+      if tmp.Head^ mod 2 = 1 then
+        begin
+          ARV_add(acc,add);
+        end;
+      ARV_shl(add,1);
+      ARV_shr(tmp,1);
+    end;
+  copyARV(acc,ina);
+  freeARV(add);
+  freeARV(acc);
+  freeARV(tmp);
+end;
+
+
+procedure ARV_divmod(ina,inb:TAufRamVar;var oua,oub:TAufRamVar);
+var tmp:TAufRamVar;
+begin
+  copyARV(ina,oub);
+  fillARV(0,oua);
+  newARV(tmp,ina.size);
+  copyARV(inb,tmp);
+  while (ARV_comp(tmp,oub)<0) do
+    begin
+      ARV_shl(tmp,1);
+      if ((tmp.Head+tmp.size-1)^ shr 7 <> 0) then break;
+    end;
+  if ARV_comp(tmp,oub)>0 then ARV_shr(tmp,1);
+  while ARV_comp(tmp,inb)>=0 do
+    begin
+      ARV_shl(oua,1);
+      if ARV_comp(tmp,oub)<=0 then
+        begin
+          ARV_sub(oub,tmp);
+          oua.Head^:=oua.Head^ or $01;
+        end
+      else
+        begin
+          //Do nothing
+        end;
+      ARV_shr(tmp,1);
+    end;
+  freeARV(tmp);
+end;
+procedure ARV_div(var ina:TAufRamVar;const inb:TAufRamVar);
+var oa,ob:TAufRamVar;
+begin
+  newARV(oa,ina.size);
+  newARV(ob,ina.size);
+  ARV_divmod(ina,inb,oa,ob);
+  copyARV(oa,ina);
+  freeARV(oa);
+  freeARV(ob);
+end;
+
+procedure ARV_mod(var ina:TAufRamVar;const inb:TAufRamVar);
+var oa,ob:TAufRamVar;
+begin
+  newARV(oa,ina.size);
+  newARV(ob,ina.size);
+  ARV_divmod(ina,inb,oa,ob);
+  copyARV(ob,ina);
+  freeARV(oa);
+  freeARV(ob);
+end;
+
+
 
 
 
@@ -844,23 +1166,6 @@ begin
     end;
 end;
 
-procedure copy_arv(ori_arv:TAufRamVar;var new_arv:TAufRamVar);
-var pi:integer;
-begin
-  if new_arv.Is_Temporary then
-    begin
-      new_arv.size:=ori_arv.size;
-      new_arv.Stream.Size:=new_arv.size;
-    end;
-  pi:=0;
-  while pi<new_arv.size do
-    begin
-      if pi<ori_arv.size then (new_arv.Head+pi)^:=(ori_arv.Head+pi)^
-      else (new_arv.Head+pi)^:=0;
-      inc(pi);
-    end;
-end;
-
 function arv_to_hex(ina:TAufRamVar):string;
 var pi:dword;
 begin
@@ -900,6 +1205,41 @@ begin
         begin
           if bits_check((ina.Head+pi)^,pj) then acc:=acc+base;
           base:=base+base;
+        end;
+      result:=acc.data;
+    end
+  else
+    begin
+      raise Exception.Create('警告：地址超界！');
+      result:='0';
+    end;
+end;
+function arv_to_dec_fraction(ina:TAufRamVar):string;//小数点后
+var pi,pj:dword;
+    acc,base,tmp:TDecimalStr;
+  function bits_check(byt,bit:byte):boolean;
+  var tmp:byte;
+  begin
+    tmp:=1 shl bit;
+    if byt and tmp <>0 then result:=true
+    else result:=false;
+  end;
+begin
+  result:='';
+  acc.data:='+0.0';
+  base.data:='+0.5';
+  MaxDivDigit:=round(ina.size*8*0.31)+3;//0.31为lg2近似值
+  writeln('MDD=',MaxDivDigit);
+  if assignedARV(ina) then
+    begin
+      for pi:=0 to ina.size-1 do for pj:=0 to 7 do
+        begin
+          writeln('base=',base.data);
+          writeln('acc=',acc.data);
+
+          if bits_check((ina.Head+pi)^,pj) then acc:=acc+base;
+          tmp:=base/DecimalStr('2');
+          base:=tmp;
         end;
       result:=acc.data;
     end
