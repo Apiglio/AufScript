@@ -17,6 +17,7 @@ type
     Is_Temporary:boolean;//是否是运算符重载计算时临时产生的内存流数据
     Stream:TMemoryStream;//如果是，这里是内存流的指针
   end;
+  PAufRamVar=^TAufRamVar;
 
   TDecimalStr = record
     data:string;
@@ -138,6 +139,7 @@ type
   procedure initiate_arv(exp:string;var arv:TAufRamVar);//根据字符串创建最大相似的ARV
   procedure initiate_arv_str(exp:RawByteString;var arv:TAufRamVar);//根据字符串创建字符串的ARV
 
+  function arv_clip(src:TAufRamVar;idx,len:longint):TAufRamVar;
 
 var
 
@@ -1707,6 +1709,15 @@ begin
   pdouble(oup.Head)^:=d;
 end;
 
+function arv_clip(src:TAufRamVar;idx,len:longint):TAufRamVar;
+begin
+  result.VarType:=src.VarType;
+  result.size:=0;
+  //if not src.Is_Temporary then exit;
+  result.Head:=src.Head+idx;
+  if idx+len>src.size then result.size:=src.size-idx
+  else result.size:=len;
+end;
 
 initialization
   MaxDivDigit:=240;
