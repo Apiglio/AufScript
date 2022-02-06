@@ -18,7 +18,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.1.2';
+  AufScript_Version='beta 2.1.3';
 
   c_divi=[' ',','];//隔断符号
   c_iden=['~','@','$','#','?',':','&'];//变量符号，前后缀符号
@@ -348,7 +348,6 @@ type
       procedure AdditionFuncDefine_Time;//时间模块函数定义
       procedure AdditionFuncDefine_File;//文件模块函数定义
       procedure AdditionFuncDefine_Math;//数学模块函数定义
-
 
   end;
 
@@ -772,15 +771,6 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(2) then exit;
-  //if AAuf.ArgsCount<2 then begin AAuf.Script.send_error('警告：sleep需要一个参数，语句未执行。');exit end;
-  //ms:=Round(AufScpt.to_double(AAuf.nargs[1].pre,AAuf.nargs[1].arg));
-  {
-  try
-    ms:=AufScpt.TryToDWord(AAuf.nargs[1]);
-  except
-    AufScpt.send_error('警告：第一个参数不能转换为FixNum变量，语句未执行。');exit;
-  end;
-  }
   if not AAuf.TryArgToDWord(1,ms) then exit;
 
   if ms=0 then exit;
@@ -826,14 +816,6 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(2) then exit;
-  //if AAuf.ArgsCount<2 then begin AAuf.Script.send_error('警告：未指定显示的变量');exit end;
-  {
-  try
-    AufScpt.write(AufScpt.TryToString(AAuf.nargs[1]));
-  except
-    AufScpt.send_error('错误：'+AAuf.args[1]+'转为字符串时失败！')
-  end;
-  }
   if not AAuf.TryArgToString(1,str) then exit;
   AufScpt.write(str);
 end;
@@ -889,13 +871,6 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(2) then exit;
-  //if AAuf.ArgsCount<1 then begin AufScpt.send_error('警告：hex需要一个参数，不能显示。');exit end;
-  {
-  case AAuf.nargs[1].pre of
-    '$"','~"','#"','$&"','~&"','#&"':AufScpt.write(arv_to_hex(AAuf.Script.RamVar(AAuf.nargs[1])));
-    else AufScpt.send_error('警告：不支持非标准变量形式，不能显示');
-  end;
-  }
   if not AAuf.TryArgToARV(1,High(dword),0,[ARV_FixNum,ARV_Char,ARV_Float,ARV_Raw],arv) then exit;
   AufScpt.write(arv_to_hex(arv));
 end;
@@ -917,28 +892,7 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
-  //if AAuf.ArgsCount<2 then begin AufScpt.send_error('警告：fillbyte需要2个参数，赋值未成功。');exit end;
-  {
-  tmp:=AufScpt.RamVar(AAuf.nargs[1]);
-  if tmp.size=0 then begin
-    AufScpt.send_error('警告：第一个参数需要是变量，'+AAuf.nargs[0].arg+'语句未执行。');
-    exit;
-  end;
-  }
   if not AAuf.TryArgToARV(1,High(dword),0,[ARV_FixNum,ARV_Char,ARV_Float,ARV_Raw],tmp) then exit;
-  {
-  try
-    target:=AufScpt.TryToDWord(AAuf.nargs[2]);
-  except
-    stmp:=AufScpt.TryToString(AAuf.nargs[2]);
-    if length(stmp)<>0 then target:=ord(stmp[1])
-    else begin
-      AufScpt.send_error('警告：第二个参数需要是字符型或整型数值，'+AAuf.nargs[0].arg+'语句未执行。');
-      exit;
-    end;
-  end;
-  }
-  //放弃用字符串第一位做变量的糟粕
   if not AAuf.TryArgToByte(2,target) then exit;
   for pi:=0 to tmp.size-1 do (tmp.Head+pi)^:=target;
 end;
@@ -1392,14 +1346,6 @@ begin
   if not AAuf.CheckArgs(2) then exit;
   if AAuf.ArgsCount>2 then //rand @var,max
     begin
-      {
-      try
-        rand_max:=AufScpt.TryToDWord(AAuf.nargs[2]);
-      except
-        AufScpt.send_error('警告：mod的第二个参数不能转换为dword类型，语句未执行。');
-        exit;
-      end;
-      }
       if not AAuf.TryArgToDWord(2,rand_max) then exit;
       if rand_max=0 then begin AufScpt.send_error('警告：rand的第二个参数不能为0，语句未执行。');exit end;
     end
@@ -1618,14 +1564,6 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(2) then exit;
-  //if AAuf.argsCount < 2 then begin AufScpt.send_error('警告：load需要一个变量，该语句未执行。');exit end;
-  {
-  try
-    addr:=AufScpt.TryToString(AAuf.nargs[1]);
-  except
-    AufScpt.send_error('警告："'+AAuf.nargs[1].arg+'"不能转化为有效字符串，该语句未执行。');exit
-  end;
-  }
   if not AAuf.TryArgToString(1,addr) then exit;
   tmp:=TStringList.Create;
   try
@@ -1768,14 +1706,6 @@ begin
       exit
     end;
   if AAuf.ArgsCount>3 then begin
-    {
-    try
-      size:=AufScpt.TryToDWord(AAuf.nargs[3]);
-      if size=0 then size:=8;
-    except
-      AufScpt.send_error('警告：第三个参数需要是整数或整数变量，该语句未执行。');exit
-    end;
-    }
     if not AAuf.TryArgToDWord(3,size) then exit;
   end else size:=8;
   head:=AufScpt.FindRamVacant(size);
@@ -1791,7 +1721,6 @@ end;
 procedure _unvar(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
-    size,head:pRam;
     arv:TAufRamVar;
     tmp:TAufExpressionUnit;
 begin
@@ -1884,30 +1813,11 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
-  {
-  tmp1:=AufScpt.RamVar(AAuf.nargs[1]);
-  if tmp1.size=0 then begin
-    AufScpt.send_error('警告：第一个参数不是变量类型');
-    exit;
-  end;
-  tmp2:=AufScpt.RamVar(AAuf.nargs[2]);
-  if tmp2.size=0 then begin
-    AufScpt.send_error('警告：第二个参数不是变量类型');
-    exit;
-  end;
-  }
   if not AAuf.TryArgToARV(1,High(dword),0,[ARV_Raw,ARV_FixNum,ARV_Float,ARV_Char],tmp1) then exit;
   if not AAuf.TryArgToARV(2,High(dword),0,[ARV_Raw,ARV_FixNum,ARV_Float,ARV_Char],tmp2) then exit;
 
   res:=ARV_comp(tmp1,tmp2);
   if AAuf.ArgsCount>3 then begin
-    {
-    tmp3:=AufScpt.RamVar(AAuf.nargs[3]);
-    if tmp3.size=0 then begin
-      AufScpt.send_error('警告：第三个参数不是变量类型');
-      exit;
-    end;
-    }
     if not AAuf.TryArgToARV(3,High(dword),0,[ARV_Raw,ARV_FixNum,ARV_Float,ARV_Char],tmp3) then exit;
     dword_to_arv(res,tmp3);
   end else AufScpt.writeln('对比结果：'+IntToStr(res));
@@ -1921,29 +1831,8 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(5) then exit;
-  {
-  tmp1:=AufScpt.RamVar(AAuf.nargs[1]);
-  if tmp1.size=0 then begin
-    AufScpt.send_error('警告：第1个参数不是变量类型，未赋值成功。');exit;
-  end;
-  tmp2:=AufScpt.RamVar(AAuf.nargs[2]);
-  if tmp2.size=0 then begin
-    AufScpt.send_error('警告：第2个参数不是变量类型，未赋值成功。');exit;
-  end;
-  }
   if not AAuf.TryArgToARV(1,High(dword),0,[ARV_Raw,ARV_FixNum,ARV_Float,ARV_Char],tmp1) then exit;
   if not AAuf.TryArgToARV(2,High(dword),0,[ARV_Raw,ARV_FixNum,ARV_Float,ARV_Char],tmp2) then exit;
-  {
-  try
-    threshold:=AufScpt.TryToDWord(AAuf.nargs[3]) mod 256;
-  except
-    AufScpt.send_error('警告：第3个参数必须在0-255范围内，未赋值成功。');exit;
-  end;
-  tmp3:=AufScpt.RamVar(AAuf.nargs[4]);
-  if (tmp3.size<4) or (tmp3.VarType<>ARV_FixNum) then begin
-    AufScpt.send_error('警告：第4个参数必须是长度不小于4的整型变量，未赋值成功。');exit;
-  end;
-  }
   if not AAuf.TryArgToByte(3,threshold) then exit;
   if not AAuf.TryArgToARV(4,4,High(dword),[ARV_FixNum],tmp3) then exit;
   dword_to_arv(ARV_offset_count(tmp1,tmp2,threshold),tmp3);
@@ -1957,19 +1846,6 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
-  {
-  tmp:=AufScpt.RamVar(AAuf.nargs[1]);
-  if tmp.size=0 then begin
-    AufScpt.send_error('警告：第一个参数不是变量类型');
-    exit;
-  end;
-  try
-    bit:=AufScpt.TryToDWord(AAuf.nargs[2]);
-  except
-    AufScpt.send_error('警告：第二个参数不能转换为dword类型，'+AAuf.nargs[0].arg+'语句未执行。');
-    exit;
-  end;
-  }
   if not AAuf.TryArgToARV(1,High(dword),0,[ARV_Raw,ARV_FixNum,ARV_Float,ARV_Char],tmp) then exit;
   if not AAuf.TryArgToDWord(2,bit) then exit;
   ARV_shl(tmp,bit);
@@ -1984,18 +1860,6 @@ begin
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
   tmp:=AufScpt.RamVar(AAuf.nargs[1]);
-  {
-  if tmp.size=0 then begin
-    AufScpt.send_error('警告：第一个参数不是变量类型');
-    exit;
-  end;
-  try
-    bit:=AufScpt.TryToDWord(AAuf.nargs[2]);
-  except
-    AufScpt.send_error('警告：第二个参数不能转换为dword类型，'+AAuf.nargs[0].arg+'语句未执行。');
-    exit;
-  end;
-  }
   if not AAuf.TryArgToARV(1,High(dword),0,[ARV_Raw,ARV_FixNum,ARV_Float,ARV_Char],tmp) then exit;
   if not AAuf.TryArgToDWord(2,bit) then exit;
   ARV_shr(tmp,bit);
@@ -2008,13 +1872,6 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(2) then exit;
-  {
-  tmp:=AufScpt.RamVar(AAuf.nargs[1]);
-  if tmp.size=0 then begin
-    AufScpt.send_error('警告：第一个参数不是变量类型');
-    exit;
-  end;
-  }
   if not AAuf.TryArgToARV(1,High(dword),0,[ARV_Raw,ARV_FixNum,ARV_Float,ARV_Char],tmp) then exit;
   ARV_not(tmp);
 end;
@@ -2026,18 +1883,6 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
-  {
-  tmp1:=AufScpt.RamVar(AAuf.nargs[1]);
-  if tmp1.size=0 then begin
-    AufScpt.send_error('警告：第一个参数不是变量类型');
-    exit;
-  end;
-  tmp2:=AufScpt.RamVar(AAuf.nargs[2]);
-  if tmp2.size=0 then begin
-    AufScpt.send_error('警告：第二个参数不是变量类型');
-    exit;
-  end;
-  }
   if not AAuf.TryArgToARV(1,High(dword),0,[ARV_Raw,ARV_FixNum,ARV_Float,ARV_Char],tmp1) then exit;
   if not AAuf.TryArgToARV(2,High(dword),0,[ARV_Raw,ARV_FixNum,ARV_Float,ARV_Char],tmp2) then exit;
   ARV_and(tmp1,tmp2);
@@ -2050,18 +1895,6 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
-  {
-  tmp1:=AufScpt.RamVar(AAuf.nargs[1]);
-  if tmp1.size=0 then begin
-    AufScpt.send_error('警告：第一个参数不是变量类型');
-    exit;
-  end;
-  tmp2:=AufScpt.RamVar(AAuf.nargs[2]);
-  if tmp2.size=0 then begin
-    AufScpt.send_error('警告：第二个参数不是变量类型');
-    exit;
-  end;
-  }
   if not AAuf.TryArgToARV(1,High(dword),0,[ARV_Raw,ARV_FixNum,ARV_Float,ARV_Char],tmp1) then exit;
   if not AAuf.TryArgToARV(2,High(dword),0,[ARV_Raw,ARV_FixNum,ARV_Float,ARV_Char],tmp2) then exit;
   ARV_or(tmp1,tmp2);
@@ -2074,18 +1907,6 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
-  {
-  tmp1:=AufScpt.RamVar(AAuf.nargs[1]);
-  if tmp1.size=0 then begin
-    AufScpt.send_error('警告：第一个参数不是变量类型');
-    exit;
-  end;
-  tmp2:=AufScpt.RamVar(AAuf.nargs[2]);
-  if tmp2.size=0 then begin
-    AufScpt.send_error('警告：第二个参数不是变量类型');
-    exit;
-  end;
-  }
   if not AAuf.TryArgToARV(1,High(dword),0,[ARV_Raw,ARV_FixNum,ARV_Float,ARV_Char],tmp1) then exit;
   if not AAuf.TryArgToARV(2,High(dword),0,[ARV_Raw,ARV_FixNum,ARV_Float,ARV_Char],tmp2) then exit;
   ARV_xor(tmp1,tmp2);
@@ -2118,13 +1939,6 @@ begin
   except
     AufScpt.send_error('警告：第一个参数解析错误，'+AAuf.nargs[0].arg+'语句未执行。');exit;
   end;
-  {
-  try
-    b.data:=AufScpt.TryToString(AAuf.nargs[2]);
-  except
-    AufScpt.send_error('警告：第二个参数不能转换为string类型，'+AAuf.nargs[0].arg+'语句未执行。');exit;
-  end;
-  }
   if not AAuf.TryArgToString(2,b.data) then exit;
 
   //标准化
@@ -2280,13 +2094,6 @@ begin
   except
     AufScpt.send_error('警告：第一个参数解析错误，'+AAuf.nargs[0].arg+'语句未执行。');exit;
   end;
-  {
-  try
-    b.data:=AufScpt.TryToString(AAuf.nargs[2]);
-  except
-    AufScpt.send_error('警告：第二个参数不能转换为string类型，'+AAuf.nargs[0].arg+'语句未执行。');exit;
-  end;
-  }
   if not AAuf.TryArgToString(2,b.data) then exit;
 
   case AAuf.nargs[0].arg of
@@ -2325,20 +2132,6 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
-  {
-  try
-    tmp:=AufScpt.RamVar(AAuf.nargs[1]);
-    //if tmp=nil then raise Exception.Create('');
-    if tmp.VarType<>ARV_Char then raise Exception.Create('');
-  except
-    AufScpt.send_error('警告：第一个参数需要是字符串变量，'+AAuf.nargs[0].arg+'语句未执行。');exit;
-  end;
-  try
-    str:=AufScpt.TryToString(AAuf.nargs[2]);
-  except
-    AufScpt.send_error('警告：第二个参数不能转换为string类型，'+AAuf.nargs[0].arg+'语句未执行。');exit;
-  end;
-  }
   if not AAuf.TryArgToARV(1,High(dword),0,[ARV_Char],tmp) then exit;
   if not AAuf.TryArgToString(2,str) then exit;
 
@@ -2353,24 +2146,26 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
-  {
-  try
-    tmp:=AufScpt.RamVar(AAuf.nargs[1]);
-    //if tmp=nil then raise Exception.Create('');
-    if not (tmp.VarType in [ARV_Float,ARV_FixNum]) then raise Exception.Create('');
-  except
-    AufScpt.send_error('警告：第一个参数需要是数值变量，'+AAuf.nargs[0].arg+'语句未执行。');exit;
-  end;
-  try
-    str:=AufScpt.TryToString(AAuf.nargs[2]);
-  except
-    AufScpt.send_error('警告：第二个参数不能转换为double类型，'+AAuf.nargs[0].arg+'语句未执行。');exit;
-  end;
-  }
   if not AAuf.TryArgToARV(1,High(dword),0,[ARV_Float,ARV_FixNum],tmp) then exit;
   if not AAuf.TryArgToString(2,str) then exit;
 
   initiate_arv(str,tmp);
+end;
+procedure text_strReplace(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    tmp:TAufRamVar;
+    old,new,str:string;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(4) then exit;
+  if not AAuf.TryArgToARV(1,High(dword),0,[ARV_Char],tmp) then exit;
+  if not AAuf.TryArgToString(2,old) then exit;
+  if not AAuf.TryArgToString(3,new) then exit;
+  str:=arv_to_s(tmp);
+  str:=StringReplace(str,old,new,[rfReplaceAll]);
+  initiate_arv_str(str,tmp);
 end;
 
 procedure time_settimer(Sender:TObject);
@@ -2397,17 +2192,10 @@ begin
   if AAuf.ArgsCount=1 then AufScpt.writeln('定时器读数：'+IntToStr(tmp)+'毫秒')
   else
     begin
-      {
-      arv:=AufScpt.RamVar(AAuf.nargs[1]);
-      if (arv.VarType <> ARV_FixNum) or (arv.Size < 4) then
-        AufScpt.send_error('警告：第一个参数需要是4位及以上宽度的整型变量，该语句未执行。')
-      else
-        dword_to_arv(dword(tmp),arv);
-      }
       if AAuf.TryArgToARV(1,4,High(dword),[ARV_FixNum],arv) then dword_to_arv(dword(tmp),arv);
     end;
 end;
-procedure time_waittimer(Sender:TObject);//线程不可用，需要再看怎么处理
+procedure time_waittimer(Sender:TObject);//线程不可用，需要再看怎么处理//可以用啊？
 var AufScpt:TAufScript;
     AAuf:TAuf;
     h,m,s,cs:word;
@@ -2417,14 +2205,6 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(2) then exit;
-  //if AAuf.ArgsCount<2 then begin AAuf.Script.send_error('警告：waittimer需要一个参数，语句未执行。');exit end;
-  {
-  try
-    std:=AufScpt.TryToDWord(AAuf.nargs[1]);
-  except
-    AufScpt.send_error('警告：第一个参数不能转换为FixNum变量，语句未执行。');exit;
-  end;
-  }
   if not AAuf.TryArgToDWord(1,std) then exit;
   ////////////////
   gettime(h,m,s,cs);
@@ -2456,17 +2236,7 @@ begin
   gettime(h,m,s,cs);
   tmp:=Usf.zeroplus(h,2)+':'+Usf.zeroplus(m,2)+':'+Usf.zeroplus(s,2)+'.'+Usf.zeroplus(cs,2)+'0';
   if AAuf.ArgsCount=1 then AufScpt.writeln('当前时间：'+tmp)
-  else
-    begin
-      {
-      arv:=AufScpt.RamVar(AAuf.nargs[1]);
-      if (arv.VarType <> ARV_Char) or (arv.Size < 12) then
-        AufScpt.send_error('警告：第一个参数需要是12位及以上宽度的字符型变量，该语句未执行。')
-      else
-        s_to_arv(tmp,arv);
-      }
-      if AAuf.TryArgToARV(1,12,High(dword),[ARV_Char],arv) then s_to_arv(tmp,arv);
-    end;
+  else if AAuf.TryArgToARV(1,12,High(dword),[ARV_Char],arv) then s_to_arv(tmp,arv);
 end;
 procedure time_getdatestr(Sender:TObject);
 var AufScpt:TAufScript;
@@ -2480,17 +2250,7 @@ begin
   getdate(y,m,d,w);
   tmp:=Usf.zeroplus(y,4)+'-'+Usf.zeroplus(m,2)+'-'+Usf.zeroplus(d,2);
   if AAuf.ArgsCount=1 then AufScpt.writeln('当前日期：'+tmp)
-  else
-    begin
-      {
-      arv:=AufScpt.RamVar(AAuf.nargs[1]);
-      if (arv.VarType <> ARV_Char) or (arv.Size < 10) then
-        AufScpt.send_error('警告：第一个参数需要是10位及以上宽度的字符型变量，该语句未执行。')
-      else
-        s_to_arv(tmp,arv);
-      }
-      if AAuf.TryArgToARV(1,10,High(dword),[ARV_Char],arv) then s_to_arv(tmp,arv);
-    end;
+  else if AAuf.TryArgToARV(1,10,High(dword),[ARV_Char],arv) then s_to_arv(tmp,arv);
 end;
 
 //内置流程函数结束
@@ -4362,6 +4122,7 @@ procedure TAufScript.AdditionFuncDefine_Text;
 begin
   Self.add_func('str',@text_str,'#[],var','将var转化成字符串存入#[]');
   Self.add_func('val',@text_val,'$[],str','将str转化成数值存入$[]');
+  Self.add_func('srp',@text_strReplace,'#[],old,new','将#[]中的old替换成new');
 
 end;
 procedure TAufScript.AdditionFuncDefine_Time;
