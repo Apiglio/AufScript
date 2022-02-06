@@ -45,6 +45,11 @@ type
   function arv_to_dword(ina:TAufRamVar):dword;
   function arv_to_double(ina:TAufRamVar):double;
 
+  procedure s_to_arv(s:string;oup:TAufRamVar);
+  procedure dword_to_arv(d:dword;oup:TAufRamVar);
+  procedure double_to_arv(d:double;oup:TAufRamVar);
+
+
   procedure initiate_arv(exp:string;var arv:TAufRamVar);//根据字符串创建最大相似的ARV
   procedure initiate_arv_str(exp:RawByteString;var arv:TAufRamVar);//根据字符串创建字符串的ARV
 
@@ -177,7 +182,7 @@ end;
 procedure ARV_sub(ina,inb:TAufRamVar;var oup:TAufRamVar);
 begin
   if (ina.VarType=ARV_FixNum) and (inb.VarType=ARV_FixNum) then fixnum_sub(ina,inb,oup)
-  else raise Exception.Create('暂不支持整型数以外的变量加法');
+  else raise Exception.Create('暂不支持整型数以外的变量减法');
 end;
 procedure ARV_mul(ina,inb:TAufRamVar;var oup:TAufRamVar);
 begin
@@ -223,6 +228,80 @@ operator <>(ina,inb:TAufRamVar):boolean;
 begin
   if ARV_comp(ina,inb)<>0 then result:=true
   else result:=false;
+end;
+
+procedure initiate_arv(exp:string;var arv:TAufRamVar);//根据字符串创建最大相似的ARV，非临时性ARV位数按规定赋值，临时性最大还原字符串
+var size,len,pi:integer;
+    str,stmp:string;
+begin
+  str:=exp;
+  if exp[length(exp)] in ['h','H'] then
+    begin
+      delete(str,length(str),1);
+      len:=length(str);
+      size:=len div 2 + len mod 2;
+      if arv.Is_Temporary then
+        begin
+          arv.size:=size;
+          arv.VarType:=ARV_FixNum;
+          arv.Stream.Free;
+          arv.Stream.Create;
+          arv.Stream.Size:=size;
+          arv.Head:=arv.Stream.Memory;
+        end
+      else
+        begin
+          arv.VarType:=ARV_FixNum;
+          if not assignedARV(arv) then raise Exception.Create('[initiate_arv]非临时性ARV地址有误');
+        end;
+      while length(str)>arv.size*2 do delete(str,1,1);
+      while length(str)<arv.size*2 do str:='0'+str;
+      pi:=0;
+      while length(str)>=2 do
+        begin
+          stmp:=str[length(str)-1]+str[length(str)];
+          delete(str,length(str)-1,2);
+          (arv.Head+pi)^:=HexToDword(stmp) mod 256;
+          inc(pi);
+        end;
+    end
+  else
+    begin
+      raise Exception.Create('警告：暂时不支持十六进制以外的整型数和浮点型');
+    end;
+end;
+
+procedure initiate_arv_str(exp:RawByteString;var arv:TAufRamVar);//根据字符串创建字符串的ARV，非临时性ARV位数按规定赋值，临时性以参数位数为准
+var size,len,pi:integer;
+    str,stmp:RawByteString;
+begin
+  str:=utf8towincp(exp);
+  len:=length(str);
+  size:=len;
+  if arv.Is_Temporary then
+    begin
+      arv.size:=size;
+      arv.VarType:=ARV_Char;
+      arv.Stream.Free;
+      arv.Stream.Create;
+      arv.Stream.Size:=size;
+      arv.Head:=arv.Stream.Memory;
+    end
+  else
+    begin
+      arv.VarType:=ARV_Char;
+      if not assignedARV(arv) then raise Exception.Create('[initiate_arv_str]非临时性ARV地址有误');
+    end;
+  while length(str)>arv.size do delete(str,1,1);
+  while length(str)<arv.size do str:=#0+str;
+  pi:=0;
+  while length(str)>0 do
+    begin
+      stmp:=str[length(str)];
+      delete(str,length(str),1);
+      (arv.Head+pi)^:=ord(stmp[1]);
+      inc(pi);
+    end;
 end;
 
 function arv_to_s(ina:TAufRamVar):string;
@@ -319,79 +398,23 @@ begin
   end;
 end;
 
-procedure initiate_arv(exp:string;var arv:TAufRamVar);//根据字符串创建最大相似的ARV，非临时性ARV位数按规定赋值，临时性最大还原字符串
-var size,len,pi:integer;
-    str,stmp:string;
+procedure s_to_arv(s:string;oup:TAufRamVar);
 begin
-  str:=exp;
-  if exp[length(exp)] in ['h','H'] then
-    begin
-      delete(str,length(str),1);
-      len:=length(str);
-      size:=len div 2 + len mod 2;
-      if arv.Is_Temporary then
-        begin
-          arv.size:=size;
-          arv.VarType:=ARV_FixNum;
-          arv.Stream.Free;
-          arv.Stream.Create;
-          arv.Stream.Size:=size;
-          arv.Head:=arv.Stream.Memory;
-        end
-      else
-        begin
-          arv.VarType:=ARV_FixNum;
-          if not assignedARV(arv) then raise Exception.Create('[initiate_arv]非临时性ARV地址有误');
-        end;
-      while length(str)>arv.size*2 do delete(str,1,1);
-      while length(str)<arv.size*2 do str:='0'+str;
-      pi:=0;
-      while length(str)>=2 do
-        begin
-          stmp:=str[length(str)-1]+str[length(str)];
-          delete(str,length(str)-1,2);
-          (arv.Head+pi)^:=HexToDword(stmp) mod 256;
-          inc(pi);
-        end;
-    end
-  else
-    begin
-      raise Exception.Create('警告：暂时不支持十六进制以外的整型数和浮点型');
-    end;
+  initiate_arv_str(s,oup);
+end;
+procedure dword_to_arv(d:dword;oup:TAufRamVar);
+var tmp:string;
+begin
+  tmp:=IntToHex(d,8);
+  initiate_arv(tmp+'H',oup);
+end;
+procedure double_to_arv(d:double;oup:TAufRamVar);
+begin
+  if (oup.size<>8) and (oup.VarType<>ARV_Float) then raise Exception.Create('警告：八位浮点型以外类型暂不支持赋值');
+  pdouble(oup.Head)^:=d;
 end;
 
-procedure initiate_arv_str(exp:RawByteString;var arv:TAufRamVar);//根据字符串创建字符串的ARV，非临时性ARV位数按规定赋值，临时性以参数位数为准
-var size,len,pi:integer;
-    str,stmp:RawByteString;
-begin
-  str:=utf8towincp(exp);
-  len:=length(str);
-  size:=len;
-  if arv.Is_Temporary then
-    begin
-      arv.size:=size;
-      arv.VarType:=ARV_Char;
-      arv.Stream.Free;
-      arv.Stream.Create;
-      arv.Stream.Size:=size;
-      arv.Head:=arv.Stream.Memory;
-    end
-  else
-    begin
-      arv.VarType:=ARV_Char;
-      if not assignedARV(arv) then raise Exception.Create('[initiate_arv_str]非临时性ARV地址有误');
-    end;
-  while length(str)>arv.size do delete(str,1,1);
-  while length(str)<arv.size do str:=#0+str;
-  pi:=0;
-  while length(str)>0 do
-    begin
-      stmp:=str[length(str)];
-      delete(str,length(str),1);
-      (arv.Head+pi)^:=ord(stmp[1]);
-      inc(pi);
-    end;
-end;
+
 
 end.
 
