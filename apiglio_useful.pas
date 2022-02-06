@@ -14,11 +14,11 @@ INTERFACE
 
 uses
   Windows, Classes, SysUtils, Registry, Dos, WinCrt, FileUtil, Forms, Controls, StdCtrls, ExtCtrls,
-  Interfaces, SynEdit, LazUTF8, Auf_Ram_Var, SynHighlighterAuf, RegExpr;
+  Interfaces, SynEdit, LazUTF8, Auf_Ram_Var, SynHighlighterAuf, RegExpr, Variants;
 
 const
 
-  AufScript_Version='beta 2.1.4';
+  AufScript_Version='beta 2.1.5';
 
   c_divi=[' ',','];//隔断符号
   c_iden=['~','@','$','#','?',':','&'];//变量符号，前后缀符号
@@ -287,6 +287,8 @@ type
       function Pointer(Iden:string;Index:pRam):Pointer;
       function TmpExpRamVar(arg:Tnargs):TAufRamVar;
       function RamVar(arg:Tnargs):TAufRamVar;//将标准变量形式转化成ARV
+      function RamVarToNargs(arv:TAufRamVar;not_offset:boolean=false):Tnargs;
+      function RamVarClipToNargs(arv:TAufRamVar;idx,len:pRam;not_offset:boolean=false):Tnargs;
       function to_double(Iden,Index:string):double;deprecated;//将nargs[].pre和nargs[].arg表示的变量转换成double类型
       function to_string(Iden,Index:string):string;deprecated;//将nargs[].pre和nargs[].arg表示的变量转换成string类型
 
@@ -412,7 +414,6 @@ var
   procedure de_decoder(var str:string);
 
   function narg(Apre,Aarg,Apost:string):Tnargs;
-
 
   function isprintable(str:string):boolean;
   function DwordToRawStr(inp:dword):string;
@@ -925,6 +926,29 @@ begin
   if not AAuf.TryArgToARV(1,High(dword),0,[ARV_FixNum,ARV_Char,ARV_Float,ARV_Raw],tmp) then exit;
   if not AAuf.TryArgToByte(2,target) then exit;
   for pi:=0 to tmp.size-1 do (tmp.Head+pi)^:=target;
+end;
+
+procedure _swap(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    tmp:TAufRamVar;
+    pi:pRam;
+    pa,pb:pbyte;
+    btmp:byte;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(2) then exit;
+  if not AAuf.TryArgToARV(1,High(dword),0,[ARV_FixNum,ARV_Char,ARV_Float,ARV_Raw],tmp) then exit;
+  for pi:=0 to (tmp.size div 2) do
+    begin
+      pa:=tmp.Head+pi;
+      pb:=tmp.Head+tmp.size-pi-1;
+      btmp:=pa^;
+      pa^:=pb^;
+      pb^:=btmp;
+    end;
+
 end;
 
 
@@ -1834,7 +1858,7 @@ begin
   try
     AufScpt.Expression.Local.TryAddExp(AAuf.nargs[2].arg,exp);
   except
-    AufScpt.send_error('警告：define参数有误，未正确执行')
+    AufScpt.send_error('警告：var参数有误，未正确执行')
   end;
   AufScpt.RamOccupation[head,size]:=true;
 end;
@@ -1860,7 +1884,7 @@ begin
   try
     AufScpt.Expression.Local.Remove(tmp);
   except
-    AufScpt.send_error('警告：define参数有误，未正确执行')
+    AufScpt.send_error('警告：unvar参数有误，未正确执行')
   end;
   AufScpt.RamOccupation[arv.head-AufScpt.var_stream.Memory,arv.size]:=false;
 end;
@@ -2373,6 +2397,129 @@ begin
   else if AAuf.TryArgToARV(1,10,High(dword),[ARV_Char],arv) then s_to_arv(tmp,arv);
 end;
 
+Procedure ReverseMove(const source;var dest;count:SizeInt);
+var i:SizeInt;
+begin
+  for i:=0 to count-1 do
+    begin
+      pbyte(@dest)^:=pbyte(@source+count-1-i)^;
+    end;
+end;
+
+procedure file_read(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    exprname,filename:string;
+    exp:TNargs;
+    head,size:pRam;
+    str:TMemoryStream;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToString(1,exprname) then exit;
+  if not AAuf.TryArgToString(2,filename) then exit;
+  if exprname='' then begin AufScpt.send_error('警告：第1个参数至少需要一个字符要是字母或下划线，该语句未执行。');exit end;
+  case exprname[1] of
+    'a'..'z','A'..'Z','_':;
+    else begin AufScpt.send_error('警告：第1个参数的第一个字符需要是字母或下划线，该语句未执行。');exit end;
+  end;
+  if AufScpt.Expression.Local.Find(exprname)<>nil then
+    begin
+      AufScpt.send_error('警告：变量已存在，该语句未执行。');
+      exit
+    end;
+
+  str:=TMemoryStream.Create;
+  try
+    str.LoadFromFile(filename);
+    size:=str.Size;
+    head:=AufScpt.FindRamVacant(size);
+    if head>=AufScpt.PSW.run_parameter.ram_size then begin
+      AufScpt.send_error('警告：创建变量失败，未执行。');
+      exit;
+    end;
+    exp.arg:=pRamToRawStr(head)+'|'+pRamToRawStr(size);
+    exp.post:='"';
+    exp.pre:='#"';
+    try
+      AufScpt.Expression.Local.TryAddExp(exprname,exp);
+    except
+      AufScpt.send_error('警告：var参数有误，未正确执行。');
+      exit;
+    end;
+    AufScpt.RamOccupation[head,size]:=true;
+    //Move((str.Memory+size-1)^,(AufScpt.PSW.run_parameter.ram_zero+head)^,-size);
+    //不能逆向复制，考虑寻找有没有reverse_move()之类的选择，或者自己修改asm
+    Move(str.Memory^,(AufScpt.PSW.run_parameter.ram_zero+head)^,size);
+    //ReverseMove(str.Memory^,(AufScpt.PSW.run_parameter.ram_zero+head)^,size);
+
+  finally
+    str.Free;
+  end;
+
+end;
+procedure file_write(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    arv:TAufRamVar;
+    filename:string;
+    str:TMemoryStream;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToARV(1,0,High(Longint),[ARV_Char],arv) then exit;
+  if not AAuf.TryArgToString(2,filename) then exit;
+
+  str:=TMemoryStream.Create;
+  try
+    str.SetSize(arv.size);
+    Move(arv.Head^,str.Memory^,arv.size);
+    str.SaveToFile(filename);
+  finally
+    str.Free;
+  end;
+
+end;
+procedure file_getbytes(Sender:TObject);//getbytes @var,idx,len
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    arv:TAufRamVar;
+    idx,len:pRam;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(4) then exit;
+  if not AAuf.TryArgToARV(1,0,High(longint),[ARV_Char,ARV_FixNum],arv) then exit;
+  if not AAuf.TryArgToDWord(2,idx) then exit;
+  if not AAuf.TryArgToDWord(3,len) then exit;
+
+  AufScpt.Expression.Local.TryAddExp('prev_res',AufScpt.RamVarClipToNargs(arv,idx,len));
+
+
+end;
+procedure file_setbytes(Sender:TObject);//setbytes @var,idx,@src
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    arv,src:TAufRamVar;
+    idx:pRam;
+    len:longint;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(4) then exit;
+  if not AAuf.TryArgToARV(1,0,High(longint),[ARV_Char,ARV_FixNum],arv) then exit;
+  if not AAuf.TryArgToDWord(2,idx) then exit;
+  if not AAuf.TryArgToARV(3,0,High(longint),[ARV_Char,ARV_FixNum],src) then exit;
+
+  if arv.size<src.size+idx then len:=arv.size-idx+1 else len:=src.size;
+  Move(src.Head^,arv.Head^,len);
+
+end;
+
+
+
 //内置流程函数结束
 
 
@@ -2556,7 +2703,6 @@ begin
     result:=false
   end else result:=true;
 end;
-
 
 constructor TAuf.Create(AOwner:TComponent=nil);
 var i:byte;
@@ -3015,6 +3161,7 @@ begin
   result.Is_Temporary:=false;
   result.Stream:=nil;
 end;
+
 function TAufScript.RamVar(arg:Tnargs):TAufRamVar;//将标准变量形式转化成ARV  相对地址$"@@BB|@A"  绝对地址$&"@@BB|@A"
 var s_addr,s_size:string;
     is_ref:boolean;
@@ -3055,6 +3202,36 @@ begin
   result.Is_Temporary:=false;
   result.Stream:=nil;
 
+end;
+
+function TAufScript.RamVarToNargs(arv:TAufRamVar;not_offset:boolean=false):Tnargs;
+begin
+  result.pre:='';
+  result.arg:='~illegal arv type';
+  result.post:='';
+
+  case arv.VarType of
+    //ARV_Raw:;
+    ARV_Char:result.pre:='#';
+    ARV_FixNum:result.pre:='$';
+    ARV_Float:result.pre:='~';
+    else exit;
+  end;
+
+  if not_offset then result.pre:=result.pre+'&';
+  result.pre:=result.pre+'"';
+  result.post:='"';
+
+  if not_offset then result.arg:=DwordToRawStr(int64(arv.Head))
+  else result.arg:=DwordToRawStr(int64(arv.Head)-int64(Self.PSW.run_parameter.ram_zero));
+  result.arg:=result.arg+'|'+DwordToRawStr(arv.size);
+end;
+
+function TAufScript.RamVarClipToNargs(arv:TAufRamVar;idx,len:pRam;not_offset:boolean=false):Tnargs;
+var clip:TAufRamVar;
+begin
+  clip:=arv_clip(arv,idx,len);
+  result:=RamVarToNargs(clip,not_offset);
 end;
 
 function TAufScript.SharpToDouble(sharp:Tnargs):double;
@@ -3764,6 +3941,8 @@ procedure TAufScript.RunFirst;//代码执行初始化
 begin
   //Self.writeln('RunFirst');
   randomize;
+  Self.Expression.Local.TryAddExp('prev_res',narg('','~uninitalized prev_res',''));
+
   PSW.run_parameter.current_strings:=ScriptLines;
   if PSW.print_mode.resume_when_run_close then
     begin
@@ -4191,6 +4370,7 @@ begin
   Self.add_func('div,除法',@div_,'v1,v2','将v1和v2的值相除并返回给v1');
   Self.add_func('mod,求余',@mod_,'v1,v2','将v1和v2的值求余并返回给v1');
   Self.add_func('rand,随机数',@rand,'v1,v2','将不大于v2的随机整数返回给v1');
+  Self.add_func('swap,字节倒序',@_swap,'v1','将v1字节倒序');
   Self.add_func('fill,填充字节',@_fillbyte,'var,byte','用byte填充var');
 
   Self.add_func('loop,循环',@_loop,':label/ofs,times[,st]','简易循环times次');
@@ -4269,6 +4449,13 @@ begin
 end;
 procedure TAufScript.AdditionFuncDefine_File;
 begin
+  Self.add_func('readf,读取文件',@file_read,'var,filename','读取文件并保存至var');
+  Self.add_func('writef,保存文件',@file_write,'var,filename','将var保存至文件');
+
+  Self.add_func('getbytes,截取字节',@file_getbytes,'var,idx,len','截取变量var中从idx起的len个字节到@prev_res');
+  Self.add_func('setbytes,保存字节',@file_setbytes,'var,idx,src','将变量src保存到变量var的第idx个字节，超出部分不保存');
+
+
 
 end;
 procedure TAufScript.AdditionFuncDefine_Math;
