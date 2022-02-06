@@ -11,8 +11,9 @@ program fpcunitproject1;
 {$mode objfpc}{$H+}
 
 uses
-  Classes, StdCtrls, ExtCtrls, Sysutils, Forms, consoletestrunner, Interfaces, Controls,
-  LazUTF8, Windows, Apiglio_Useful, auf_ram_var, aufscript_frame, aufscript_command;
+  Classes, StdCtrls, ExtCtrls, Sysutils, Forms, consoletestrunner, Interfaces,
+  Controls, LazUTF8, Windows, Apiglio_Useful, auf_ram_var, aufscript_frame,
+  aufscript_command, auf_ram_syntax;
 
 type
 

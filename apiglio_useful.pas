@@ -18,7 +18,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.1.3';
+  AufScript_Version='beta 2.1.4';
 
   c_divi=[' ',','];//隔断符号
   c_iden=['~','@','$','#','?',':','&'];//变量符号，前后缀符号
@@ -756,6 +756,36 @@ begin
       AufScpt.send_error('警告：参数需要是ARV变量，语句未执行。');exit;
     end;
   end;
+end;
+procedure _beep(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    freq,dura:dword;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  freq:=600;
+  dura:=100;
+  if AAuf.ArgsCount>1 then begin
+    if not AAuf.TryArgToDWord(1,freq) then exit;
+  end;
+  if AAuf.ArgsCount>2 then begin
+    if not AAuf.TryArgToDWord(2,dura) then exit;
+  end;
+  Windows.beep(freq,dura);
+  //beep;
+end;
+procedure _cmd(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    command:string;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  AAuf.CheckArgs(2);
+  if not AAuf.TryArgToString(1,command) then exit;
+  command:=StringReplace(command,'%Q','"',[rfReplaceAll]);
+  ShellExecute(0,'open','cmd.exe',pchar('/c '+command),nil,SW_HIDE);
 end;
 procedure _clear(Sender:TObject);
 var AufScpt:TAufScript;
@@ -1625,17 +1655,23 @@ end;
 procedure _define(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
+    global:boolean;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
-  //if AAuf.ArgsCount<3 then begin AufScpt.send_error('警告：define需要两个变量，该语句未执行。');exit end;
+  global:=false;
+  if AAuf.ArgsCount>=4 then
+    begin
+      if lowercase(AAuf.args[3])='-global' then global:=true;
+    end;
   case AAuf.nargs[1].arg[1] of
     'a'..'z','A'..'Z','_':;
     else begin AufScpt.send_error('警告：第一个参数的第一个字符需要是字母或下划线，该语句未执行。');exit end;
   end;
   try
-    AufScpt.Expression.Local.TryAddExp(AAuf.nargs[1].arg,AAuf.nargs[2]);
+    if global then AufScpt.Expression.Global.TryAddExp(AAuf.nargs[1].arg,AAuf.nargs[2])
+    else AufScpt.Expression.Local.TryAddExp(AAuf.nargs[1].arg,AAuf.nargs[2]);
   except
     AufScpt.send_error('警告：define参数有误，未正确执行')
   end;
@@ -1643,11 +1679,16 @@ end;
 procedure _rendef(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
+    global:boolean;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
-  //if AAuf.ArgsCount<3 then begin AufScpt.send_error('警告：rendef需要两个变量，该语句未执行。');exit end;
+  global:=false;
+  if AAuf.ArgsCount>=4 then
+    begin
+      if lowercase(AAuf.args[3])='-global' then global:=true;
+    end;
   case AAuf.nargs[1].arg[1] of
     'a'..'z','A'..'Z','_':;
     else begin AufScpt.send_error('警告：第一个参数的第一个字符需要是字母或下划线，该语句未执行。');exit end;
@@ -1657,7 +1698,8 @@ begin
     else begin AufScpt.send_error('警告：第二个参数的第一个字符需要是字母或下划线，该语句未执行。');exit end;
   end;
   try
-    AufScpt.Expression.Local.TryRenameExp(AAuf.nargs[1].arg,AAuf.nargs[2].arg);
+    if global then AufScpt.Expression.Global.TryRenameExp(AAuf.nargs[1].arg,AAuf.nargs[2].arg)
+    else AufScpt.Expression.Local.TryRenameExp(AAuf.nargs[1].arg,AAuf.nargs[2].arg);
   except
     AufScpt.send_error('警告：rendef参数有误，未正确执行')
   end;
@@ -1665,20 +1707,98 @@ end;
 procedure _deldef(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
+    global:boolean;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(2) then exit;
+  global:=false;
+  if AAuf.ArgsCount>=3 then
+    begin
+      if lowercase(AAuf.args[2])='-global' then global:=true;
+    end;
   case AAuf.nargs[1].arg[1] of
     'a'..'z','A'..'Z','_':;
     else begin AufScpt.send_error('警告：参数的第一个字符需要是字母或下划线，该语句未执行。');exit end;
   end;
   try
-    AufScpt.Expression.Local.TryDeleteExp(AAuf.nargs[1].arg);
+    if global then AufScpt.Expression.Global.TryDeleteExp(AAuf.nargs[1].arg)
+    else AufScpt.Expression.Local.TryDeleteExp(AAuf.nargs[1].arg);
   except
     AufScpt.send_error('警告：表达式不存在或者为只读状态，未成功删除。')
   end;
 end;
+procedure _ifdef(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    addr:pRam;
+    global:boolean;
+    tmpExprList:TAufExpressionList;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  global:=false;
+  if AAuf.ArgsCount>=4 then
+    begin
+      if lowercase(AAuf.args[3])='-global' then global:=true;
+    end;
+  case AAuf.nargs[1].arg[1] of
+    'a'..'z','A'..'Z','_':;
+    else begin AufScpt.send_error('警告：参数的第一个字符需要是字母或下划线，该语句未执行。');exit end;
+  end;
+  if not AAuf.TryArgToAddr(2,addr) then exit;
+  if global then tmpExprList:=AufScpt.Expression.Global
+  else tmpExprList:=AufScpt.Expression.Local;
+  if tmpExprList.Find(AAuf.nargs[1].arg)<>nil then
+    begin
+      AufScpt.jump_addr(addr);
+    end
+  else if tmpExprList.Find(AAuf.nargs[1].arg)<>nil then
+    begin
+      AufScpt.jump_addr(addr);
+    end
+  else
+    begin
+      //
+    end;
+end;
+procedure _ifndef(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    addr:pRam;
+    global:boolean;
+    tmpExprList:TAufExpressionList;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  global:=false;
+  if AAuf.ArgsCount>=4 then
+    begin
+      if lowercase(AAuf.args[3])='-global' then global:=true;
+    end;
+  case AAuf.nargs[1].arg[1] of
+    'a'..'z','A'..'Z','_':;
+    else begin AufScpt.send_error('警告：参数的第一个字符需要是字母或下划线，该语句未执行。');exit end;
+  end;
+  if not AAuf.TryArgToAddr(2,addr) then exit;
+  if global then tmpExprList:=AufScpt.Expression.Global
+  else tmpExprList:=AufScpt.Expression.Local;
+  if tmpExprList.Find(AAuf.nargs[1].arg)<>nil then
+    begin
+      //
+    end
+  else if tmpExprList.Find(AAuf.nargs[1].arg)<>nil then
+    begin
+      //
+    end
+  else
+    begin
+      AufScpt.jump_addr(addr);
+    end;
+end;
+
 
 
 procedure _var(Sender:TObject);
@@ -3353,20 +3473,27 @@ end;
 procedure TAufScript.define_helper;
 var i:word;
     tmp:TAufExpressionUnit;
+    function boolexpr(b:boolean):string;
+    begin
+      if b then result:='  [R.]' else result:='  [RW]';
+    end;
+
 begin
   Self.writeln('定义列表:');
+  Self.writeln('[全局]');
   i:=0;
   while i<Self.Expression.Global.Count do
     begin
       tmp:=TAufExpressionUnit(Self.Expression.Global.Items[i]);
-      Self.writeln('@'+Usf.left_adjust(tmp.key,16)+' = '+tmp.value.pre+tmp.value.arg+tmp.value.post);
+      Self.writeln(boolexpr(tmp.readonly)+'@'+Usf.left_adjust(tmp.key,16)+' = '+tmp.value.pre+tmp.value.arg+tmp.value.post);
       inc(i);
     end;
+  Self.writeln('[局部]');
   i:=0;
   while i<Self.Expression.Local.Count do
     begin
       tmp:=TAufExpressionUnit(Self.Expression.Local.Items[i]);
-      Self.writeln('@'+Usf.left_adjust(tmp.key,16)+' = '+tmp.value.pre+tmp.value.arg+tmp.value.post);
+      Self.writeln(boolexpr(tmp.readonly)+'@'+Usf.left_adjust(tmp.key,16)+' = '+tmp.value.pre+tmp.value.arg+tmp.value.post);
       inc(i);
     end;
 
@@ -3737,6 +3864,7 @@ var i:dword;
     cmd:string;
     line_tmp:dword;
 begin
+  if not Self.PSW.haltoff then exit;
   if str.count = 0 then begin
     if Self.Func_process.ending<>nil then Self.Func_process.ending(Self);
     exit
@@ -4042,6 +4170,8 @@ begin
   Self.add_func('ramim,内存导入',@ramim,'filename [,var [,-f]]','从文件中载入数据到内存');
   Self.add_func('sleep,延时',@_sleep,'n','等待n毫秒');
   Self.add_func('pause,暂停',@_pause,'','暂停');
+  Self.add_func('beep,蜂鸣',@_beep,'freq,dura','以freq的频率蜂鸣dura毫秒');
+  Self.add_func('cmd,shell,指令',@_cmd,'command','调用命令提示行');
 
   Self.add_func('hex,显示16进制',@hex,'var','输出标准变量形式的十六进制');
   Self.add_func('hexln,显示16进制后换行',@hexln,'var','输出标准变量形式的十六进制并换行');
@@ -4074,6 +4204,8 @@ begin
   Self.add_func('define,创建定义',@_define,'name,expr','定义一个以@开头的局部宏定义');
   Self.add_func('rendef,重命名定义',@_rendef,'old,new','修改一个局部宏定义的名称');
   Self.add_func('deldef,删除定义',@_deldef,'name       ','删除一个局部宏定义的名称');
+  Self.add_func('ifdef,有定义则跳转',@_ifdef,'name       ','如果有定义则跳转');
+  Self.add_func('ifndef,无定义则跳转',@_ifndef,'name       ','如果没有定义则跳转');
   Self.add_func('var,创建变量',@_var,'type,name,size','创建一个ARV变量');
   Self.add_func('unvar,删除变量',@_unvar,'name        ','释放一个ARV变量');
 
@@ -4184,6 +4316,8 @@ INITIALIZATION
   //这个是共用的，所有AufScript.Expression.Global都应该赋值这个
   GlobalExpressionList.TryAddExp('AufScriptAuthor',narg('"','Apiglio&Apemiro','"'));
   GlobalExpressionList.TryAddExp('AufScriptVersion',narg('"',AufScript_Version,'"'));
+  TAufExpressionUnit(GlobalExpressionList.Items[0]).readonly:=true;
+  TAufExpressionUnit(GlobalExpressionList.Items[1]).readonly:=true;
 
   RegCalc:=TRegExpr.Create;
 
