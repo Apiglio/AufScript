@@ -5,7 +5,7 @@ unit auf_ram_var;
 interface
 
 uses
-  Classes, SysUtils;
+  Classes, SysUtils, LazUTF8;
 
 type
   TAufRamVar = record
@@ -44,8 +44,9 @@ type
   function arv_to_hex(ina:TAufRamVar):string;
   function arv_to_dword(ina:TAufRamVar):dword;
   function arv_to_double(ina:TAufRamVar):double;
+
   procedure initiate_arv(exp:string;var arv:TAufRamVar);//根据字符串创建最大相似的ARV
-  procedure initiate_arv_str(exp:string;var arv:TAufRamVar);//根据字符串创建字符串的ARV
+  procedure initiate_arv_str(exp:RawByteString;var arv:TAufRamVar);//根据字符串创建字符串的ARV
 
 
 implementation
@@ -171,12 +172,12 @@ end;
 procedure ARV_add(ina,inb:TAufRamVar;var oup:TAufRamVar);
 begin
   if (ina.VarType=ARV_FixNum) and (inb.VarType=ARV_FixNum) then fixnum_add(ina,inb,oup)
-  else Auf.Script.send_error('暂不支持整型数以外的变量加法');
+  else raise Exception.Create('暂不支持整型数以外的变量加法');
 end;
 procedure ARV_sub(ina,inb:TAufRamVar;var oup:TAufRamVar);
 begin
   if (ina.VarType=ARV_FixNum) and (inb.VarType=ARV_FixNum) then fixnum_sub(ina,inb,oup)
-  else Auf.Script.send_error('暂不支持整型数以外的变量加法');
+  else raise Exception.Create('暂不支持整型数以外的变量加法');
 end;
 procedure ARV_mul(ina,inb:TAufRamVar;var oup:TAufRamVar);
 begin
@@ -230,18 +231,19 @@ begin
   result:='';
   case ina.VarType of
     ARV_FixNum:begin
-                 result:='暂不支持整型数的to_s转换，请使用to_hex';
+                 raise Exception.Create('暂不支持整型数的to_s转换，请使用to_hex');
                end;
     ARV_Float :begin
-                 result:='暂不支持浮点型的to_s转换，请使用to_hex';
+                 raise Exception.Create('暂不支持浮点型的to_s转换，请使用to_hex');
                end;
     ARV_Char  :begin
                  for pi:=ina.size-1 downto 0 do
                    begin
                      result:=result+chr((ina.Head+pi)^);
                    end;
+                 result:=wincptoutf8(result);
                end;
-    else {raise Exception.Create('错误的ARV类型，不能转换为字符串')}begin Auf.Script.send_error('错误的ARV类型，不能转换为字符串');result:='';exit end;
+    else begin raise Exception.Create('错误的ARV类型，不能转换为字符串');result:='';exit end;
   end;
 end;
 function arv_to_hex(ina:TAufRamVar):string;
@@ -257,8 +259,8 @@ begin
     end
   else
     begin
-      Auf.Script.send_error('警告：地址超界！');
-      for pi:=ina.size-1 downto 0 do result:=result+'00';
+      raise Exception.Create('警告：地址超界！');
+      result:='00H';
     end;
   result:=result+')';
 end;
@@ -279,14 +281,14 @@ begin
                    end;
                end;
     ARV_Float :begin
-                 Auf.Script.send_error('警告：浮点型不支持to_dword转换');
+                 raise Exception.Create('警告：浮点型不支持to_dword转换');
                  result:=0;
                end;
     ARV_Char  :begin
-                 Auf.Script.send_error('警告：暂不支持字符型的to_dword转换');
+                 raise Exception.Create('警告：暂不支持字符型的to_dword转换');
                  result:=0;
                end;
-    else {raise Exception.Create('错误的ARV类型，不能转换为字符串')}begin Auf.Script.send_error('错误的ARV类型，不能转换为字符');result:=0;exit end;
+    else begin raise Exception.Create('错误的ARV类型，不能转换为字符');result:=0;exit end;
   end;
 end;
 function arv_to_double(ina:TAufRamVar):double;
@@ -306,14 +308,14 @@ begin
                    end;
                end;
     ARV_Float :begin
-                 Auf.Script.send_error('警告：浮点型不支持to_double转换');
+                 raise Exception.Create('警告：浮点型不支持to_double转换');
                  result:=0;
                end;
     ARV_Char  :begin
-                 Auf.Script.send_error('警告：暂不支持字符型的to_double转换');
+                 raise Exception.Create('警告：暂不支持字符型的to_double转换');
                  result:=0;
                end;
-    else {raise Exception.Create('错误的ARV类型，不能转换为字符串')}begin Auf.Script.send_error('警告：错误的ARV类型，不能转换为字符串');exit end;
+    else begin raise Exception.Create('警告：错误的ARV类型，不能转换为字符串');exit end;
   end;
 end;
 
@@ -354,16 +356,15 @@ begin
     end
   else
     begin
-      Auf.Script.send_error('警告：暂时不支持十六进制以外的整型数和浮点型');
-      //raise Exception.Create('暂时不支持十六进制以外的整型数和浮点型');
+      raise Exception.Create('警告：暂时不支持十六进制以外的整型数和浮点型');
     end;
 end;
 
-procedure initiate_arv_str(exp:string;var arv:TAufRamVar);//根据字符串创建字符串的ARV，非临时性ARV位数按规定赋值，临时性以参数位数为准
+procedure initiate_arv_str(exp:RawByteString;var arv:TAufRamVar);//根据字符串创建字符串的ARV，非临时性ARV位数按规定赋值，临时性以参数位数为准
 var size,len,pi:integer;
-    str,stmp:string;
+    str,stmp:RawByteString;
 begin
-  str:=exp;
+  str:=utf8towincp(exp);
   len:=length(str);
   size:=len;
   if arv.Is_Temporary then

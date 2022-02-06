@@ -1,33 +1,34 @@
 program fpcunitproject1;
 
 {$define GUI_TEST}
-
 {$ifdef GUI_TEST}
-  {$apptype GUI}
+  //{$apptype GUI}
+  {$define AufFrame}
 {$else}
-  {$apptype console}
+  //{$apptype console}
 {$endif}
 
 {$mode objfpc}{$H+}
 
 uses
-  Classes, StdCtrls, ExtCtrls, Sysutils, Forms, consoletestrunner, Interfaces, LazUTF8, Windows, Apiglio_Useful, auf_ram_var;
+  Classes, StdCtrls, ExtCtrls, Sysutils, Forms, consoletestrunner, Interfaces,
+  LazUTF8, Windows, Apiglio_Useful, auf_ram_var, aufscript_frame, aufscript_command;
 
 type
 
   {$ifdef GUI_TEST}
   TMyTestForm = class(TForm)
   published
-    Memo_cmd,Memo_output:TMemo;
-    Button_run,Button_pause,Button_stop:TButton;
+    {$ifdef AufFrame}
+    AufFrame:TFrame_AufScript;
+    {$else}
+    AufMemo:TMemo_AufScript;
+    {$endif}
   public
     constructor CreateNew(AOwner:TComponent);
     procedure InitializeForm;
     procedure ResizeForm(Sender:TObject);
     procedure FormDestroy(Sender:TObject);
-    procedure OnRunClick(Sender:TObject);
-    procedure OnStopClick(Sender:TObject);
-    procedure OnPauseClick(Sender:TObject);
   public
     procedure test;
   end;
@@ -58,47 +59,6 @@ var
 
 
 {$ifdef GUI_TEST}
-procedure command_decoder(var str:string);
-begin
-  str:=utf8towincp(str);
-  str:=StringReplace(str,'\s',' ',[rfReplaceAll]);
-
-end;
-procedure renew_pre;
-begin Application.ProcessMessages end;
-procedure renew_post;
-begin Application.ProcessMessages end;
-procedure renew_mid;
-begin Application.ProcessMessages end;
-procedure renew_beginning;
-begin
-  Test_Form.Memo_output.Clear;
-  Test_Form.Button_run.Enabled:=false;
-  Test_Form.Button_stop.Enabled:=true;
-  Test_Form.Button_pause.Enabled:=true;
-  Test_Form.Memo_cmd.ReadOnly:=true;
-  Application.ProcessMessages;
-end;
-procedure renew_ending;
-begin
-  Test_Form.Button_run.Enabled:=true;
-  Test_Form.Button_stop.Enabled:=false;
-  Test_Form.Button_pause.Enabled:=false;
-  Test_Form.Memo_cmd.ReadOnly:=false;
-  Application.ProcessMessages;
-end;
-procedure renew_writeln(str:string);
-begin
-  Test_Form.Memo_output.lines.add(ansitoutf8(str));
-  Application.ProcessMessages;
-end;
-procedure renew_write(str:string);
-begin
-  Test_Form.Memo_output.lines[Test_Form.Memo_output.Lines.Count-1]:=
-  Test_Form.Memo_output.lines[Test_Form.Memo_output.Lines.Count-1]+
-  ansitoutf8(str);
-  Application.ProcessMessages;
-end;
 { TMyTestForm }
 procedure TMyTestForm.test;
 begin
@@ -106,68 +66,25 @@ begin
 end;
 procedure TMyTestForm.InitializeForm;
 begin
-  Self.Memo_cmd:=TMemo.Create(Self);
-  Self.Memo_output:=TMemo.Create(Self);
-  Self.Button_run:=TButton.Create(Self);
-  Self.Button_stop:=TButton.Create(Self);
-  Self.Button_pause:=TButton.Create(Self);
-  Self.Memo_cmd.Parent:=Self;
-  Self.Memo_output.Parent:=Self;
-  Self.Button_run.Parent:=Self;
-  Self.Button_stop.Parent:=Self;
-  Self.Button_pause.Parent:=Self;
-
-  Self.Memo_cmd.ScrollBars:=ssAutoVertical;
-  Self.Memo_output.ScrollBars:=ssAutoVertical;
-
-  Self.Button_run.Caption:='开始';
-  Self.Button_stop.Caption:='停止';
-  Self.Button_pause.Caption:='暂停';
-
-  Self.Button_run.OnClick:=@Self.OnRunClick;
-  Self.Button_stop.OnClick:=@Self.OnStopClick;
-  Self.Button_pause.OnClick:=@Self.OnPauseClick;
+  Self.Caption:='Auf GUI Tester';
+  Self.Width:=600;
+  Self.Height:=360;
+  Self.Position:=poScreenCenter;
+  Self.Show;
+  {$ifndef AufFrame}
+  AufMemo:=TMemo_AufScript.Create(Self);
+  AufMemo.Parent:=Self;
+  {$else}
+  AufFrame:=TFrame_AufScript.Create(Self);
+  AufFrame.Parent:=Self;
+  AufFrame.FrameResize(nil);
+  AufFrame.AufGenerator;
+  {$endif}
   Self.ResizeForm(nil);
   Self.OnResize:=@Self.ResizeForm;
   Self.OnDestroy:=@Self.FormDestroy;
 
-  Test_Form.Caption:='Auf GUI Tester';
-  Test_Form.Width:=300;
-  Test_Form.Height:=200;
-  Test_Form.Position:=poScreenCenter;
-  Test_Form.Show;
-  {
-  MessageBox(0,
-      Usf.ExPChar(
-                  '@Auf.Script.Func_process.beginning=$'+
-                  Usf.to_hex(dword(Auf.Script.Func_process.beginning),8)+
-                  #13+#10+'@renew_beginning=$'+
-                  Usf.to_hex(dword(@renew_beginning),8)
-                  ),
-      'Process_Check',
-      MB_OK);
-  }
-  Auf.Script.IO_fptr.command_decode:=@command_decoder;
-  Auf.Script.IO_fptr.echo:=@renew_writeln;
-  Auf.Script.IO_fptr.print:=@renew_write;
-  Auf.Script.IO_fptr.pause:=@de_nil;
-  Auf.Script.IO_fptr.error:=@renew_writeln;
-  Auf.Script.Func_process.beginning:=@renew_beginning;
-  Auf.Script.Func_process.ending:=@renew_ending;
-  Auf.Script.Func_process.pre:=@renew_pre;
-  Auf.Script.Func_process.mid:=@renew_mid;
-  Auf.Script.Func_process.post:=@renew_post;
-  {
-  MessageBox(0,
-      Usf.ExPChar(
-                  '@Auf.Script.Func_process.beginning=$'+
-                  Usf.to_hex(dword(Auf.Script.Func_process.beginning),8)+
-                  #13+#10+'@renew_beginning=$'+
-                  Usf.to_hex(dword(@renew_beginning),8)
-                  ),
-      'Process_Check',
-      MB_OK);
-  }
+
 
 end;
 constructor TMyTestForm.CreateNew(AOwner:TComponent);
@@ -176,37 +93,22 @@ begin
   Self.InitializeForm;
 end;
 procedure TMyTestForm.ResizeForm(Sender:TObject);
-var DI,TRE:word;//二分、三分宽度
-    gap:word;//通用间隔
-    BtnH:word;//按钮高度
+var gap:word;//通用间隔
+
 begin
   gap:=6;
-  BtnH:=30;
-  DI:=(Self.Width-3*gap)div 2;
-  TRE:=(Self.Width-4*gap)div 3;
-
-  Self.Memo_cmd.Height:=Self.Height - 3*gap - BtnH;
-  Self.Memo_output.Height:=Self.Height - 3*gap - BtnH;
-  Self.Memo_cmd.Width:=DI;
-  Self.Memo_output.Width:=DI;
-  Self.Memo_cmd.Top:=gap;
-  Self.Memo_output.Top:=gap;
-  Self.Memo_cmd.Left:=gap;
-  Self.Memo_output.Left:=Self.Memo_cmd.Width + 2*gap;
-  Self.Button_run.Left:=gap;
-  Self.Button_run.Top:=Self.Height - BtnH - gap;
-  Self.Button_run.Width:=TRE;
-  Self.Button_run.Height:=BtnH;
-
-  Self.Button_pause.Left:=2*gap+TRE;
-  Self.Button_pause.Top:=Self.Height - BtnH - gap;
-  Self.Button_pause.Width:=TRE;
-  Self.Button_pause.Height:=BtnH;
-
-  Self.Button_stop.Left:=3*gap+2*TRE;
-  Self.Button_stop.Top:=Self.Height - BtnH - gap;
-  Self.Button_stop.Width:=TRE;
-  Self.Button_stop.Height:=BtnH;
+  {$ifndef AufFrame}
+  Self.AufMemo.Width:=Self.Width-2*gap;
+  Self.AufMemo.Height:=Self.Height-2*gap;
+  Self.AufMemo.Left:=gap;
+  Self.AufMemo.Top:=gap;
+  {$else}
+  Self.AufFrame.Width:=Self.Width-2*gap;
+  Self.AufFrame.Height:=Self.Height-2*gap;
+  Self.AufFrame.Left:=gap;
+  Self.AufFrame.Top:=gap;
+  Self.AufFrame.FrameResize(nil);
+  {$endif}
 
 end;
 procedure TMyTestForm.FormDestroy(Sender:TObject);
@@ -214,30 +116,7 @@ begin
   //Application.Terminate;
   Halt;
 end;
-procedure TMyTestForm.OnRunClick(Sender:TObject);
-begin
-  Auf.Script.command(Self.Memo_cmd.Lines);
-end;
-procedure TMyTestForm.OnStopClick(Sender:TObject);
-begin
-  Auf.Script.Stop;
-end;
-procedure TMyTestForm.OnPauseClick(Sender:TObject);
-var btn:TButton;
-begin
-  btn:=Sender as TButton;
-  if btn.Caption='暂停' then begin
-    //Auf.Script.Time.TimerPause:=true;
-    Auf.Script.Pause;
-    btn.Caption:='继续';
-  end else begin
-    //Auf.Script.Time.TimerPause:=false;
-    //Auf.Script.send(AufProcessControl_RunNext);
-    Auf.Script.Resume;
-    btn.Caption:='暂停';
-  end;
-end;
-{$else}
+
 {$endif}
 
 procedure test(str:string);
@@ -245,24 +124,25 @@ begin
   writeln(str);
 end;
 
-begin
+BEGIN
   {$ifdef GUI_TEST}
   Application:=TApplication.Create(nil);
   Application.Initialize;
   Application.CreateForm(TMyTestForm,Test_Form);
 
-  Auf.Free;
-  Auf:=TAuf.Create(Test_Form);
-  Auf.Script.InternalFuncDefine;
-
+  {$ifndef AufFrame}
+  ///////////////////////////////
+  {$endif}
   Test_Form.InitializeForm;
-  Test_Form.Memo_cmd.Lines.CommaText:='aa:,echoln\s"aaa",sleep\s100,jmp\s:aa';
-
   Application.Run;
   {$else}
   Application := TMyTestRunner.Create(nil);
   Application.Initialize;
   Application.Title := 'FPCUnit Console test runner';
+
+  Auf.Free;
+  Auf:=TAuf.Create(nil);
+  Auf.Script.InternalFuncDefine;
 
   writeln;
   writeln;
@@ -293,13 +173,15 @@ begin
   writeln(isprintable('<W:WF#$'));
   writeln(isprintable('WW5236,.;F#$'));
 
-
   Auf.Script.command('help');
+  Auf.Script.command('echoln "English Test"');
+  Auf.Script.command('echoln "中文测试"');
+  Auf.Script.command('mov #8[0] "中文测试"');
+  Auf.Script.command('println #8[0]');
   writeln('----------------------');
   writeln;
   writeln;
   writeln;
-
 
   ts:=TStringList.Create;
   //ts.add('mov $1,0');
@@ -319,6 +201,7 @@ begin
   //ts.add('mov @4,12345');
   //ts.add('test $"@@@@@@@@|@D",$"@@@@@@@D|@D"');
   //ts.add('end');
+
 
   //以下是内存区置零代码
 
@@ -373,4 +256,4 @@ begin
   Application.Free;
   {$endif}
 
-end.
+END.
