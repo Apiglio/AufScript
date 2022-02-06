@@ -8,18 +8,18 @@
       <Unit0>
         <Filename Value="fpcunitproject1.lpr"/>
         <IsPartOfProject Value="True"/>
-        <EditorIndex Value="7"/>
-        <TopLine Value="43"/>
-        <CursorPos X="35" Y="56"/>
+        <EditorIndex Value="5"/>
+        <TopLine Value="182"/>
+        <CursorPos X="28" Y="192"/>
         <UsageCount Value="200"/>
         <Loaded Value="True"/>
       </Unit0>
       <Unit1>
         <Filename Value="auf_ram_var.pas"/>
         <IsPartOfProject Value="True"/>
-        <EditorIndex Value="4"/>
-        <TopLine Value="845"/>
-        <CursorPos X="38" Y="860"/>
+        <EditorIndex Value="2"/>
+        <TopLine Value="1501"/>
+        <CursorPos Y="1515"/>
         <UsageCount Value="200"/>
         <Loaded Value="True"/>
       </Unit1>
@@ -28,8 +28,8 @@
         <IsPartOfProject Value="True"/>
         <UnitName Value="Apiglio_Useful"/>
         <IsVisibleTab Value="True"/>
-        <TopLine Value="3149"/>
-        <CursorPos X="33" Y="3160"/>
+        <TopLine Value="2286"/>
+        <CursorPos X="20" Y="2293"/>
         <UsageCount Value="201"/>
         <Loaded Value="True"/>
       </Unit2>
@@ -39,7 +39,7 @@
         <ComponentName Value="Frame_AufScript"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Frame"/>
-        <EditorIndex Value="5"/>
+        <EditorIndex Value="3"/>
         <TopLine Value="502"/>
         <CursorPos X="31" Y="525"/>
         <UsageCount Value="202"/>
@@ -49,7 +49,7 @@
       <Unit4>
         <Filename Value="aufscript_command.pas"/>
         <IsPartOfProject Value="True"/>
-        <EditorIndex Value="6"/>
+        <EditorIndex Value="4"/>
         <TopLine Value="166"/>
         <CursorPos X="63" Y="179"/>
         <UsageCount Value="200"/>
@@ -59,7 +59,7 @@
         <Filename Value="synhighlighterauf.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="SynHighlighterAuf"/>
-        <EditorIndex Value="3"/>
+        <EditorIndex Value="1"/>
         <TopLine Value="312"/>
         <CursorPos X="5" Y="325"/>
         <UsageCount Value="176"/>
@@ -226,11 +226,10 @@
       </Unit27>
       <Unit28>
         <Filename Value="D:\Lazarus\fpc\3.0.4\source\rtl\objpas\classes\classesh.inc"/>
-        <EditorIndex Value="1"/>
+        <EditorIndex Value="-1"/>
         <TopLine Value="62"/>
         <CursorPos X="3" Y="75"/>
         <UsageCount Value="11"/>
-        <Loaded Value="True"/>
       </Unit28>
       <Unit29>
         <Filename Value="D:\Lazarus\fpc\3.0.4\source\rtl\objpas\sysutils\finah.inc"/>
@@ -256,133 +255,132 @@
       </Unit31>
       <Unit32>
         <Filename Value="D:\Lazarus\fpc\3.0.4\source\rtl\objpas\sysutils\sysutilh.inc"/>
-        <EditorIndex Value="2"/>
+        <EditorIndex Value="-1"/>
         <TopLine Value="100"/>
         <CursorPos X="16" Y="113"/>
         <UsageCount Value="11"/>
-        <Loaded Value="True"/>
       </Unit32>
     </Units>
     <JumpHistory Count="30" HistoryIndex="29">
       <Position1>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1418" TopLine="1401"/>
+        <Caret Line="3114" Column="27" TopLine="3101"/>
       </Position1>
       <Position2>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1419" TopLine="1414"/>
+        <Caret Line="649" Column="40" TopLine="638"/>
       </Position2>
       <Position3>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1422" TopLine="1414"/>
+        <Caret Line="312" Column="24" TopLine="305"/>
       </Position3>
       <Position4>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1423" TopLine="1414"/>
+        <Caret Line="3143" Column="41" TopLine="3125"/>
       </Position4>
       <Position5>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1424" TopLine="1414"/>
+        <Caret Line="3126" Column="45" TopLine="3124"/>
       </Position5>
       <Position6>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1425" TopLine="1414"/>
+        <Caret Line="7" Column="102" TopLine="7"/>
       </Position6>
       <Position7>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1429" TopLine="1414"/>
+        <Caret Line="16" Column="33" TopLine="7"/>
       </Position7>
       <Position8>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1431" TopLine="1426"/>
+        <Caret Line="671" Column="27" TopLine="653"/>
       </Position8>
       <Position9>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="449" TopLine="435"/>
+        <Caret Line="314" Column="17" TopLine="302"/>
       </Position9>
       <Position10>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1432" TopLine="1428"/>
+        <Filename Value="fpcunitproject1.lpr"/>
+        <Caret Line="4" Column="3"/>
       </Position10>
       <Position11>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1448" TopLine="1428"/>
+        <Filename Value="fpcunitproject1.lpr"/>
+        <Caret Line="3" Column="3"/>
       </Position11>
       <Position12>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1422" Column="31" TopLine="1415"/>
+        <Filename Value="fpcunitproject1.lpr"/>
+        <Caret Line="264" Column="4" TopLine="214"/>
       </Position12>
       <Position13>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="648" Column="41" TopLine="634"/>
+        <Filename Value="fpcunitproject1.lpr"/>
+        <Caret Line="218" TopLine="187"/>
       </Position13>
       <Position14>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="313" Column="22" TopLine="299"/>
+        <Filename Value="fpcunitproject1.lpr"/>
+        <Caret Line="173" TopLine="159"/>
       </Position14>
       <Position15>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="3100" Column="31" TopLine="3085"/>
+        <Filename Value="fpcunitproject1.lpr"/>
+        <Caret Line="185" TopLine="162"/>
       </Position15>
       <Position16>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="314" Column="31" TopLine="304"/>
+        <Filename Value="fpcunitproject1.lpr"/>
+        <Caret Line="186" TopLine="163"/>
       </Position16>
       <Position17>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="3105" Column="22" TopLine="3091"/>
+        <Filename Value="fpcunitproject1.lpr"/>
+        <Caret Line="187" TopLine="164"/>
       </Position17>
       <Position18>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="3113" Column="24" TopLine="3091"/>
+        <Filename Value="fpcunitproject1.lpr"/>
+        <Caret Line="189" TopLine="166"/>
       </Position18>
       <Position19>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="656" Column="23" TopLine="642"/>
+        <Filename Value="fpcunitproject1.lpr"/>
+        <Caret Line="190" TopLine="167"/>
       </Position19>
       <Position20>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="3119" Column="11" TopLine="3106"/>
+        <Filename Value="fpcunitproject1.lpr"/>
+        <Caret Line="191" TopLine="168"/>
       </Position20>
       <Position21>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="3118" Column="9" TopLine="3106"/>
+        <Caret Line="3894" TopLine="3880"/>
       </Position21>
       <Position22>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="3114" Column="27" TopLine="3101"/>
+        <Caret Line="3895" TopLine="3880"/>
       </Position22>
       <Position23>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="649" Column="40" TopLine="638"/>
+        <Filename Value="fpcunitproject1.lpr"/>
+        <Caret Line="192" TopLine="169"/>
       </Position23>
       <Position24>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="312" Column="24" TopLine="305"/>
+        <Filename Value="fpcunitproject1.lpr"/>
+        <Caret Line="195" TopLine="172"/>
       </Position24>
       <Position25>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="3143" Column="41" TopLine="3125"/>
+        <Filename Value="fpcunitproject1.lpr"/>
+        <Caret Line="196" TopLine="173"/>
       </Position25>
       <Position26>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="3126" Column="45" TopLine="3124"/>
+        <Filename Value="fpcunitproject1.lpr"/>
+        <Caret Line="197" TopLine="174"/>
       </Position26>
       <Position27>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="7" Column="102" TopLine="7"/>
+        <Filename Value="fpcunitproject1.lpr"/>
+        <Caret Line="198" TopLine="175"/>
       </Position27>
       <Position28>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="16" Column="33" TopLine="7"/>
+        <Filename Value="fpcunitproject1.lpr"/>
+        <Caret Line="201" TopLine="178"/>
       </Position28>
       <Position29>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="671" Column="27" TopLine="653"/>
+        <Filename Value="fpcunitproject1.lpr"/>
+        <Caret Line="202" TopLine="179"/>
       </Position29>
       <Position30>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="314" Column="17" TopLine="302"/>
+        <Caret Line="41" Column="92" TopLine="31"/>
       </Position30>
     </JumpHistory>
   </ProjectSession>

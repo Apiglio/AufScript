@@ -17,7 +17,7 @@ uses
 
 const
 
-  AufScript_Version='beta 1.0';
+  AufScript_Version='beta 2.0';
 
   c_divi=[' ',','];//隔断符号
   c_iden=['~','@','$','#','?',':','&'];//变量符号，前后缀符号
@@ -592,7 +592,7 @@ end;
 
 function non_space(ps:string):string;
 var tps:string;
-    tpi:byte;
+    tpi:integer;
 begin
   if ps<>'' then tps:=ps[1] else exit;
   if length(ps)>1 then
@@ -2289,7 +2289,7 @@ end;
 //Auf Methods
 procedure TAuf.ReadArgs(ps:string);
 var tps:string;
-    tpi,tpm:byte;
+    tpi,tpm:integer;
     in_quotation,is_post:boolean;
 begin
   //初始化返回变量
@@ -3277,21 +3277,24 @@ begin
 end;
 procedure TAufScript.write(str:string);
 begin
-  Self.IO_fptr.print(Self,str);
+  if Self.IO_fptr.print<>nil then Self.IO_fptr.print(Self,str);
 end;
 procedure TAufScript.writeln(str:string);
 begin
-  Self.IO_fptr.echo(Self,str);
+  if Self.IO_fptr.echo<>nil then Self.IO_fptr.echo(Self,str);
 end;
 procedure TAufScript.readln;
 begin
-  Self.IO_fptr.pause(Self);
+  if Self.IO_fptr.pause<>nil then Self.IO_fptr.pause(Self);
 end;
 procedure TAufScript.send_error(str:string);
+var ErrStr:string;
 begin
   Self.writeln('');
-  Self.writeln('[In "'+Self.ScriptName+'" Line ' + IntToStr(Self.CurrentLine+1)+ '] '+Self.ScriptLines[Self.currentline]);
-  Self.writeln(str);
+  ErrStr:='[In "'+Self.ScriptName+'" Line ' + IntToStr(Self.CurrentLine+1)+ '] '
+    +Self.ScriptLines[Self.currentline]+#13+#10+str;
+  if Self.IO_fptr.error<>nil then Self.IO_fptr.error(Self,ErrStr);
+
   if Self.PSW.run_parameter.error_raise then begin
     if Self.Func_process.mid<>nil then Self.Func_process.mid(Self);
     Self.Stop;
@@ -3299,7 +3302,7 @@ begin
 end;
 procedure TAufScript.ClearScreen;
 begin
-  Self.IO_fptr.clear(Self);
+  if Self.IO_fptr.clear<>nil then Self.IO_fptr.clear(Self);
 end;
 
 procedure TAufScript.HaltOff;
@@ -3605,7 +3608,7 @@ begin
   for line_tmp:=0 to str.Count - 1 do
     begin
       {tmp}cmd:=str.Strings[line_tmp];
-      IO_fptr.command_decode({tmp}cmd);
+      if IO_fptr.command_decode<>nil then IO_fptr.command_decode({tmp}cmd);
       Self.ScriptLines.Add({tmp}cmd);
     end;
   {$else}
@@ -3613,7 +3616,7 @@ begin
   for line_tmp:=0 to str.Count-1 do
     begin
       {tmp}cmd:=str.Strings[line_tmp];
-      IO_fptr.command_decode({tmp}cmd);
+      if IO_fptr.command_decode<>nil then IO_fptr.command_decode({tmp}cmd);
       str.Strings[line_tmp]:={tmp}cmd;
     end;
   {$endif}
@@ -3882,6 +3885,7 @@ begin
   PSW.run_parameter.ram_zero:=var_stream.Memory;
   PSW.run_parameter.ram_size:=RAM_RANGE*256;
   PSW.run_parameter.error_raise:=false;
+  PSW.haltoff:=true;//20210106
 
   Expression.Global:=GlobalExpressionList;
   Expression.Local:=TAufExpressionList.Create;

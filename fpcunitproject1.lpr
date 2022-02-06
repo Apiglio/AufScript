@@ -5,7 +5,7 @@ program fpcunitproject1;
   //{$apptype GUI}
   {$define AufFrame}
 {$else}
-  //{$apptype console}
+  {$apptype console}
 {$endif}
 
 {$mode objfpc}{$H+}
@@ -197,9 +197,6 @@ BEGIN
   writeln;
   writeln;
 
-  pLongint(Auf.Script.PSW.run_parameter.ram_zero)^:=$DDCCBBAA;
-  Auf.ReadArgs('mov $"@@@@@@@A|@C"');
-  writeln(arv_to_hex(Auf.Script.RamVar(Auf.nargs[1])));
 
   //这一段介绍Auf.ReadArg(str)返回的Auf对象之下的ArgsCount,divi,iden,toto,args[]和nargs[]属性
   Auf.ReadArgs('addb $2,1,"(345,234,12)",@112~,$"S#@FA|@",?"134<<2+22<<4",?"$12[33]",&&"sasde??s"$$,&"@@@@@@@@A"');
@@ -252,7 +249,7 @@ BEGIN
 
 
   //以下是内存区置零代码
-
+  {
   ts.Add('mov,@0,32');
   ts.Add('loo:');
   ts.Add('mov $32{0},0000H');
@@ -261,7 +258,7 @@ BEGIN
   ts.Add('mov $32[0],0000H');
   ts.Add('echoln "done"');
   ts.Add('end');
-
+  }
   //以下是检测高运算次数可行性的代码
   {
   ts.Add('mov @0,0');
