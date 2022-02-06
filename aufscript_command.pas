@@ -92,21 +92,27 @@ begin
   //Application.ProcessMessages;
 end;
 procedure cmd_renew_writeln(Sender:TObject;str:string);
-var Memo:TMemo_AufScript;
+var str_list:TStrings;
+    AufScpt:TAufScript;
 begin
-  Memo:=(Sender as TAufScript).Owner as TMemo_AufScript;
-  Memo.lines[Memo.Lines.Count-1]:=
-  Memo.lines[Memo.Lines.Count-1]+str;
-  Memo.lines.add('');
-  Application.ProcessMessages;
+  AufScpt:=Sender as TAufScript;
+  if AufScpt.PSW.print_mode.is_screen then str_list:=(AufScpt.Owner as TMemo_AufScript).Lines
+  else str_list:=AufScpt.PSW.print_mode.str_list;
+  str_list[str_list.Count-1]:=
+  str_list[str_list.Count-1]+str;
+  str_list.add('');
+  if AufScpt.PSW.print_mode.is_screen then Application.ProcessMessages;
 end;
 procedure cmd_renew_write(Sender:TObject;str:string);
-var Memo:TMemo_AufScript;
+var str_list:TStrings;
+    AufScpt:TAufScript;
 begin
-  Memo:=(Sender as TAufScript).Owner as TMemo_AufScript;
-  Memo.lines[Memo.Lines.Count-1]:=
-  Memo.lines[Memo.Lines.Count-1]+str;
-  Application.ProcessMessages;
+  AufScpt:=Sender as TAufScript;
+  if AufScpt.PSW.print_mode.is_screen then str_list:=(AufScpt.Owner as TMemo_AufScript).Lines
+  else str_list:=AufScpt.PSW.print_mode.str_list;
+  str_list[str_list.Count-1]:=
+  str_list[str_list.Count-1]+str;
+  if AufScpt.PSW.print_mode.is_screen then Application.ProcessMessages;
 end;
 procedure cmd_renew_readln(Sender:TObject);
 begin

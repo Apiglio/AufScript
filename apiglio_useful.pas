@@ -18,7 +18,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.1';
+  AufScript_Version='beta 2.1.2';
 
   c_divi=[' ',','];//隔断符号
   c_iden=['~','@','$','#','?',':','&'];//变量符号，前后缀符号
@@ -242,6 +242,12 @@ type
         extra_variable:record
           timer:longint;//用于Time模块的settimer和gettimer
         end;
+        print_mode:record
+          target_file:string;
+          is_screen:boolean;
+          str_list:TStringList;
+          resume_when_run_close:boolean;//对于AufScptFrame来说为true其余为false
+        end;//输出方式，默认为屏幕。使用os/of切换，of后可以跟文件名。切换os时保存至文件
       end;
       Func:array[0..func_range-1]of record
         name:ansistring;
@@ -266,6 +272,10 @@ type
         OnPause,OnResume:pFuncAuf;//暂停和继续时的额外过程
         Setting:pFuncAuf;//用于set语句的继承，set的定义分别在frame和command中
       end;
+
+    private
+      procedure BeginOF(filename:string);
+      procedure EndOF;
 
     published
       procedure send_error(str:string);inline;
@@ -429,13 +439,30 @@ begin
 end;
 
 procedure de_write(Sender:TObject;str:string);
+var index:integer;
 begin
-  write(UTF8Toansi(str));
+  with (Sender as TAufScript).PSW.print_mode do begin
+    if is_screen then
+      write(UTF8Toansi(str))
+    else begin
+      index:=str_list.Count;
+      if index>=$fffffff0 then exit;
+      str_list[index-1]:=str_list[index-1]+str;
+    end;
+  end;
 end;
 procedure de_writeln(Sender:TObject;str:string);
+var index:integer;
 begin
-  de_write(Sender,str);
-  writeln;
+  with (Sender as TAufScript).PSW.print_mode do begin
+    if is_screen then
+      writeln(UTF8Toansi(str))
+    else begin
+      index:=str_list.Count;
+      if index>=$fffffff0 then exit;
+      str_list.Add(str);
+    end;
+  end;
 end;
 procedure de_readln(Sender:TObject);
 begin
@@ -809,6 +836,22 @@ begin
   }
   if not AAuf.TryArgToString(1,str) then exit;
   AufScpt.write(str);
+end;
+procedure _of(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    str:string;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(2) then exit;
+  if not AAuf.TryArgToString(1,str) then exit;
+  AufScpt.BeginOF(str);
+end;
+
+procedure _os(Sender:TObject);
+begin
+  (Sender as TAufScript).EndOF;
 end;
 {$ifdef TEST_MODE}
 procedure _debugln(Sender:TObject);
@@ -3568,6 +3611,40 @@ begin
     end;
 
 end;
+procedure TAufScript.BeginOF(filename:string);
+begin
+  if PSW.print_mode.is_screen then
+    begin
+      PSW.print_mode.is_screen:=false;
+      PSW.print_mode.target_file:=filename;
+      PSW.print_mode.str_list:=TStringList.Create;
+      PSW.print_mode.str_list.Add('');
+    end
+  else
+    begin
+      if filename=PSW.print_mode.target_file then exit;
+      EndOF;
+      BeginOF(filename);
+    end;
+end;
+procedure TAufScript.EndOF;
+begin
+  if PSW.print_mode.is_screen then
+    begin
+      exit;
+    end
+  else
+    begin
+      try
+        PSW.print_mode.str_list.SaveToFile(PSW.print_mode.target_file);
+      except
+        PSW.print_mode.str_list.SaveToFile('screen.log');
+      end;
+      PSW.print_mode.is_screen:=true;
+      PSW.print_mode.target_file:='';
+      PSW.print_mode.str_list.Free;
+    end;
+end;
 procedure TAufScript.write(str:string);
 begin
   if Self.IO_fptr.print<>nil then Self.IO_fptr.print(Self,str);
@@ -3801,6 +3878,11 @@ begin
   //Self.writeln('RunFirst');
   randomize;
   PSW.run_parameter.current_strings:=ScriptLines;
+  if PSW.print_mode.resume_when_run_close then
+    begin
+      PSW.print_mode.is_screen:=true;
+      PSW.print_mode.target_file:='';
+    end;
   if Self.Func_process.beginning<>nil then Self.Func_process.beginning(Self);//预设的开始过程
   Self.Time.TimerPause:=false;
   IF Self.Time.Synthesis_Mode = SynMoTimer THEN BEGIN
@@ -3885,6 +3967,7 @@ begin
     Self.Time.TimerPause:=false;
     Self.Time.Timer.Enabled:=false;
   END;
+  if (not PSW.print_mode.is_screen) and (PSW.print_mode.resume_when_run_close) then EndOF;
   if Self.Func_process.ending<>nil then Self.Func_process.ending(Self);//预设的结束过程
 end;
 
@@ -4181,6 +4264,8 @@ begin
   PSW.run_parameter.ram_size:=RAM_RANGE*256;
   PSW.run_parameter.error_raise:=false;
   PSW.haltoff:=true;//20210106
+  PSW.print_mode.resume_when_run_close:=false;
+  PSW.print_mode.is_screen:=true;
 
   Expression.Global:=GlobalExpressionList;
   Expression.Local:=TAufExpressionList.Create;
@@ -4206,6 +4291,8 @@ begin
   Self.add_func('echoln,解析表达式后换行',@echoln,'expr','解析表达式并换行');
   Self.add_func('cwln,换行',@cwln,'','换行');
   Self.add_func('clear,清屏',@_clear,'','清屏');
+  Self.add_func('of,输出到文件',@_of,'[filename]','改为输出到文件');
+  Self.add_func('os,输出到屏幕',@_os,'','改为输出到屏幕，同时保存已经输出到文件的内容');
 
   Self.add_func('mov,赋值',@mov,'v1,v2','将v2值赋值给v1');
   Self.add_func('add,加法',@add,'v1,v2','将v1和v2的值相加并返回给v1');
