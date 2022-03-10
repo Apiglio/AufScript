@@ -146,6 +146,11 @@ begin
       exit
     end;
   case AAuf.args[1] of
+    'help':
+      begin
+        AufScpt.writeln('autopause on/off 末尾暂停设置');
+        AufScpt.writeln('autoclear on/off 自动清屏设置');
+      end;
     'autoclear':
       begin
         case AAuf.args[2] of
