@@ -12,5 +12,3 @@ scpt/*
 *.compiled
 *.obj
 *.auf
-*.var
-*.tmp

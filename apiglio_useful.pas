@@ -18,7 +18,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.1.5';
+  AufScript_Version='beta 2.1.6';
 
   c_divi=[' ',','];//隔断符号
   c_iden=['~','@','$','#','?',':','&'];//变量符号，前后缀符号
@@ -95,6 +95,8 @@ type
     arg:string;
     pre,post:string[8];
   end;
+  TJumpMode=(jmNot,jmCall);
+  TJumpModeSet=set of TJumpMode;
 
   TAufTimer=class(TTimer)
   public
@@ -296,10 +298,12 @@ type
       //将Tnargs参数转换成需要的格式，不符合要求的情况下raise，使用时需要解决异常。
       function TryToDouble(arg:Tnargs):double;
       function TryToDWord(arg:Tnargs):dword;
+      function TryToLong(arg:Tnargs):longint;
       function TryToString(arg:Tnargs):string;
 
       function SharpToDouble(sharp:Tnargs):double;
       function SharpToDword(sharp:Tnargs):dword;
+      function SharpToLong(sharp:Tnargs):longint;
       function SharpToString(sharp:Tnargs):string;
 
       function TmpexpToDouble(tmpexp:Tnargs):double;deprecated;
@@ -320,6 +324,9 @@ type
       procedure offs_addr(offs:longint);//跳转偏移地址
       procedure pop_addr;
       procedure push_addr(Ascript:TStrings;Ascriptname:string;line:dword);
+      procedure push_addr(line:dword);
+      procedure push_addr_inline(Ascript:TStrings;Ascriptname:string;line:dword);
+      procedure push_addr_inline(line:dword);
 
     published
       procedure ram_export(filename:string);//将整个内存区域打印到文件
@@ -377,6 +384,9 @@ type
 
       function TryArgToDWord(ArgNumber:byte;out res:dword):boolean;inline;
       //尝试将第ArgNumber个参数转为dword，失败则返回false，并send_error
+
+      function TryArgToLong(ArgNumber:byte;out res:longint):boolean;inline;
+      //尝试将第ArgNumber个参数转为longint，失败则返回false，并send_error
 
       function TryArgToString(ArgNumber:byte;out res:string):boolean;inline;
       //尝试将第ArgNumber个参数转为string，失败则返回false，并send_error
@@ -788,12 +798,6 @@ begin
   command:=StringReplace(command,'%Q','"',[rfReplaceAll]);
   ShellExecute(0,'open','cmd.exe',pchar('/c '+command),nil,SW_HIDE);
 end;
-procedure _clear(Sender:TObject);
-var AufScpt:TAufScript;
-begin
-  AufScpt:=Sender as TAufScript;
-  AufScpt.ClearScreen;
-end;
 procedure _sleep(Sender:TObject);
 var ms:dword;
     AufScpt:TAufScript;
@@ -819,6 +823,16 @@ begin
   (Sender as TAufScript).readln;
 end;
 
+procedure _clear(Sender:TObject);
+var AufScpt:TAufScript;
+begin
+  AufScpt:=Sender as TAufScript;
+  AufScpt.ClearScreen;
+end;
+procedure cwln(Sender:TObject);
+begin
+  (Sender as TAufScript).writeln('');
+end;
 procedure echo(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
@@ -827,17 +841,15 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(2) then exit;
-  for pi:=1 to AAuf.ArgsCount-1 do
-    AufScpt.write('|'+AAuf.args[pi]);
-end;
-procedure cwln(Sender:TObject);
-begin
-  (Sender as TAufScript).writeln('');
-end;
-procedure echoln(Sender:TObject);
-begin
-  echo(Sender);
-  cwln(Sender);
+  case lowercase(AAuf.args[0]) of
+    'echo':for pi:=1 to AAuf.ArgsCount-1 do AufScpt.write('|'+AAuf.args[pi]);
+    'echoln':
+      begin
+        for pi:=1 to AAuf.ArgsCount-1 do AufScpt.write('|'+AAuf.args[pi]);
+        AufScpt.writeln('');
+      end;
+    else AufScpt.send_error('未知函数，需要echo或echoln。');
+  end;
 end;
 procedure print(Sender:TObject);
 var AufScpt:TAufScript;
@@ -848,7 +860,33 @@ begin
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(2) then exit;
   if not AAuf.TryArgToString(1,str) then exit;
-  AufScpt.write(str);
+  if AAuf.ArgsCount>=3 then
+    begin
+      case lowercase(AAuf.args[2]) of
+        'utf8-encode':str:=WinCPToUtf8(str);
+        'utf8-decode':str:=Utf8ToWinCP(str);
+      end;
+    end;
+  case lowercase(AAuf.args[0]) of
+    'print':AufScpt.write(str);
+    'println':AufScpt.writeln(str);
+    else AufScpt.send_error('未知函数，需要print或println。');
+  end;
+end;
+procedure hex(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    arv:TAufRamVar;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(2) then exit;
+  if not AAuf.TryArgToARV(1,High(dword),0,[ARV_FixNum,ARV_Char,ARV_Float,ARV_Raw],arv) then exit;
+  case lowercase(AAuf.args[0]) of
+    'hex':AufScpt.write(arv_to_hex(arv));
+    'hexln':AufScpt.writeln(arv_to_hex(arv));
+    else AufScpt.send_error('未知函数，需要hex或hexln。');
+  end;
 end;
 procedure _of(Sender:TObject);
 var AufScpt:TAufScript;
@@ -880,38 +918,6 @@ begin
   (Sender as TAufScript).Resume;
 end;
 {$endif}
-procedure println(Sender:TObject);
-var AufScpt:TAufScript;
-begin
-  AufScpt:=Sender as TAufScript;
-  print(AufScpt);
-  cwln(Sender);
-end;
-{
-procedure exchange(Sender:TObject);
-var AufScpt:TAufScript;
-begin
-  AufScpt:=Sender as TAufScript;
-end;
-}
-procedure hex(Sender:TObject);
-var AufScpt:TAufScript;
-    AAuf:TAuf;
-    arv:TAufRamVar;
-begin
-  AufScpt:=Sender as TAufScript;
-  AAuf:=AufScpt.Auf as TAuf;
-  if not AAuf.CheckArgs(2) then exit;
-  if not AAuf.TryArgToARV(1,High(dword),0,[ARV_FixNum,ARV_Char,ARV_Float,ARV_Raw],arv) then exit;
-  AufScpt.write(arv_to_hex(arv));
-end;
-
-procedure hexln(Sender:TObject);
-begin
-  hex(Sender);
-  (Sender as TAufScript).writeln('');
-end;
-
 procedure _fillbyte(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
@@ -1559,7 +1565,8 @@ begin
     else ofs:=Round(AufScpt.to_double(AAuf.nargs[1].pre,AAuf.nargs[1].arg));
   end;
   if ofs=0 then begin AufScpt.send_error('警告：call需要非零的地址偏移量，该语句未执行。');exit end;
-  AufScpt.push_addr(AufScpt.ScriptLines,AufScpt.ScriptName,AufScpt.currentLine+ofs);
+  //AufScpt.push_addr(AufScpt.ScriptLines,AufScpt.ScriptName,AufScpt.currentLine+ofs);
+  AufScpt.push_addr(AufScpt.currentLine+ofs);
 end;
 
 procedure _loop(Sender:TObject);
@@ -2406,6 +2413,33 @@ begin
     end;
 end;
 
+procedure file_exist(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    filename,jm_str:string;
+    addr:pRam;
+    jmode:TJumpModeSet;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToAddr(1,addr) then exit;
+  if not AAuf.TryArgToString(2,filename) then exit;
+  jmode:=[];
+  if AAuf.ArgsCount>3 then begin
+    if not AAuf.TryArgToString(3,jm_str) then exit;
+    jm_str:=lowercase(jm_str);
+    if pos('c',jm_str)>=0 then jmode:=jmode+[jmCall];
+    if pos('n',jm_str)>=0 then jmode:=jmode+[jmNot];
+  end;
+  if FileExists(filename) xor (jmNot in jmode) then
+    begin
+      if jmCall in jmode then AufScpt.push_addr(addr)
+      else AufScpt.jump_addr(addr);
+    end;
+
+end;
+
 procedure file_read(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
@@ -2482,6 +2516,117 @@ begin
   end;
 
 end;
+
+procedure file_list(Sender:TObject);//file.list "path","filter",@list
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    pathname,filter,exprname,list_res:string;
+    Rec:^SearchRec;
+    ARec:SearchRec;
+
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(4) then exit;
+  if not AAuf.TryArgToString(1,pathname) then exit;
+  if not AAuf.TryArgToString(2,filter) then exit;
+  //if not AAuf.TryArgToString(3,exprname) then exit;
+  exprname:=AAuf.nargs[3].arg;
+  if filter='' then filter:='*.*';
+  if exprname='' then begin AufScpt.send_error('警告：第3个参数至少需要一个字符要是字母或下划线，该语句未执行。');exit end;
+  case exprname[1] of
+    'a'..'z','A'..'Z','_':;
+    else begin AufScpt.send_error('警告：第3个参数的第一个字符需要是字母或下划线，该语句未执行。');exit end;
+  end;
+  list_res:='';
+  Rec:=@ARec;
+  findfirst(pathname+'\'+filter,$2F,Rec^);
+  while dosError=0 do begin
+    list_res:=list_res+'|'+wincpToUtf8(pathname+'\'+Rec^.name);
+    findnext(Rec^);
+  end;
+  findclose(Rec^);
+  if list_res<>'' then delete(list_res,1,1);
+  AufScpt.Expression.Local.TryAddExp(exprname,Narg('',list_res,''));
+
+end;
+
+procedure list_pop(Sender:TObject);//list.pop @list,var
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    exprname:string;
+    arv:TAufRamVar;
+    tmpUnit:TAufExpressionUnit;
+    list,list_out:string;
+    po:integer;
+
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  //if not AAuf.TryArgToString(1,e1) then exit;
+  if not AAuf.TryArgToARV(2,0,High(longint),[ARV_Char],arv) then exit;
+  exprname:=AAuf.nargs[1].arg;
+  //e2:=AAuf.nargs[2].arg;
+  if exprname='' then begin AufScpt.send_error('警告：第1个参数至少需要一个字符要是字母或下划线，该语句未执行。');exit end;
+  case exprname[1] of
+    'a'..'z','A'..'Z','_':;
+    else begin AufScpt.send_error('警告：第1个参数的第一个字符需要是字母或下划线，该语句未执行。');exit end;
+  end;
+
+  tmpUnit:=AufScpt.Expression.Local.Find(exprname);
+  if tmpUnit = nil then begin
+    AufScpt.send_error('警告：文本列表'+exprname+'未找到，代码未执行。');
+    exit;
+  end;
+  list:=tmpUnit.value.arg;
+  list_out:=list;
+  po:=pos('|',list);
+  if po<=0 then begin
+    list:='';
+  end else begin
+    delete(list,1,po);
+    delete(list_out,po,length(list_out));
+  end;
+  AufScpt.Expression.Local.TryAddExp(exprname,Narg('',list,''));
+  //AufScpt.Expression.Local.TryAddExp(e2,Narg('',list_out,''));
+  s_to_arv(list_out,arv);
+
+end;
+
+procedure list_has(Sender:TObject);//list.has? @list,:addr
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    exprname:string;
+    addr:pRam;
+    tmpUnit:TAufExpressionUnit;
+    list,list_out:string;
+    po:integer;
+
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  //if not AAuf.TryArgToString(1,e1) then exit;
+  exprname:=AAuf.nargs[1].arg;
+  if exprname='' then begin AufScpt.send_error('警告：第1个参数至少需要一个字符要是字母或下划线，该语句未执行。');exit end;
+  case exprname[1] of
+    'a'..'z','A'..'Z','_':;
+    else begin AufScpt.send_error('警告：第1个参数的第一个字符需要是字母或下划线，该语句未执行。');exit end;
+  end;
+  if not AAuf.TryArgToAddr(2,addr) then exit;
+
+  tmpUnit:=AufScpt.Expression.Local.Find(exprname);
+  if tmpUnit = nil then begin
+    AufScpt.send_error('警告：文本列表'+exprname+'未找到，代码未执行。');
+    exit;
+  end;
+  list:=tmpUnit.value.arg;
+  if list='' then {do-nothing}
+  else AufScpt.jump_addr(addr);
+end;
+
+
 procedure file_getbytes(Sender:TObject);//getbytes @var,idx,len
 var AufScpt:TAufScript;
     AAuf:TAuf;
@@ -2518,7 +2663,115 @@ begin
 
 end;
 
+procedure ptr_shift_or_offset(Sender:TObject);//pshl|pshr|pofl|pofr|pexl|pexr|pcpl|pcpr var,byte
+label ErrOver_L,ErrOver_R,ErrOver_O;
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    arv:TAufRamVar;
+    hh,ss,hhh,sss:pRam;
+    idx:longint;
+    exprname,func:string;
+    expr:Tnargs;
 
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToString(1,exprname) then exit;
+  if not AAuf.TryArgToLong(2,idx) then exit;
+
+  expr:=AufScpt.Expression.Local.Translate(exprname);
+  if expr.arg[1]='~' then begin
+    AufScpt.send_error('警告：变量未找到，该语句未执行。');
+    exit;
+  end;
+  arv:=AufScpt.RamVar(expr);
+  if arv.size=0 then begin
+    AufScpt.send_error('警告：变量不是合法指针类型，该语句未执行。');
+    exit;
+  end;
+
+  hh:=arv.Head - AufScpt.PSW.run_parameter.ram_zero;
+  ss:=arv.size;
+  func:=lowercase(AAuf.args[0]);
+  case func of
+    'pshl':
+      begin
+        if idx>hh then goto ErrOver_L;
+        if AufScpt.PSW.run_parameter.ram_size-ss<hh-idx then goto ErrOver_R;
+        hhh:=hh-idx;
+        sss:=ss;
+      end;
+    'pshr':
+      begin
+        if -idx>hh then goto ErrOver_L;
+        if AufScpt.PSW.run_parameter.ram_size-ss<hh+idx then goto ErrOver_R;
+        hhh:=hh+idx;
+        sss:=ss;
+      end;
+    'pofl':
+      begin
+        if idx*int64(ss)>hh then goto ErrOver_L;
+        if AufScpt.PSW.run_parameter.ram_size-ss<int64(hh)-idx*int64(ss) then goto ErrOver_R;
+        hhh:=hh-idx*ss;
+        sss:=ss;
+      end;
+    'pofr':
+      begin
+        if -idx*int64(ss)>hh then goto ErrOver_L;
+        if AufScpt.PSW.run_parameter.ram_size-ss<int64(hh)+int64(idx)*ss then goto ErrOver_R;
+        hhh:=hh+idx*ss;
+        sss:=ss;
+      end;
+    'pexl':
+      begin
+        if idx>hh then goto ErrOver_L;
+        if -idx>=ss then goto ErrOver_O;
+        hhh:=hh-idx;
+        sss:=ss+idx;
+      end;
+    'pexr':
+      begin
+        if -idx>ss then goto ErrOver_O;
+        if AufScpt.PSW.run_parameter.ram_size-ss<hh-idx then goto ErrOver_R;
+        hhh:=hh;
+        sss:=ss+idx;
+      end;
+    'pcpl':
+      begin
+        if -idx>hh then goto ErrOver_L;
+        if idx>=ss then goto ErrOver_O;
+        hhh:=hh+idx;
+        sss:=ss-idx;
+      end;
+    'pcpr':
+      begin
+        if idx>ss then goto ErrOver_O;
+        if AufScpt.PSW.run_parameter.ram_size-ss<hh+idx then goto ErrOver_R;
+        hhh:=hh;
+        sss:=ss-idx;
+      end;
+    else
+      begin
+        AufScpt.send_error('未知的指针偏移函数');
+        exit;
+      end
+  end;
+  arv.Head:=AufScpt.PSW.run_parameter.ram_zero + hhh;
+  arv.size:=sss;
+  AufScpt.Expression.Local.TryAddExp(exprname,AufScpt.RamVarToNargs(arv));
+  exit;
+
+ErrOver_O:
+  AufScpt.send_error('指针定义长度过小[O]。');
+  exit;
+ErrOver_L:
+  AufScpt.send_error('指针定义位移超界[L]。');
+  exit;
+ErrOver_R:
+  AufScpt.send_error('指针定义位移超界[R]。');
+
+end;
 
 //内置流程函数结束
 
@@ -2627,6 +2880,17 @@ begin
     res:=Script.TryToDWord(nargs[ArgNumber]);
   except
     Script.send_error('警告：第'+IntToStr(ArgNumber)+'个参数不能转化为双字dword，代码未执行。');exit
+  end;
+  result:=true;
+end;
+function TAuf.TryArgToLong(ArgNumber:byte;out res:longint):boolean;
+begin
+  Assert(ArgNumber in [1..args_range],'ArgNumber必须在[1..args_range]范围内。');
+  result:=false;
+  try
+    res:=Script.TryToLong(nargs[ArgNumber]);
+  except
+    Script.send_error('警告：第'+IntToStr(ArgNumber)+'个参数不能转化为双字DWord（有符号），代码未执行。');exit
   end;
   result:=true;
 end;
@@ -3322,6 +3586,50 @@ begin
       end;
   end;
 end;
+function TAufScript.SharpToLong(sharp:Tnargs):longint;
+var stmp:string;
+    len,let:integer;
+begin
+  stmp:=sharp.arg;
+  len:=length(stmp);
+  result:=0;
+  case stmp[len] of
+    'H','h':
+      begin
+        delete(stmp,len,1);
+        while stmp<>'' do
+          begin
+            result:=result*16;
+            case stmp[1] of
+              '0'..'9':result:=result+ord(stmp[1])-ord('0');
+              'A'..'F':result:=result+ord(stmp[1])+10-ord('A');
+              'a'..'f':result:=result+ord(stmp[1])+10-ord('a');
+              else raise Exception.Create('SharpToDword Error: 十六进制包含非法字符');
+            end;
+            delete(stmp,1,1);
+          end;
+      end;
+    'B','b':
+      begin
+        delete(stmp,len,1);
+        while stmp<>'' do
+          begin
+            result:=result*2;
+            case stmp[1] of
+              '1':result:=result+1;
+              else raise Exception.Create('SharpToDword Error: 二进制包含非法字符');
+            end;
+            delete(stmp,1,1);
+          end;
+      end;
+    else
+      begin
+        let:=0;
+        val(stmp,result,let);
+        if let<>0 then raise Exception.Create('SharpToDword Error: 十进制包含非法字符');
+      end;
+  end;
+end;
 function TAufScript.SharpToString(sharp:Tnargs):string;
 begin
   result:=sharp.arg;
@@ -3388,6 +3696,16 @@ begin
     '~&"','~"','#&"','#"','$"','$&"':begin result:=arv_to_dword(Self.RamVar(arg));exit end;
     '~','@','$':begin result:=TmpExpToDword(arg);exit end;
     else begin result:=SharpToDword(arg);exit end;
+  end;
+end;
+function TAufScript.TryToLong(arg:Tnargs):longint;
+var AAuf:TAuf;
+begin
+  AAuf:=Self.Auf as TAuf;
+  case arg.pre of
+    '~&"','~"','#&"','#"','$"','$&"':begin result:=longint(arv_to_dword(Self.RamVar(arg)));exit end;
+    '~','@','$':begin result:=longint(TmpExpToDWord(arg));exit end;
+    else begin result:=SharpToLong(arg);exit end;
   end;
 end;
 function TAufScript.TryToString(arg:Tnargs):string;
@@ -3894,6 +4212,28 @@ begin
   Self.ScriptName:=Ascriptname;
   Self.PSW.run_parameter.current_strings:=Self.ScriptLines;
 end;
+procedure TAufScript.push_addr(line:dword);
+begin
+  push_addr(Self.ScriptLines,Self.ScriptName,line);
+end;
+procedure TAufScript.push_addr_inline(Ascript:TStrings;Ascriptname:string;line:dword);
+begin
+  if Self.PSW.stack_ptr=stack_range-1 then
+    begin
+      Self.send_error('错误：['+Usf.to_s(stack_range)+']超出栈范围！');
+      Self.PSW.haltoff:=true;
+    end;
+  with Self.PSW.stack[Self.PSW.stack_ptr] do line:=line - 1;
+  inc(Self.PSW.stack_ptr);
+  Self.currentline:=line;
+  Self.ScriptLines:=Ascript;
+  Self.ScriptName:=Ascriptname;
+  Self.PSW.run_parameter.current_strings:=Self.ScriptLines;
+end;
+procedure TAufScript.push_addr_inline(line:dword);
+begin
+  push_addr(Self.ScriptLines,Self.ScriptName,line);
+end;
 
 procedure TAufScript.send(msg:UINT);
 begin
@@ -4342,78 +4682,93 @@ end;
 
 procedure TAufScript.InternalFuncDefine;
 begin
-  Self.add_func('version,版本信息',@_version,'','显示解释器版本号');
-  Self.add_func('help,帮助',@_helper,'','显示帮助');
-  Self.add_func('deflist,定义列表',@_define_helper,'','显示定义列表');
-  Self.add_func('ramex,内存导出',@ramex,'-option/arv,filename','将内存导出到ram.var');
-  Self.add_func('ramim,内存导入',@ramim,'filename [,var [,-f]]','从文件中载入数据到内存');
-  Self.add_func('sleep,延时',@_sleep,'n','等待n毫秒');
-  Self.add_func('pause,暂停',@_pause,'','暂停');
-  Self.add_func('beep,蜂鸣',@_beep,'freq,dura','以freq的频率蜂鸣dura毫秒');
-  Self.add_func('cmd,shell,指令',@_cmd,'command','调用命令提示行');
+  Self.add_func('version',@_version,'','显示解释器版本号');
+  Self.add_func('help',@_helper,'','显示帮助');
+  Self.add_func('deflist',@_define_helper,'','显示定义列表');
+  Self.add_func('ramex',@ramex,'-option/arv,filename','将内存导出到ram.var');
+  Self.add_func('ramim',@ramim,'filename [,var [,-f]]','从文件中载入数据到内存');
+  Self.add_func('sleep',@_sleep,'n','等待n毫秒');
+  Self.add_func('pause',@_pause,'','暂停');
+  Self.add_func('beep',@_beep,'freq,dura','以freq的频率蜂鸣dura毫秒');
+  Self.add_func('cmd,shell',@_cmd,'command','调用命令提示行');
 
-  Self.add_func('hex,显示16进制',@hex,'var','输出标准变量形式的十六进制');
-  Self.add_func('hexln,显示16进制后换行',@hexln,'var','输出标准变量形式的十六进制并换行');
-  Self.add_func('print,输出变量',@print,'var','输出变量var');
-  Self.add_func('println,输出变量后换行',@println,'var','输出变量var并换行');
-  Self.add_func('echo,解析表达式',@echo,'expr','解析表达式');
-  Self.add_func('echoln,解析表达式后换行',@echoln,'expr','解析表达式并换行');
-  Self.add_func('cwln,换行',@cwln,'','换行');
-  Self.add_func('clear,清屏',@_clear,'','清屏');
-  Self.add_func('of,输出到文件',@_of,'[filename]','改为输出到文件');
-  Self.add_func('os,输出到屏幕',@_os,'','改为输出到屏幕，同时保存已经输出到文件的内容');
+  Self.add_func('hex,hexln',@hex,'var','输出标准变量形式的十六进制,后加"ln"则换行');
+  Self.add_func('print,println',@print,'var','输出变量var,后加"ln"则换行');
+  Self.add_func('echo,echoln',@echo,'expr','解析表达式,后加"ln"则换行');
+  Self.add_func('cwln',@cwln,'','换行');
+  Self.add_func('clear',@_clear,'','清屏');
+  Self.add_func('of',@_of,'[filename]','改为输出到文件');
+  Self.add_func('os',@_os,'','改为输出到屏幕，同时保存已经输出到文件的内容');
 
-  Self.add_func('mov,赋值',@mov,'v1,v2','将v2值赋值给v1');
-  Self.add_func('add,加法',@add,'v1,v2','将v1和v2的值相加并返回给v1');
-  Self.add_func('sub,减法',@sub,'v1,v2','将v1和v2的值相减并返回给v1');
-  Self.add_func('mul,乘法',@mul,'v1,v2','将v1和v2的值相乘并返回给v1');
-  Self.add_func('div,除法',@div_,'v1,v2','将v1和v2的值相除并返回给v1');
-  Self.add_func('mod,求余',@mod_,'v1,v2','将v1和v2的值求余并返回给v1');
-  Self.add_func('rand,随机数',@rand,'v1,v2','将不大于v2的随机整数返回给v1');
-  Self.add_func('swap,字节倒序',@_swap,'v1','将v1字节倒序');
-  Self.add_func('fill,填充字节',@_fillbyte,'var,byte','用byte填充var');
+  Self.add_func('mov',@mov,'v1,v2','将v2值赋值给v1');
+  Self.add_func('add',@add,'v1,v2','将v1和v2的值相加并返回给v1');
+  Self.add_func('sub',@sub,'v1,v2','将v1和v2的值相减并返回给v1');
+  Self.add_func('mul',@mul,'v1,v2','将v1和v2的值相乘并返回给v1');
+  Self.add_func('div',@div_,'v1,v2','将v1和v2的值相除并返回给v1');
+  Self.add_func('mod',@mod_,'v1,v2','将v1和v2的值求余并返回给v1');
+  Self.add_func('rand',@rand,'v1,v2','将不大于v2的随机整数返回给v1');
+  Self.add_func('swap',@_swap,'v1','将v1字节倒序');
+  Self.add_func('fill',@_fillbyte,'var,byte','用byte填充var');
 
-  Self.add_func('loop,循环',@_loop,':label/ofs,times[,st]','简易循环times次');
-  Self.add_func('jmp,跳转至',@jmp,':label/ofs','跳转到相对地址');
-  Self.add_func('call,跳转调用',@call,':lable/ofs','跳转到相对地址，并将当前地址压栈');
-  Self.add_func('ret,返回调用处',@_ret,'','从栈中取出一个地址，并跳转至该地址');
-  Self.add_func('load,执行脚本',@_load,'filename','加载运行指定脚本文件');
-  Self.add_func('fend,退出当前脚本',@_fend,'','从加载的脚本文件中跳出');
-  Self.add_func('halt,强制结束',@_halt,'','无条件结束');
-  Self.add_func('end,结束',@_end,'','有条件结束，根据运行状态转译为ret, fend或halt');
-  Self.add_func('define,创建定义',@_define,'name,expr','定义一个以@开头的局部宏定义');
-  Self.add_func('rendef,重命名定义',@_rendef,'old,new','修改一个局部宏定义的名称');
-  Self.add_func('deldef,删除定义',@_deldef,'name       ','删除一个局部宏定义的名称');
-  Self.add_func('ifdef,有定义则跳转',@_ifdef,'name       ','如果有定义则跳转');
-  Self.add_func('ifndef,无定义则跳转',@_ifndef,'name       ','如果没有定义则跳转');
-  Self.add_func('var,创建变量',@_var,'type,name,size','创建一个ARV变量');
-  Self.add_func('unvar,删除变量',@_unvar,'name        ','释放一个ARV变量');
+  Self.add_func('loop',@_loop,':label/ofs,times[,st]','简易循环times次');
+  Self.add_func('jmp',@jmp,':label/ofs','跳转到相对地址');
+  Self.add_func('call',@call,':lable/ofs','跳转到相对地址，并将当前地址压栈');
+  Self.add_func('ret',@_ret,'','从栈中取出一个地址，并跳转至该地址');
+  Self.add_func('load',@_load,'filename','加载运行指定脚本文件');
+  Self.add_func('fend',@_fend,'','从加载的脚本文件中跳出');
+  Self.add_func('halt',@_halt,'','无条件结束');
+  Self.add_func('end',@_end,'','有条件结束，根据运行状态转译为ret, fend或halt');
 
-  Self.add_func('cje,相等则跳转',@cj,'v1,v2,:label/ofs','如果v1等于v2则跳转');
-  Self.add_func('ncje,不等则跳转',@cj,'v1,v2,:label/ofs','如果v1不等于v2则跳转');
-  Self.add_func('cjm,大于则跳转',@cj,'v1,v2,:label/ofs','如果v1大于v2则跳转');
-  Self.add_func('ncjm,小等则跳转',@cj,'v1,v2,:label/ofs','如果v1不大于v2则跳转');
-  Self.add_func('cjl,小于则跳转',@cj,'v1,v2,:label/ofs','如果v1小于v2则跳转');
-  Self.add_func('ncjl,大等则跳转',@cj,'v1,v2,:label/ofs','如果v1不小于v2则跳转');
-  Self.add_func('cjec,等于则跳转调用',@cj,'v1,v2,:label/ofs','如果v1等于v2则跳转，并将当前地址压栈');
-  Self.add_func('ncjec,不等则跳转调用',@cj,'v1,v2,:label/ofs','如果v1不等于v2则跳转，并将当前地址压栈');
-  Self.add_func('cjmc,大于则跳转调用',@cj,'v1,v2,:label/ofs','如果v1大于v2则跳转，并将当前地址压栈');
-  Self.add_func('ncjmc,小等则跳转调用',@cj,'v1,v2,:label/ofs','如果v1不大于v2则跳转，并将当前地址压栈');
-  Self.add_func('cjlc,小于则跳转调用',@cj,'v1,v2,:label/ofs','如果v1小于v2则跳转，并将当前地址压栈');
-  Self.add_func('ncjlc,大等则跳转调用',@cj,'v1,v2,:label/ofs','如果v1不小于v2则跳转，并将当前地址压栈');
+  //Self.add_func('cje',@cj,'v1,v2,:label/ofs','如果v1等于v2则跳转');
+  //Self.add_func('ncje',@cj,'v1,v2,:label/ofs','如果v1不等于v2则跳转');
+  //Self.add_func('cjm',@cj,'v1,v2,:label/ofs','如果v1大于v2则跳转');
+  //Self.add_func('ncjm',@cj,'v1,v2,:label/ofs','如果v1不大于v2则跳转');
+  //Self.add_func('cjl',@cj,'v1,v2,:label/ofs','如果v1小于v2则跳转');
+  //Self.add_func('ncjl',@cj,'v1,v2,:label/ofs','如果v1不小于v2则跳转');
+  //Self.add_func('cjec',@cj,'v1,v2,:label/ofs','如果v1等于v2则跳转，并将当前地址压栈');
+  //Self.add_func('ncjec',@cj,'v1,v2,:label/ofs','如果v1不等于v2则跳转，并将当前地址压栈');
+  //Self.add_func('cjmc',@cj,'v1,v2,:label/ofs','如果v1大于v2则跳转，并将当前地址压栈');
+  //Self.add_func('ncjmc',@cj,'v1,v2,:label/ofs','如果v1不大于v2则跳转，并将当前地址压栈');
+  //Self.add_func('cjlc',@cj,'v1,v2,:label/ofs','如果v1小于v2则跳转，并将当前地址压栈');
+  //Self.add_func('ncjlc',@cj,'v1,v2,:label/ofs','如果v1不小于v2则跳转，并将当前地址压栈');
 
-  Self.add_func('cjs,字符串相等则跳转',@cj,'s1,s2,:label/ofs','如果s1相等s2则跳转');
-  Self.add_func('ncjs,字符串不相等则跳转',@cj,'s1,s2,:label/ofs','如果s1不相等s2则跳转');
-  Self.add_func('cjsc,字符串相等则跳转调用',@cj,'s1,s2,:label/ofs','如果s1相等s2则跳转，并将当前地址压栈');
-  Self.add_func('ncjsc,字符串不相等则跳转调用',@cj,'s1,s2,:label/ofs','如果s1不相等s2则跳转，并将当前地址压栈');
-  Self.add_func('cjsub,字符串包含则跳转',@cj,'sub,str,:label/ofs','如果str包含sub则跳转');
-  Self.add_func('ncjsub,字符串不包含则跳转',@cj,'sub,str,:label/ofs','如果str不包含sub则跳转');
-  Self.add_func('cjsubc,字符串包含则跳转调用',@cj,'sub,str,:label/ofs','如果str包含sub则跳转，并将当前地址压栈');
-  Self.add_func('ncjsubc,字符串不包含则跳转调用',@cj,'sub,str,:label/ofs','如果str不包含sub则跳转，并将当前地址压栈');
-  Self.add_func('cjsreg,符合正则表达式则跳转',@cj,'reg,str,:label/ofs','如果str符合reg则跳转');
-  Self.add_func('ncjsreg,不符合正则表达式则跳转',@cj,'reg,str,:label/ofs','如果str不符合reg则跳转');
-  Self.add_func('cjsregc,符合正则表达式则跳转调用',@cj,'reg,str,:label/ofs','如果str符合reg则跳转，并将当前地址压栈');
-  Self.add_func('ncjsregc,不符合正则表达式则跳转调用',@cj,'reg,str,:label/ofs','如果str不符合reg则跳转，并将当前地址压栈');
+  Self.add_func('cje,cjec,ncje,ncjec',@cj,'v1,v2,:label/ofs','如果v1等于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
+  Self.add_func('cjm,cjmc,ncjm,ncjmc',@cj,'v1,v2,:label/ofs','如果v1大于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
+  Self.add_func('cjl,cjlc,ncjl,ncjlc',@cj,'v1,v2,:label/ofs','如果v1小于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
+
+  //Self.add_func('cjs',@cj,'s1,s2,:label/ofs','如果s1相等s2则跳转');
+  //Self.add_func('ncjs',@cj,'s1,s2,:label/ofs','如果s1不相等s2则跳转');
+  //Self.add_func('cjsc',@cj,'s1,s2,:label/ofs','如果s1相等s2则跳转，并将当前地址压栈');
+  //Self.add_func('ncjsc',@cj,'s1,s2,:label/ofs','如果s1不相等s2则跳转，并将当前地址压栈');
+  //Self.add_func('cjsub',@cj,'sub,str,:label/ofs','如果str包含sub则跳转');
+  //Self.add_func('ncjsub',@cj,'sub,str,:label/ofs','如果str不包含sub则跳转');
+  //Self.add_func('cjsubc',@cj,'sub,str,:label/ofs','如果str包含sub则跳转，并将当前地址压栈');
+  //Self.add_func('ncjsubc',@cj,'sub,str,:label/ofs','如果str不包含sub则跳转，并将当前地址压栈');
+  //Self.add_func('cjsreg',@cj,'reg,str,:label/ofs','如果str符合reg则跳转');
+  //Self.add_func('ncjsreg',@cj,'reg,str,:label/ofs','如果str不符合reg则跳转');
+  //Self.add_func('cjsregc',@cj,'reg,str,:label/ofs','如果str符合reg则跳转，并将当前地址压栈');
+  //Self.add_func('ncjsregc',@cj,'reg,str,:label/ofs','如果str不符合reg则跳转，并将当前地址压栈');
+
+  Self.add_func('cjs,cjsc,ncjs,ncjsc',@cj,'s1,s2,:label/ofs','如果s1相等s2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
+  Self.add_func('cjsub,cjsubc,ncjsub,ncjsubc',@cj,'sub,str,:label/ofs','如果str包含sub则跳转,前加"n"表示否定,后加"c"表示压栈调用');
+  Self.add_func('cjsreg,cjsregc,ncjsreg,ncjsregc',@cj,'reg,str,:label/ofs','如果str符合reg则跳转,前加"n"表示否定,后加"c"表示压栈调用');
+
+  Self.add_func('define',@_define,'name,expr','定义一个以@开头的局部宏定义');
+  Self.add_func('rendef',@_rendef,'old,new','修改一个局部宏定义的名称');
+  Self.add_func('deldef',@_deldef,'name       ','删除一个局部宏定义的名称');
+  Self.add_func('ifdef',@_ifdef,'name       ','如果有定义则跳转');
+  Self.add_func('ifndef',@_ifndef,'name       ','如果没有定义则跳转');
+  Self.add_func('var',@_var,'type,name,size','创建一个ARV变量');
+  Self.add_func('unvar',@_unvar,'name        ','释放一个ARV变量');
+
+  Self.add_func('pshl,',@ptr_shift_or_offset,'byte','指针左位移byte个字节');
+  Self.add_func('pshr,',@ptr_shift_or_offset,'byte','指针右位移byte个字节');
+  Self.add_func('pofl,',@ptr_shift_or_offset,'n','以指针宽度为基准向左偏移n个单位');
+  Self.add_func('pofr,',@ptr_shift_or_offset,'n','以指针宽度为基准向右偏移n个单位');
+  Self.add_func('pexl,',@ptr_shift_or_offset,'byte','指针向左拓展byte个字节');
+  Self.add_func('pexr,',@ptr_shift_or_offset,'byte','指针向右拓展byte个字节');
+  Self.add_func('pcpl,',@ptr_shift_or_offset,'byte','指针向左压缩byte个字节');
+  Self.add_func('pcpr,',@ptr_shift_or_offset,'byte','指针向右压缩byte个字节');
 
 
   {$ifdef TEST_MODE}
@@ -4439,23 +4794,46 @@ begin
 end;
 procedure TAufScript.AdditionFuncDefine_Time;
 begin
-  Self.add_func('gettimestr,当前时间',@time_gettimestr,'var','显示当前时间字符串或存入字符变量var中');
-  Self.add_func('getdatestr,当前日期',@time_getdatestr,'var','显示当前日期字符串或存入字符变量var中');
+  Self.add_func('gettimestr',@time_gettimestr,'var','显示当前时间字符串或存入字符变量var中');
+  Self.add_func('getdatestr',@time_getdatestr,'var','显示当前日期字符串或存入字符变量var中');
 
-  Self.add_func('settimer,初始化计时器',@time_settimer,'','初始化计时器');
-  Self.add_func('gettimer,读取计时器',@time_gettimer,'var','获取计时器度数');
-  Self.add_func('waittimer,等待计时器到',@time_waittimer,'var','等待计时器达到var');
+  Self.add_func('settimer',@time_settimer,'','初始化计时器');
+  Self.add_func('gettimer',@time_gettimer,'var','获取计时器度数');
+  Self.add_func('waittimer',@time_waittimer,'var','等待计时器达到var');
 
 end;
 procedure TAufScript.AdditionFuncDefine_File;
 begin
-  Self.add_func('readf,读取文件',@file_read,'var,filename','读取文件并保存至var');
-  Self.add_func('writef,保存文件',@file_write,'var,filename','将var保存至文件');
+  Self.add_func('file.exist?',@file_exist,'addr,filename,mode','如果存在文件filename则跳转至addr，mode="[N][C]"');
+  Self.add_func('file.read',@file_read,'var,filename','读取文件并保存至var');
+  Self.add_func('file.write',@file_write,'var,filename','将var保存至文件');
 
-  Self.add_func('getbytes,截取字节',@file_getbytes,'var,idx,len','截取变量var中从idx起的len个字节到@prev_res');
-  Self.add_func('setbytes,保存字节',@file_setbytes,'var,idx,src','将变量src保存到变量var的第idx个字节，超出部分不保存');
+  Self.add_func('file.list',@file_list,'pathname,filter,@list,:func','遍历路径中的每一个文件(filter为过滤器)，文件名赋值给文本列表@list');
 
 
+  Self.add_func('list.pop',@list_pop,'@list,@out','将文本列表的第一个转存给@out');
+  Self.add_func('list.has?',@list_has,'@list,addr','文本列表还有元素则跳转至addr');
+
+  {
+  这个是这么用的
+
+  define o,#256[0]
+
+  file.list "f:\temp\","*.*",s
+  loo:
+  list.pop s,@o
+  println @o
+  list.has? s,:loo
+
+  end
+
+  }
+
+
+
+
+  Self.add_func('getbytes',@file_getbytes,'var,idx,len','截取变量var中从idx起的len个字节到@prev_res');
+  Self.add_func('setbytes',@file_setbytes,'var,idx,src','将变量src保存到变量var的第idx个字节，超出部分不保存');
 
 end;
 procedure TAufScript.AdditionFuncDefine_Math;
@@ -4465,14 +4843,14 @@ begin
   //Self.add_func('sqrt',@math_sqrt,'var[,index=2]','开方');
   //Self.add_func('pow',@math_pow,'var[,index=2]','幂运算');
 
-  Self.add_func('cmp,比较',@math_logic_cmp,'v1,v2,out','比较');
-  Self.add_func('shl,左移',@math_logic_shl,'var,bit',  '左移');
-  Self.add_func('shr,右移',@math_logic_shr,'var,bit',  '右移');
-  Self.add_func('not,位非',@math_logic_not,'var',      '位非');
-  Self.add_func('and,位与',@math_logic_and,'v1,v2','位与');
-  Self.add_func('or,位或', @math_logic_or, 'v1,v2','位或');
-  Self.add_func('xor,位异或',@math_logic_xor,'v1,v2','异或');
-  Self.add_func('ofs,字节差统计',@math_logic_offset_count,'v1,v2,threshold,out','差值位计数');
+  Self.add_func('cmp',@math_logic_cmp,'v1,v2,out','比较');
+  Self.add_func('shl',@math_logic_shl,'var,bit',  '左移');
+  Self.add_func('shr',@math_logic_shr,'var,bit',  '右移');
+  Self.add_func('not',@math_logic_not,'var',      '位非');
+  Self.add_func('and',@math_logic_and,'v1,v2','位与');
+  Self.add_func('or', @math_logic_or, 'v1,v2','位或');
+  Self.add_func('xor',@math_logic_xor,'v1,v2','异或');
+  Self.add_func('ofs',@math_logic_offset_count,'v1,v2,threshold,out','差值位计数');
 
   {
   Self.add_func('h_add',@math_h_arithmetic,'#[],#[]','高精加');
