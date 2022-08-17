@@ -18,7 +18,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.1.6';
+  AufScript_Version='beta 2.2.1';
 
   c_divi=[' ',','];//隔断符号
   c_iden=['~','@','$','#','?',':','&'];//变量符号，前后缀符号
@@ -679,7 +679,24 @@ begin
   result:=tps;
 end;
 
-
+function non_space_quote(ps:string):string;//引号内不删除
+var tps:string;
+    tpi:integer;
+    quote:boolean;
+begin
+  tps:=Trim(ps);
+  if length(tps)<=1 then result:=tps else
+  begin
+    result:=tps[1];
+    quote:=tps[1]='"';
+    for tpi:=2 to length(tps) do
+    begin
+      if (result[length(result)] in c_divi) and (tps[tpi] in c_divi) and not quote then
+      else result:=result+tps[tpi];
+      quote:=quote xor (tps[tpi]='"');
+    end;
+  end;
+end;
 
 
 //内置流程函数开始
@@ -2795,7 +2812,7 @@ begin
 
   //命令删除重复空格
 
-  if ps<>'' then tps:=non_space(ps) else exit;
+  if ps<>'' then tps:=non_space_quote(ps) else exit;
 
   //以nargs为主体的处理过程
   tpm:=0;//当前输入的参数下标
@@ -4408,46 +4425,7 @@ begin
     end;
   {$endif}
 
-  {$define new_run}
-  {$ifdef new_run}
   Self.RunFirst;
-  {$else}
-  Self.PSW_reset;
-  PSW.run_parameter.current_strings:=Self.ScriptLines;
-
-  if Self.Func_process.beginning<>nil then Self.Func_process.beginning;//预设的开始过程
-
-  while Self.currentline < Self.ScriptLines.count do begin
-    //读取栈中地址的指令
-
-    cmd:=Self.ScriptLines.strings[Self.currentline];
-
-    (Self.Auf as TAuf).Script.PSW.run_parameter.current_line_number:=currentline;
-    (Self.Auf as TAuf).Script.PSW.run_parameter.prev_line_number:=AufScpt.PSW.run_parameter.current_line_number-1;
-    (Self.Auf as TAuf).Script.PSW.run_parameter.next_line_number:=AufScpt.PSW.run_parameter.current_line_number+1;
-
-    if Self.Func_process.pre<>nil then Self.Func_process.pre;//预设的前置过程
-
-    //自定义函数执行部分
-    (Self.Auf as TAuf).ReadArgs(cmd);
-    if (Self.Auf as TAuf).args[0]<>'' then begin
-    if (((Self.Auf as TAuf).args[0][1]<>'/') or ((Self.Auf as TAuf).args[0][2]<>'/')) and ((Self.Auf as TAuf).nargs[0].arg<>'') and ((Self.Auf as TAuf).nargs[0].post<>':') then
-      begin
-        Self.line_transfer;//转化为标准形态
-        Self.run_func((Self.Auf as TAuf).args[0]);
-      end;
-    end;
-    if Self.Func_process.post<>nil then Self.Func_process.post;//预设的后置过程
-
-    if Self.PSW.haltoff then break;
-
-    //安排下一个地址
-    {if not Self.PSW.jump then }Self.next_addr
-    {else Self.PSW.jump:=false};
-  end;
-
-  if Self.Func_process.ending<>nil then Self.Func_process.ending;//预设的结束过程
-  {$endif}
 
   {$ifdef command_detach}
   if Self.PSW.haltoff then Self.ScriptLines.Free;
@@ -4719,35 +4697,9 @@ begin
   Self.add_func('halt',@_halt,'','无条件结束');
   Self.add_func('end',@_end,'','有条件结束，根据运行状态转译为ret, fend或halt');
 
-  //Self.add_func('cje',@cj,'v1,v2,:label/ofs','如果v1等于v2则跳转');
-  //Self.add_func('ncje',@cj,'v1,v2,:label/ofs','如果v1不等于v2则跳转');
-  //Self.add_func('cjm',@cj,'v1,v2,:label/ofs','如果v1大于v2则跳转');
-  //Self.add_func('ncjm',@cj,'v1,v2,:label/ofs','如果v1不大于v2则跳转');
-  //Self.add_func('cjl',@cj,'v1,v2,:label/ofs','如果v1小于v2则跳转');
-  //Self.add_func('ncjl',@cj,'v1,v2,:label/ofs','如果v1不小于v2则跳转');
-  //Self.add_func('cjec',@cj,'v1,v2,:label/ofs','如果v1等于v2则跳转，并将当前地址压栈');
-  //Self.add_func('ncjec',@cj,'v1,v2,:label/ofs','如果v1不等于v2则跳转，并将当前地址压栈');
-  //Self.add_func('cjmc',@cj,'v1,v2,:label/ofs','如果v1大于v2则跳转，并将当前地址压栈');
-  //Self.add_func('ncjmc',@cj,'v1,v2,:label/ofs','如果v1不大于v2则跳转，并将当前地址压栈');
-  //Self.add_func('cjlc',@cj,'v1,v2,:label/ofs','如果v1小于v2则跳转，并将当前地址压栈');
-  //Self.add_func('ncjlc',@cj,'v1,v2,:label/ofs','如果v1不小于v2则跳转，并将当前地址压栈');
-
   Self.add_func('cje,cjec,ncje,ncjec',@cj,'v1,v2,:label/ofs','如果v1等于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
   Self.add_func('cjm,cjmc,ncjm,ncjmc',@cj,'v1,v2,:label/ofs','如果v1大于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
   Self.add_func('cjl,cjlc,ncjl,ncjlc',@cj,'v1,v2,:label/ofs','如果v1小于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
-
-  //Self.add_func('cjs',@cj,'s1,s2,:label/ofs','如果s1相等s2则跳转');
-  //Self.add_func('ncjs',@cj,'s1,s2,:label/ofs','如果s1不相等s2则跳转');
-  //Self.add_func('cjsc',@cj,'s1,s2,:label/ofs','如果s1相等s2则跳转，并将当前地址压栈');
-  //Self.add_func('ncjsc',@cj,'s1,s2,:label/ofs','如果s1不相等s2则跳转，并将当前地址压栈');
-  //Self.add_func('cjsub',@cj,'sub,str,:label/ofs','如果str包含sub则跳转');
-  //Self.add_func('ncjsub',@cj,'sub,str,:label/ofs','如果str不包含sub则跳转');
-  //Self.add_func('cjsubc',@cj,'sub,str,:label/ofs','如果str包含sub则跳转，并将当前地址压栈');
-  //Self.add_func('ncjsubc',@cj,'sub,str,:label/ofs','如果str不包含sub则跳转，并将当前地址压栈');
-  //Self.add_func('cjsreg',@cj,'reg,str,:label/ofs','如果str符合reg则跳转');
-  //Self.add_func('ncjsreg',@cj,'reg,str,:label/ofs','如果str不符合reg则跳转');
-  //Self.add_func('cjsregc',@cj,'reg,str,:label/ofs','如果str符合reg则跳转，并将当前地址压栈');
-  //Self.add_func('ncjsregc',@cj,'reg,str,:label/ofs','如果str不符合reg则跳转，并将当前地址压栈');
 
   Self.add_func('cjs,cjsc,ncjs,ncjsc',@cj,'s1,s2,:label/ofs','如果s1相等s2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
   Self.add_func('cjsub,cjsubc,ncjsub,ncjsubc',@cj,'sub,str,:label/ofs','如果str包含sub则跳转,前加"n"表示否定,后加"c"表示压栈调用');
