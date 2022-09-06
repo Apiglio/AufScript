@@ -18,7 +18,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.2.1';
+  AufScript_Version='beta 2.2.2';
 
   c_divi=[' ',','];//隔断符号
   c_iden=['~','@','$','#','?',':','&'];//变量符号，前后缀符号
@@ -2333,6 +2333,25 @@ begin
   if not AAuf.TryArgToString(3,new) then exit;
   str:=arv_to_s(tmp);
   str:=StringReplace(str,old,new,[rfReplaceAll]);
+  initiate_arv_str(str,tmp);
+end;
+procedure text_strMid(Sender:TObject);//mid @str pos,len
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    tmp:TAufRamVar;
+    pos,len:dword;
+    str:string;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(4) then exit;
+  if not AAuf.TryArgToARV(1,High(dword),0,[ARV_Char],tmp) then exit;
+  if not AAuf.TryArgToDWord(2,pos) then exit;
+  if not AAuf.TryArgToDWord(3,len) then exit;
+  str:=arv_to_s(tmp);
+  if pos<1 then (Sender as TAufScript).send_error('警告：第2个参数小于等于0，'+AAuf.nargs[0].arg+'语句未执行。');
+  delete(str,1,pos-1);
+  delete(str,len+1,length(str));
   initiate_arv_str(str,tmp);
 end;
 
@@ -4742,6 +4761,7 @@ begin
   Self.add_func('str',@text_str,'#[],var','将var转化成字符串存入#[]');
   Self.add_func('val',@text_val,'$[],str','将str转化成数值存入$[]');
   Self.add_func('srp',@text_strReplace,'#[],old,new','将#[]中的old替换成new');
+  Self.add_func('mid',@text_strMid,'#[],pos,len','将#[]从pos处截取len位字符');
 
 end;
 procedure TAufScript.AdditionFuncDefine_Time;
