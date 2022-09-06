@@ -18,7 +18,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.2.2';
+  AufScript_Version='beta 2.2.3';
 
   c_divi=[' ',','];//隔断符号
   c_iden=['~','@','$','#','?',':','&'];//变量符号，前后缀符号
@@ -2353,6 +2353,20 @@ begin
   delete(str,1,pos-1);
   delete(str,len+1,length(str));
   initiate_arv_str(str,tmp);
+end;
+procedure text_strCat(Sender:TObject);//cat @str1 @str2
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    tmp:TAufRamVar;
+    s1,s2:string;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToARV(1,High(dword),0,[ARV_Char],tmp) then exit;
+  if not AAuf.TryArgToString(2,s2) then exit;
+  s1:=arv_to_s(tmp);
+  initiate_arv_str(s1+s2,tmp);
 end;
 
 procedure time_settimer(Sender:TObject);
@@ -4762,6 +4776,7 @@ begin
   Self.add_func('val',@text_val,'$[],str','将str转化成数值存入$[]');
   Self.add_func('srp',@text_strReplace,'#[],old,new','将#[]中的old替换成new');
   Self.add_func('mid',@text_strMid,'#[],pos,len','将#[]从pos处截取len位字符');
+  Self.add_func('cat',@text_strCat,'#[],str','将str加在#[]的末尾');
 
 end;
 procedure TAufScript.AdditionFuncDefine_Time;
