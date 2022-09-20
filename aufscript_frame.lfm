@@ -5,7 +5,7 @@ object Frame_AufScript: TFrame_AufScript
   Width = 494
   ClientHeight = 319
   ClientWidth = 494
-  DesignTimePPI = 120
+  DesignTimePPI = 144
   ParentFont = False
   TabOrder = 0
   DesignLeft = 1186

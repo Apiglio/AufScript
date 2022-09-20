@@ -61,8 +61,10 @@ type
     procedure TrackBarMouseLeave(Sender: TObject);
   protected
     FOnChangeTitle:TNotifyStringEvent;
+    FOnHelper:ptrFuncStr;
   public
     property OnChangeTitle:TNotifyStringEvent read FOnChangeTitle write FOnChangeTitle;
+    property OnHelper:ptrFuncStr read FOnHelper write FOnHelper;
 
   private
     ProgressBarEnabled:boolean;
@@ -74,7 +76,7 @@ type
     ProcessBarH:word;
   public
     Auf:TAuf;
-    onHelper:ptrFuncStr;
+    //onHelper:ptrFuncStr;
     //SynAufSyn:TSynAufSyn;
   public
     procedure FrameResize(Sender: TObject);

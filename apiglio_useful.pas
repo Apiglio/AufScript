@@ -18,7 +18,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.2.3';
+  AufScript_Version='beta 2.2.4';
 
   c_divi=[' ',','];//隔断符号
   c_iden=['~','@','$','#','?',':','&'];//变量符号，前后缀符号
@@ -1458,7 +1458,7 @@ procedure cj_mode(mode:string;Sender:TObject);//比较两个变量，满足条�
 var a,b:double;
     sa,sb:string;
     ofs:smallint;
-    is_not,is_call:boolean;//是否有N前缀或C后缀
+    is_not,is_call,tmp_bool_reg:boolean;//是否有N前缀或C后缀
     core_mode:string;//去除前后缀的mode
     AufScpt:TAufScript;
     AAuf:TAuf;
@@ -1535,7 +1535,12 @@ begin
     'cjsreg':
       begin
         RegCalc.Expression:=sa;
-        if RegCalc.Exec(sb) xor is_not then switch_addr(AufScpt.currentLine+ofs,is_call);
+        try
+          tmp_bool_reg:=RegCalc.Exec(sb);
+        except
+          tmp_bool_reg:=false;
+        end;
+        if tmp_bool_reg xor is_not then switch_addr(AufScpt.currentLine+ofs,is_call);
       end;
 
   end;
