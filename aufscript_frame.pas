@@ -62,9 +62,12 @@ type
   protected
     FOnChangeTitle:TNotifyStringEvent;
     FOnHelper:ptrFuncStr;
+    FOnRunEnding,FOnRunBeginning:pFuncAuf;
   public
     property OnChangeTitle:TNotifyStringEvent read FOnChangeTitle write FOnChangeTitle;
     property OnHelper:ptrFuncStr read FOnHelper write FOnHelper;
+    property OnRunBeginning:pFuncAuf read FOnRunBeginning write FOnRunBeginning;
+    property OnRunEnding:pFuncAuf read FOnRunEnding write FOnRunEnding;
 
   private
     ProgressBarEnabled:boolean;
@@ -115,6 +118,7 @@ procedure frm_renew_beginning(Sender:TObject);
 var Frame:TFrame_AufScript;
 begin
   Frame:=(Sender as TAufScript).Owner as TFrame_AufScript;
+  if Frame.FOnRunBeginning<>nil then Frame.FOnRunBeginning(Frame);
   Frame.Memo_out.Clear;
   Frame.Button_run.Enabled:=false;
   Frame.Button_stop.Enabled:=true;
@@ -139,6 +143,7 @@ begin
   Frame.Memo_cmd.ReadOnly:=false;
   Frame.Button_pause.Caption:='暂停';
   Application.ProcessMessages;
+  if Frame.FOnRunEnding<>nil then Frame.FOnRunEnding(Frame);
 end;
 procedure frm_renew_onPause(Sender:TObject);
 var Frame:TFrame_AufScript;

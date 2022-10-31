@@ -8,17 +8,39 @@ UNIT Apiglio_Useful;
 
 {$define command_detach}//这个模式太古老了，恐怕不能用了
 
+{$if defined(WINDOWS)}
+  {$define MsgTimerMode}
+  {$define SynEditMode}
+{$elseif defined(ANDROID)}
+{$endif}
+
+
 //{$define TEST_MODE}//开启这个模式会导致没有命令行的GUI报错
 
 INTERFACE
 
 uses
-  Windows, Classes, SysUtils, Registry, Dos, WinCrt, FileUtil, Forms, Controls, StdCtrls, ExtCtrls,
-  Interfaces, SynEdit, LazUTF8, Auf_Ram_Var, SynHighlighterAuf, RegExpr, Variants;
+  {$IFDEF WINDOWS}
+  Windows, WinCrt, Interfaces, Dos,
+  {$ENDIF}
+  {$IFDEF ANDROID}
+  AndroidWidget,
+  {$ENDIF}
+  {$ifdef SynEditMode}
+  SynEdit, SynHighlighterAuf,
+  {$endif}
+  Classes, SysUtils, Registry, FileUtil,
+  {$ifdef MsgTimerMode}
+  ExtCtrls, Controls, Forms,
+  {$endif}
+  {$ifdef can_be_removed}
+  StdCtrls,
+  {$endif}
+  LazUTF8, Auf_Ram_Var, RegExpr, Variants;
 
 const
 
-  AufScript_Version='beta 2.2.4';
+  AufScript_Version='beta 2.2.5';
 
   c_divi=[' ',','];//隔断符号
   c_iden=['~','@','$','#','?',':','&'];//变量符号，前后缀符号
@@ -28,9 +50,12 @@ const
   func_range=256;//函数区大小，最多支持65536个
   args_range=16;//函数参数最大数量
 
+  {$IFDEF MsgTimerMode}
   AufProcessControl_RunFirst = WM_USER + 19950;
   AufProcessControl_RunNext = WM_USER + 19951;
   AufProcessControl_RunClose = WM_USER + 19952;
+  {$ENDIF}
+
 
 type
 
@@ -41,14 +66,8 @@ type
   TUsf= class
     private
       str_buffer:string;//ExPChar使用的全局变量
-    public
-      FileByte:array[0..255]of record
-        fptr:file of byte;
-        name:string;
-        fready:boolean;//是否处在打开状态
-      end;
     published
-      function ExPChar(str:string):Pchar;
+      function ExPChar(str:string):Pchar;deprecated 'APIGLIO: Only used in Ucrawler and can be exactly replaced by pchar()';
       function zeroplus(num:word;bit:byte):ansistring;inline;
       function blankplus(len:byte):ansistring;inline;
       function fullblankplus(len:byte):ansistring;inline;
@@ -65,28 +84,10 @@ type
 
       procedure reg_add(_key,_var,_data:string);
       function reg_query(_key,_var:string):string;
+      {$ifdef WINDOWS}
       procedure each_file(path:ansistring;func_ptr:pFuncFileByte);//查找路径下所有文件，并将目标字符串作为函数自变量运行func_ptr，例如Usf.each_file('F:\Temp',@writeln)
       procedure each_file_in_folder(path:ansistring;func_ptr:pFuncFileByte);//查找文件夹中所有文件，并将目标字符串作为函数自变量运行func_ptr
-
-      function fsel(address:string):byte;
-      procedure fassign(address:string;fid:byte);overload;
-      procedure fcreate(fid:byte);overload;
-      procedure freset(fid:byte);overload;
-      procedure fwriteb(fid:byte;seeking:dword;byt:byte);overload;
-      procedure freadb(fid:byte;seeking:dword;var byt:byte);overload;
-      procedure fwrites(fid:byte;seeking:dword;str:string);overload;
-      procedure freads(fid:byte;seeking:dword;len:byte;var str:string);overload;
-      procedure fclose(fid:byte);overload;
-      //automatical procedure needing filename only.
-      procedure fassign(address:string);overload;
-      procedure fcreate(address:string);inline;overload;
-      procedure freset(address:string);inline;overload;
-      procedure fwriteb(address:string;seeking:dword;byt:byte);overload;
-      procedure freadb(address:string;seeking:dword;var byt:byte);overload;
-      procedure fwrites(address:string;seeking:dword;str:string);overload;
-      procedure freads(address:string;seeking:dword;len:byte;var str:string);overload;
-      procedure fclose(address:string);overload;
-
+      {$endif}
     public
       constructor Create;
   end;
@@ -98,6 +99,7 @@ type
   TJumpMode=(jmNot,jmCall);
   TJumpModeSet=set of TJumpMode;
 
+  {$ifdef MsgTimerMode}
   TAufTimer=class(TTimer)
   public
     AufScript:TObject;
@@ -116,6 +118,7 @@ type
     procedure RunClose(var Msg:TMessage);message AufProcessControl_RunClose;
     class function ClassType:String;
   end;
+  {$endif}
 
   TAufExpressionUnit = class(TObject)
   public
@@ -202,19 +205,31 @@ type
       property RamOccupation[head,size:pRam]:boolean read GetRamOccupation write SetRamOccupation;
 
     public
+      {$ifdef MsgTimerMode}
       Control:TAufControl;
       Owner:TComponent;//用于附着在窗体上，与Auf相同
-      Auf:TObject;
+      {$else}
+      AufThreadID:TThreadID;
+      {$endif}
+
+      {$ifdef SynEditMode}
       SynAufSyn:TSynAufSyn;
+      {$endif}
+
+      Auf:TObject;
 
     public //关于执行时间的一些定义
       Time:record
+        {$ifdef MsgTimerMode}
         Timer:TTimer;
         TimerPause:boolean;
+        {$endif}
         Synthesis_Mode:(SynMoDelay=0,SynMoTimer=1);
       end;
+      {$ifdef MsgTimerMode}
       procedure TimerInitialization(var AControl:TAufControl);
       procedure send(msg:UINT);
+      {$endif}
 
     public
       PSW:record
@@ -272,6 +287,7 @@ type
         pre,post,mid:pFuncAuf;//执行单条指令前后的额外过程和中途防假死预留
         beginning,ending:pFuncAuf;//执行整段代码前后的额外过程
         OnPause,OnResume:pFuncAuf;//暂停和继续时的额外过程
+        OnRaise:pFuncAuf;//在error_raise=true时报错退出前执行
         Setting:pFuncAuf;//用于set语句的继承，set的定义分别在frame和command中
       end;
 
@@ -347,8 +363,8 @@ type
       procedure RunNext;//代码执行的循环体
       procedure RunClose;//代码执行中止化
 
-      procedure command(str:TStrings);overload;
-      procedure command(str:string);overload;
+      procedure command(str:TStrings;_error_raise_:boolean=false);overload;
+      procedure command(str:string;_error_raise_:boolean=false);overload;
 
     published
       constructor Create(AOwner:TComponent);
@@ -486,7 +502,11 @@ begin
 end;
 procedure de_message(Sender:TObject;str:string);
 begin
+  {$ifdef WINDOWS}
   MessageBox(0,Pchar(str),'Error',MB_OK);
+  {$else}
+  raise Exception.Create('非windows平台未实现。');
+  {$endif}
 end;
 procedure de_nil(Sender:TObject);
 begin
@@ -800,8 +820,13 @@ begin
   if AAuf.ArgsCount>2 then begin
     if not AAuf.TryArgToDWord(2,dura) then exit;
   end;
+  {$if defined(WINDOWS)}
   Windows.beep(freq,dura);
-  //beep;
+  //{$elseif defined(ANDROID)}
+  //jForm(AAuf.Owner).Vibrate(dura);
+  {$else}
+  AufScpt.send_error('当前系统不支持beep');
+  {$endif}
 end;
 procedure _cmd(Sender:TObject);
 var AufScpt:TAufScript;
@@ -813,7 +838,11 @@ begin
   AAuf.CheckArgs(2);
   if not AAuf.TryArgToString(1,command) then exit;
   command:=StringReplace(command,'%Q','"',[rfReplaceAll]);
+  {$ifdef WINDOWS}
   ShellExecute(0,'open','cmd.exe',pchar('/c '+command),nil,SW_HIDE);
+  {$else}
+  AufScpt.send_error('非windows平台未实现cmd指令');
+  {$endif}
 end;
 procedure _sleep(Sender:TObject);
 var ms:dword;
@@ -826,10 +855,12 @@ begin
   if not AAuf.TryArgToDWord(1,ms) then exit;
 
   if ms=0 then exit;
-  IF AufScpt.Time.Synthesis_Mode=SynMoTimer THEN BEGIN;
+  IF AufScpt.Time.Synthesis_Mode=SynMoTimer THEN BEGIN
+    {$ifdef MsgTimerMode}
     AufScpt.Time.Timer.Interval:=ms;
     AufScpt.Time.Timer.Enabled:=true;
     AufScpt.Time.TimerPause:=true;
+    {$endif}
   END ELSE BEGIN
     sleep(ms);
   END;
@@ -987,7 +1018,7 @@ begin
   if not (AAuf.nargs[1].pre='$') then begin AAuf.Script.send_error('警告：movb的一个参数需要是byte变量，赋值未成功。');exit end;
   case AAuf.nargs[2].pre of
     '$':a:=pByte(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^;
-    '@':a:=pLong(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^;
+    '@':a:=pLongint(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^;
     '~':a:=round(pDouble(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^);
     '##':a:=round(Usf.to_f(pString(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^));
     '#':a:=round(Usf.to_f(pString(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^));
@@ -1008,14 +1039,14 @@ begin
   if not (AAuf.nargs[1].pre='@') then begin AufScpt.send_error('警告：movl的一个参数需要是byte变量，赋值未成功。');exit end;
   case AAuf.nargs[2].pre of
     '$':a:=pByte(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^;
-    '@':a:=pLong(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^;
+    '@':a:=pLongint(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^;
     '~':a:=round(pDouble(AAuf.Script.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^);
     '##':a:=round(Usf.to_f(pString(AAuf.Script.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^));
     '#':a:=round(Usf.to_f(pString(AAuf.Script.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^));
     '':a:=round(Usf.to_f(AAuf.nargs[2].arg));
     else begin AufScpt.send_error('警告：movl的第二个参数有误，赋值未成功。');exit end;
   end;
-  PLong(AufScpt.Pointer(AAuf.nargs[1].pre,Usf.to_i(AAuf.nargs[1].arg)))^:=a;
+  PLongint(AufScpt.Pointer(AAuf.nargs[1].pre,Usf.to_i(AAuf.nargs[1].arg)))^:=a;
 end;
 procedure movd(Sender:TObject);deprecated;
 var a:double;
@@ -1029,7 +1060,7 @@ begin
   if not (AAuf.nargs[1].pre='~') then begin AufScpt.send_error('警告：movd的一个参数需要是byte变量，赋值未成功。');exit end;
   case AAuf.nargs[2].pre of
     '$':a:=pByte(AAuf.Script.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^;
-    '@':a:=pLong(AAuf.Script.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^;
+    '@':a:=pLongint(AAuf.Script.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^;
     '~':a:=pDouble(AAuf.Script.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^;
     '##':a:=Usf.to_f(pString(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^);
     '#':a:=Usf.to_f(pString(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^);
@@ -1078,7 +1109,7 @@ begin
   tmp:=(AufScpt.RamVar(AAuf.nargs[1]));
   case AAuf.nargs[2].pre of
     '$':initiate_arv(IntToHex(pByte(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^,2),tmp);
-    '@':initiate_arv(IntToHex(pLong(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^,8),tmp);
+    '@':initiate_arv(IntToHex(pLongint(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^,8),tmp);
     '~':begin AAuf.Script.send_error('警告：mov_arv暂不支持浮点型，赋值未成功。');initiate_arv('0h',tmp) end;
     '$"','~"','$&"','~&"','#&"','#"':
       begin
@@ -1491,7 +1522,7 @@ begin
 
   case AAuf.nargs[3].pre of
     '$':ofs:=pByte(AufScpt.Pointer(AAuf.nargs[3].pre,Usf.to_i(AAuf.nargs[3].arg)))^;
-    '@':ofs:=pLong(AufScpt.Pointer(AAuf.nargs[3].pre,Usf.to_i(AAuf.nargs[3].arg)))^;
+    '@':ofs:=pLongint(AufScpt.Pointer(AAuf.nargs[3].pre,Usf.to_i(AAuf.nargs[3].arg)))^;
     '~':ofs:=round(pDouble(AufScpt.Pointer(AAuf.nargs[3].pre,Usf.to_i(AAuf.nargs[3].arg)))^);
     '&"':ofs:=RawStrToDword(AAuf.nargs[3].arg) - AufScpt.PSW.run_parameter.current_line_number;
     '':ofs:=Usf.to_i(AAuf.nargs[3].arg);
@@ -2376,23 +2407,23 @@ end;
 
 procedure time_settimer(Sender:TObject);
 var AufScpt:TAufScript;
-    h,m,s,cs:word;
+    //h,m,s,cs:word;
 begin
   AufScpt:=Sender as TAufScript;
-  gettime(h,m,s,cs);
-  AufScpt.PSW.extra_variable.timer:=cs*10+s*1000+m*60000+h*3600000;
+  //gettime(h,m,s,cs);
+  AufScpt.PSW.extra_variable.timer:=DateTimeToTimeStamp(Now).Time;//cs*10+s*1000+m*60000+h*3600000;
 end;
 procedure time_gettimer(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
-    h,m,s,cs:word;
+    //h,m,s,cs:word;
     tmp:longint;
     arv:TAufRamVar;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
-  gettime(h,m,s,cs);
-  tmp:=cs*10+s*1000+m*60000+h*3600000;
+  //gettime(h,m,s,cs);
+  tmp:=DateTimeToTimeStamp(Now).Time;//cs*10+s*1000+m*60000+h*3600000;
   if tmp<AufScpt.PSW.extra_variable.timer then tmp:=tmp+24*60*60*1000;
   tmp:=tmp - AufScpt.PSW.extra_variable.timer;
   if AAuf.ArgsCount=1 then AufScpt.writeln('定时器读数：'+IntToStr(tmp)+'毫秒')
@@ -2404,7 +2435,7 @@ end;
 procedure time_waittimer(Sender:TObject);//线程不可用，需要再看怎么处理//可以用啊？
 var AufScpt:TAufScript;
     AAuf:TAuf;
-    h,m,s,cs:word;
+    //h,m,s,cs:word;
     tmp,std:dword;
     arv:TAufRamVar;
 begin
@@ -2413,18 +2444,20 @@ begin
   if not AAuf.CheckArgs(2) then exit;
   if not AAuf.TryArgToDWord(1,std) then exit;
   ////////////////
-  gettime(h,m,s,cs);
-  tmp:=cs*10+s*1000+m*60000+h*3600000;
+  //gettime(h,m,s,cs);
+  tmp:=DateTimeToTimeStamp(Now).Time;//cs*10+s*1000+m*60000+h*3600000;
   if tmp<AufScpt.PSW.extra_variable.timer then tmp:=tmp+24*60*60*1000;
   tmp:=tmp - AufScpt.PSW.extra_variable.timer;
 
   if tmp>=std then exit
   else begin
     tmp:=std-tmp;
-    IF AufScpt.Time.Synthesis_Mode=SynMoTimer THEN BEGIN;
+    IF AufScpt.Time.Synthesis_Mode=SynMoTimer THEN BEGIN
+      {$ifdef MsgTimerMode}
       AufScpt.Time.Timer.Interval:=tmp;
       AufScpt.Time.Timer.Enabled:=true;
       AufScpt.Time.TimerPause:=true;
+      {$endif}
     END ELSE BEGIN
       sleep(tmp);
     END;
@@ -2433,28 +2466,28 @@ end;
 procedure time_gettimestr(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
-    h,m,s,cs:word;
+    //h,m,s,cs:word;
     arv:TAufRamVar;
     tmp:string;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
-  gettime(h,m,s,cs);
-  tmp:=Usf.zeroplus(h,2)+':'+Usf.zeroplus(m,2)+':'+Usf.zeroplus(s,2)+'.'+Usf.zeroplus(cs,2)+'0';
+  //gettime(h,m,s,cs);
+  tmp:=TimeToStr(Now);//Usf.zeroplus(h,2)+':'+Usf.zeroplus(m,2)+':'+Usf.zeroplus(s,2)+'.'+Usf.zeroplus(cs,2)+'0';
   if AAuf.ArgsCount=1 then AufScpt.writeln('当前时间：'+tmp)
   else if AAuf.TryArgToARV(1,12,High(dword),[ARV_Char],arv) then s_to_arv(tmp,arv);
 end;
 procedure time_getdatestr(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
-    y,m,d,w:word;
+    //y,m,d,w:word;
     arv:TAufRamVar;
     tmp:string;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
-  getdate(y,m,d,w);
-  tmp:=Usf.zeroplus(y,4)+'-'+Usf.zeroplus(m,2)+'-'+Usf.zeroplus(d,2);
+  //getdate(y,m,d,w);
+  tmp:=DateToStr(Now);//Usf.zeroplus(y,4)+'-'+Usf.zeroplus(m,2)+'-'+Usf.zeroplus(d,2);
   if AAuf.ArgsCount=1 then AufScpt.writeln('当前日期：'+tmp)
   else if AAuf.TryArgToARV(1,10,High(dword),[ARV_Char],arv) then s_to_arv(tmp,arv);
 end;
@@ -2573,6 +2606,7 @@ begin
 end;
 
 procedure file_list(Sender:TObject);//file.list "path","filter",@list
+{$ifdef WINDOWS}
 var AufScpt:TAufScript;
     AAuf:TAuf;
     pathname,filter,exprname,list_res:string;
@@ -2595,16 +2629,22 @@ begin
   end;
   list_res:='';
   Rec:=@ARec;
-  findfirst(pathname+'\'+filter,$2F,Rec^);
+  Dos.findfirst(pathname+'\'+filter,$2F,Rec^);
   while dosError=0 do begin
     list_res:=list_res+'|'+wincpToUtf8(pathname+'\'+Rec^.name);
-    findnext(Rec^);
+    Dos.findnext(Rec^);
   end;
-  findclose(Rec^);
+  Dos.findclose(Rec^);
   if list_res<>'' then delete(list_res,1,1);
   AufScpt.Expression.Local.TryAddExp(exprname,Narg('',list_res,''));
 
 end;
+{$else}
+var AufScpt:TAufScript;
+begin
+  AufScpt.send_error('非windows平台，暂不可用。');
+end;
+{$endif}
 
 procedure list_pop(Sender:TObject);//list.pop @list,var
 var AufScpt:TAufScript;
@@ -3111,7 +3151,7 @@ begin
 end;
 
 function TUsf.to_hex(inp:qword;len:byte):ansistring;
-var tmp:qword;
+var tmp{$ifndef cpu64},tlen{$endif}:qword;
 begin
   tmp:=inp;
   result:='';
@@ -3119,7 +3159,16 @@ begin
     result:=chr(48+(tmp mod 16))+result;
     tmp:=tmp shr 4;
   until length(result)>=len;
+  {$ifdef cpu64}
   for tmp:=1 to length(result) do if result[tmp] in [#58..#63] then result[tmp]:=chr(ord(result[tmp])+7);
+  {$else}
+  tlen:=length(result);
+  tmp:=1;
+  while tmp<=tlen do begin
+    if result[tmp] in [#58..#63] then result[tmp]:=chr(ord(result[tmp])+7);
+    inc(tmp);
+  end;
+  {$endif}
 end;
 
 function TUsf.to_binary(inp:qword;len:byte):ansistring;
@@ -3178,6 +3227,8 @@ begin
   result:=Reg.ReadString(_var);
   Reg.Destroy;
 end;
+
+{$ifdef WINDOWS}
 procedure TUsf.each_file(path:ansistring;func_ptr:pFuncFileByte);//开始备份指定盘符，从Ucrawer搬运
 var Rec:^SearchRec;
     ARec:SearchRec;
@@ -3185,19 +3236,19 @@ var Rec:^SearchRec;
     Rec:=@ARec;
     //getmem(Rec,sizeof(Rec));
     //非文件夹
-    findfirst(path+'\*.*',$2F,Rec^);
+    Dos.findfirst(path+'\*.*',$2F,Rec^);
     while dosError=0 do begin
       func_ptr(path+'\'+Rec^.name);
-      findnext(Rec^);
+      Dos.findnext(Rec^);
     end;
-    findclose(Rec^);
+    Dos.findclose(Rec^);
     //文件夹递归
-    findfirst(path+'\*',$10,Rec^);
+    Dos.findfirst(path+'\*',$10,Rec^);
     while dosError=0 do begin
       if (Rec^.name<>'.')and(Rec^.name<>'..') then each_file(path+'\'+Rec^.name,func_ptr);
-      findnext(Rec^);
+      Dos.findnext(Rec^);
     end;
-    findclose(Rec^);
+    Dos.findclose(Rec^);
     //freemem(Rec{,sizeof(Rec)});
   end;
 procedure TUsf.each_file_in_folder(path:ansistring;func_ptr:pFuncFileByte);
@@ -3207,113 +3258,20 @@ var Rec:^SearchRec;
     Rec:=@ARec;
     //getmem(Rec,sizeof(Rec));
     //非文件夹
-    findfirst(path+'\*.*',$2F,Rec^);
+    Dos.findfirst(path+'\*.*',$2F,Rec^);
     while dosError=0 do begin
       func_ptr(path+'\'+Rec^.name);
-      findnext(Rec^);
+      Dos.findnext(Rec^);
     end;
-    findclose(Rec^);
+    Dos.findclose(Rec^);
     //freemem(Rec{,sizeof(Rec)});
   end;
+{$endif}
 
-function TUsf.fsel(address:string):byte;
-var i:byte;
-begin
-  for i:=0 to 255 do if FileByte[i].name=address then begin result:=i;exit end;
-  result:=255;
-  write(result);
-end;
-
-procedure TUsf.fassign(address:string;fid:byte);
-begin
-  if FileByte[fid].fready=true then begin Auf.Script.send_error('错误：不能指派打开的文件！');exit end;//不太合适的跨模块调用
-  FileByte[fid].name:=address;
-  assignfile(FileByte[fid].fptr,address);
-end;
-procedure TUsf.fcreate(fid:byte);
-begin
-  rewrite(FileByte[fid].fptr);
-  close(FileByte[fid].fptr);
-end;
-procedure TUsf.freset(fid:byte);
-begin
-  reset(FileByte[fid].fptr);
-  FileByte[fid].fready:=true;
-end;
-procedure TUsf.fwriteb(fid:byte;seeking:dword;byt:byte);
-begin
-  seek(FileByte[fid].fptr,seeking);
-  write(FileByte[fid].fptr,byt);
-end;
-procedure TUsf.freadb(fid:byte;seeking:dword;var byt:byte);
-begin
-  seek(FileByte[fid].fptr,seeking);
-  read(FileByte[fid].fptr,byt);
-end;
-procedure TUsf.fwrites(fid:byte;seeking:dword;str:string);
-var i:byte;
-begin
-  for i:=0 to length(str)-1 do fwriteb(fid,seeking+i,ord(str[i+1]));
-end;
-procedure TUsf.freads(fid:byte;seeking:dword;len:byte;var str:string);
-var i,c:byte;
-begin
-  str:='';
-  for i:=0 to len-1 do begin
-    freadb(fid,seeking+i,c);
-    str:=str+chr(c);
-  end;
-end;
-procedure TUsf.fclose(fid:byte);
-begin
-  if FileByte[fid].fready=false then begin Auf.Script.send_error('警告：不能关闭未打开的文件！');exit end;//不太合适的跨模块调用
-  close(FileByte[fid].fptr);
-  FileByte[fid].fready:=false;
-end;
-
-procedure TUsf.fassign(address:string);
-var i:byte;
-begin
-  for i:=0 to 255 do if FileByte[i].name='' then break;
-  //write(i);
-  FileByte[i].name:=address;
-  assignfile(FileByte[i].fptr,address);
-  //FileByte[255].fptr在文件打开的情况下变更会导致错误
-end;
-
-procedure TUsf.fcreate(address:string);inline;
-begin
-  fcreate(fsel(address));
-end;
-procedure TUsf.freset(address:string);inline;
-begin
-  freset(fsel(address));
-end;
-procedure TUsf.fwriteb(address:string;seeking:dword;byt:byte);
-begin
-  fwriteb(fsel(address),seeking,byt);
-end;
-procedure TUsf.freadb(address:string;seeking:dword;var byt:byte);
-begin
-  freadb(fsel(address),seeking,byt);
-end;
-procedure TUsf.fwrites(address:string;seeking:dword;str:string);
-begin
-  fwrites(fsel(address),seeking,str);
-end;
-procedure TUsf.freads(address:string;seeking:dword;len:byte;var str:string);
-begin
-  freads(fsel(address),seeking,len,str);
-end;
-procedure TUsf.fclose(address:string);
-begin
-  fclose(fsel(address));
-end;
 constructor TUsf.Create;
 var i:byte;
 begin
   inherited Create;
-  for i:=0 to 255 do Self.FileByte[i].name:='';
 end;
 
 
@@ -3921,7 +3879,8 @@ begin
     Self.send_error('警告：文件读取失败！请检查'+filename+'是否存在或被占用。');
     fs.free;exit
   end;
-  minsize:=min(fs.size,Self.var_stream.Size);
+  //minsize:=min(fs.size,Self.var_stream.Size);
+  if fs.size<Self.var_stream.Size then minsize:=fs.size else minsize:=Self.var_stream.Size;
   fs.position:=0;
   Self.var_stream.Position:=0;
   Self.var_stream.CopyFrom(fs,minsize);
@@ -3938,7 +3897,8 @@ begin
     fs.Free;exit
   end;
   //if fs.Size<>arv.size then exit;
-  minsize:=min(fs.size,arv.Size);
+  //minsize:=min(fs.size,arv.Size);
+  if fs.size<arv.Size then minsize:=fs.size else minsize:=arv.Size;
   fs.position:=0;
   Self.var_stream.Position:=arv.Head-pbyte(Self.var_stream.Memory);
   Self.var_stream.CopyFrom(fs,minsize);
@@ -3954,7 +3914,9 @@ begin
   Self.func[i].helper:=helper;
   Self.func[i].parameter:=func_param;
   Self.func[i].func_ptr:=func_ptr;
+  {$ifdef SynEditMode}
   if Self.SynAufSyn<>nil then Self.SynAufSyn.InternalFunc:=Self.SynAufSyn.InternalFunc+func_name+',';
+  {$endif}
 end;
 procedure TAufScript.run_func(func_name:ansistring);
 var i:word;
@@ -4104,6 +4066,7 @@ begin
 
   if Self.PSW.run_parameter.error_raise then begin
     if Self.Func_process.mid<>nil then Self.Func_process.mid(Self);
+    if Self.Func_process.OnRaise<>nil then Self.Func_process.OnRaise(Self);
     Self.Stop;
   end;
 end;
@@ -4289,26 +4252,29 @@ procedure TAufScript.push_addr_inline(line:dword);
 begin
   push_addr(Self.ScriptLines,Self.ScriptName,line);
 end;
-
+{$ifdef MsgTimerMode}
 procedure TAufScript.send(msg:UINT);
 begin
   {$ifdef TEST_MODE}SysWriteln('AufScript.send '+IntToHex(Self.Control.Handle,8)+' '+IntToStr(int64(Self)));{$endif}
   Postmessage(Self.Control.Handle,msg,int64(@Self),0);
   //Self.Control.Perform(msg,int64(@Self),0);//这个是等同于sendmessage的同步消息，不可用
 end;
-
+{$endif}
 procedure TAufScript.Pause;//人为暂停
 begin
   if Self.Time.Synthesis_Mode = SynMoDelay then raise Exception.Create('命令行模式AufScript不能人为暂停或恢复');
   if Self.PSW.pause then exit;
   Self.PSW.pause:=true;
-  WITH Self.Time DO BEGIN
-  if Synthesis_Mode = SynMoTimer then
+  with Self.Time do if Synthesis_Mode = SynMoTimer then begin
+    {$ifdef MsgTimerMode}
     case TimerPause of
       true:Timer.Enabled:=false;
       false:;
     end;
-  END;
+    {$else}
+    SuspendThread(AufThreadID);
+    {$endif}
+  end;
   if Self.Func_process.OnPause<>nil then Self.Func_process.OnPause(Self);
 end;
 procedure TAufScript.Resume;//人为继续
@@ -4317,20 +4283,27 @@ begin
   if not Self.PSW.pause then exit;
   if Self.Func_process.OnResume<>nil then Self.Func_process.OnResume(Self);
   Self.PSW.pause:=false;
-  WITH Self.Time DO BEGIN
-  if Synthesis_Mode = SynMoTimer then
+  with Self.Time do if Synthesis_Mode = SynMoTimer then begin
+    {$ifdef MsgTimerMode}
     case TimerPause of
       true:Timer.Enabled:=true;
       false:Self.send(AufProcessControl_RunNext);
     end;
-  END;
+    {$else}
+    ResumeThread(AufThreadID);
+    {$endif}
+  end;
 end;
 procedure TAufScript.Stop;//人为中止
 begin
   if Self.Time.Synthesis_Mode = SynMoDelay then raise Exception.Create('命令行模式AufScript不能人为中止');
   //if not Self.PSW.haltoff then exit;
   //if Self.PSW.pause then Self.Resume;
+  {$ifdef MsgTimerMode}
   Self.send(AufProcessControl_RunClose);
+  {$else}
+  CloseThread(AufThreadID);
+  {$endif}
 end;
 procedure TAufScript.RunFirst;//代码执行初始化
 begin
@@ -4345,10 +4318,16 @@ begin
       PSW.print_mode.target_file:='';
     end;
   if Self.Func_process.beginning<>nil then Self.Func_process.beginning(Self);//预设的开始过程
+  {$ifdef MsgTimerMode}
   Self.Time.TimerPause:=false;
+  {$endif}
   IF Self.Time.Synthesis_Mode = SynMoTimer THEN BEGIN
+    {$ifdef MsgTimerMode}
     //使用Self.Control的消息来激活下一个过程
     Self.send(AufProcessControl_RunNext);
+    {$else}
+    AufThreadID:=BeginThread(nil);
+    {$endif}
     exit;
   END ELSE BEGIN
     repeat
@@ -4362,21 +4341,29 @@ var cmd:string;
     AAuf:TAuf;
   procedure DoRunClose;
   begin
-      IF Self.Time.Synthesis_Mode = SynMoTimer THEN BEGIN
-        Self.send(AufProcessControl_RunClose);
-      END ELSE BEGIN
-        Self.PSW.haltoff:=true;
-      END;
+    IF Self.Time.Synthesis_Mode = SynMoTimer THEN BEGIN
+      {$ifdef MsgTimerMode}
+      Self.send(AufProcessControl_RunClose);
+      {$else}
+      Self.PSW.haltoff:=true;
+      {$endif}
+    END ELSE BEGIN
+      Self.PSW.haltoff:=true;
+    END;
   end;
   procedure DoRunNext;
+  {$ifdef MsgTimerMode}
   var tmp_msg:TMsg;
+  {$endif}
   begin
-      IF Self.Time.Synthesis_Mode = SynMoTimer THEN BEGIN
-        //repeat until not PeekMessage(tmp_msg,Self.Control.Handle,0,0,PM_REMOVE);
-        Self.send(AufProcessControl_RunNext);
-      END ELSE BEGIN
-        //DO NOTHING
-      END;
+    IF Self.Time.Synthesis_Mode = SynMoTimer THEN BEGIN
+      {$ifdef MsgTimerMode}
+      //repeat until not PeekMessage(tmp_msg,Self.Control.Handle,0,0,PM_REMOVE);
+      Self.send(AufProcessControl_RunNext);
+      {$endif}
+    END ELSE BEGIN
+      //DO NOTHING
+    END;
   end;
 
 begin
@@ -4412,7 +4399,7 @@ begin
     {$ifdef TEST_MODE}SysWriteln('                                 AufScript.RunNext-OUT -> Line '+IntToStr(currentline));{$endif}
     if Self.Func_process.post<>nil then Self.Func_process.post(Self);//预设的后置过程
 
-    if (not Self.PSW.Pause) and (not Self.Time.TimerPause) and (not Self.PSW.haltoff) then DoRunNext;
+    if (not Self.PSW.Pause){$ifdef MsgTimerMode} and (not Self.Time.TimerPause){$endif} and (not Self.PSW.haltoff) then DoRunNext;
 
   end
   else begin
@@ -4424,16 +4411,28 @@ begin
   //Self.writeln('RunClose');
   Self.PSW.haltoff:=true;
   Self.PSW.pause:=false;
+  {$ifdef MsgTimerMode}
   IF Self.Time.Synthesis_Mode=SynMoTimer THEN BEGIN
     Self.Time.TimerPause:=false;
     Self.Time.Timer.Enabled:=false;
   END;
+  {$endif}
   if (not PSW.print_mode.is_screen) and (PSW.print_mode.resume_when_run_close) then EndOF;
   if Self.Func_process.ending<>nil then Self.Func_process.ending(Self);//预设的结束过程
 end;
 
+function auf_thread_func(parameter:pointer):ptrint;
+begin
+  with TAufScript(parameter) do begin
+    RunFirst;
+    while not PSW.haltoff do begin
+      RunNext;
+    end;
+    RunClose;
+  end;
+end;
 
-procedure TAufScript.command(str:TStrings);
+procedure TAufScript.command(str:TStrings;_error_raise_:boolean=false);
 var i:dword;
     cmd:string;
     line_tmp:dword;
@@ -4445,6 +4444,7 @@ begin
   end;
   {$ifdef command_detach}
   Self.PSW_reset;
+  Self.PSW.run_parameter.error_raise:=_error_raise_;
   Self.ScriptLines:=TStringList.Create;
   Self.ScriptLines.Clear;
   for line_tmp:=0 to str.Count - 1 do
@@ -4470,14 +4470,15 @@ begin
   {$endif}
 
 end;
-procedure TAufScript.command(str:string);
+procedure TAufScript.command(str:string;_error_raise_:boolean=false);
 var scpt:TStringList;
 begin
   scpt:=TStringList.Create;
   scpt.add(str);
-  command(scpt);
+  command(scpt,_error_raise_);
   scpt.Destroy;
 end;
+{$ifdef MsgTimerMode}
 procedure TAufScript.TimerInitialization(var AControl:TAufControl);
 begin
   //if Assigned(AControl) then exit;
@@ -4491,7 +4492,7 @@ begin
   Self.Control.FAuf:=Self.Auf as TAuf;
   Self.Control.FAufScpt:=Self as TAufScript;
 end;
-
+{$endif}
 
 constructor TAufExpressionUnit.Create(AKey:string;AValue:Tnargs;AReadOnly:boolean=false);
 begin
@@ -4573,6 +4574,8 @@ begin
     end;
 end;
 
+{$ifdef MsgTimerMode}
+
 procedure TAufTimer.OnTimerResume(Sender:TObject);
 var auf:TAufScript;
 begin
@@ -4631,14 +4634,18 @@ begin
 end;
 {$undef ptr_flag}
 
+{$endif}
+
 constructor TAufScript.Create(AOwner:TComponent);
 var i:pRam;
 begin
   inherited Create;
 
   Self.Version:=AufScript_Version;
+  {$ifdef SynEditMode}
   if AOwner<>nil then Self.SynAufSyn:=TSynAufSyn.Create(AOwner)
   else Self.SynAufSyn:=nil;
+  {$endif}
 
   if AOwner=nil then
     begin
@@ -4647,18 +4654,24 @@ begin
   else if (AOwner is TComponent) and Assigned(AOwner) then
     begin
       Time.Synthesis_Mode:=SynMoTimer;
+      {$ifdef MsgTimerMode}
       Self.Control:=TAufControl.Create{New}(AOwner);
       if AOwner is TCustomDesignControl then
         Self.Control.Parent:=AOwner as TWinControl
       else
         Self.Control.Parent:=(AOwner.Owner) as TWinControl;
       Self.TimerInitialization(Self.Control);
+      {$else}
+      //线程版本需要初始化吗
+      {$endif}
     end
   else
     begin
       raise Exception.Create('AufScript初始化错误，异常的Owner');
     end;
+  {$ifdef MsgTimerMode}
   Self.Owner:=AOwner;
+  {$endif}
 
   IO_fptr.echo:=@de_writeln;//默认的输出函数
   IO_fptr.print:=@de_write;//默认的不换行输出函数
@@ -4674,6 +4687,7 @@ begin
   Func_process.ending:=nil{@de_nil};//默认的结束过程
   Func_process.OnPause:=nil{@de_nil};//默认的挂起过程
   Func_process.OnResume:=nil{@de_nil};//默认的恢复过程
+  Func_process.OnRaise:=nil{@de_nil};//默认的报错退出过程
   Func_process.Setting:=nil{@de_nil};//默认的set语句
 
 
