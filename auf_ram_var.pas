@@ -134,12 +134,15 @@ type
 
   procedure s_to_arv(s:string;oup:TAufRamVar);
   procedure dword_to_arv(d:dword;oup:TAufRamVar);
+  procedure qword_to_arv(q:qword;oup:TAufRamVar);
   procedure double_to_arv(d:double;oup:TAufRamVar);
 
   procedure initiate_arv(exp:string;var arv:TAufRamVar);//根据字符串创建最大相似的ARV
   procedure initiate_arv_str(exp:RawByteString;var arv:TAufRamVar);//根据字符串创建字符串的ARV
 
   function arv_clip(src:TAufRamVar;idx,len:longint):TAufRamVar;
+  function arv_to_obj(arv:TAufRamVar):TObject;
+  procedure obj_to_arv(obj:TObject;var arv:TAufRamVar);
 
 var
 
@@ -147,7 +150,7 @@ var
 
 implementation
 
-uses Apiglio_Useful;
+uses Apiglio_Useful, auf_ram_image;
 
 
 function DecimalStr(str:string):TDecimalStr;
@@ -1703,6 +1706,12 @@ begin
   tmp:=IntToHex(d,8);
   initiate_arv(tmp+'H',oup);
 end;
+procedure qword_to_arv(q:qword;oup:TAufRamVar);
+var tmp:string;
+begin
+  tmp:=IntToHex(q,16);
+  initiate_arv(tmp+'H',oup);
+end;
 procedure double_to_arv(d:double;oup:TAufRamVar);
 begin
   if (oup.size<>8) and (oup.VarType<>ARV_Float) then raise Exception.Create('警告：八位浮点型以外类型暂不支持赋值');
@@ -1717,6 +1726,35 @@ begin
   result.Head:=src.Head+idx;
   if idx+len>src.size then result.size:=src.size-idx
   else result.size:=len;
+end;
+
+function arv_to_obj(arv:TAufRamVar):TObject;
+begin
+  result:=nil;
+  {$ifdef cpu64}
+    result:=TObject(PQWord(arv.Head)^);
+  {$else}
+    {$ifdef cpu32}
+      result:=TObject(PDWord(arv.Head)^);
+    {$else}
+      raise Exception.Create('cpu位数不支持。');
+    {$endif}
+  {$endif}
+end;
+
+procedure obj_to_arv(obj:TObject;var arv:TAufRamVar);
+begin
+  if (arv.Is_Temporary) or (arv.Stream<>nil) then exit;
+  if arv.size<>8 then exit;
+  {$ifdef cpu64}
+    PQWORD(arv.Head)^:=QWORD(obj);
+  {$else}
+    {$ifdef cpu32}
+      PDWORD(arv.Head)^:=PDWORD(obj);
+    {$else}
+      raise Exception.Create('cpu位数不支持。');
+    {$endif}
+  {$endif}
 end;
 
 initialization

@@ -13,7 +13,7 @@ program fpcunitproject1;
 uses
   Classes, StdCtrls, ExtCtrls, Sysutils, Forms, consoletestrunner, Interfaces,
   Controls, LazUTF8, Windows, Apiglio_Useful, auf_ram_var, aufscript_frame,
-  aufscript_command, auf_ram_syntax;
+  aufscript_command, auf_ram_syntax, auf_ram_image;
 
 type
 

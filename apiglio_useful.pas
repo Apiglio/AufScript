@@ -36,11 +36,11 @@ uses
   {$ifdef can_be_removed}
   StdCtrls,
   {$endif}
-  LazUTF8, Auf_Ram_Var, RegExpr, Variants;
+  LazUTF8, Auf_Ram_Var, Auf_Ram_Image, RegExpr, Variants;
 
 const
 
-  AufScript_Version='beta 2.2.5';
+  AufScript_Version='beta 2.3.1';
 
   c_divi=[' ',','];//隔断符号
   c_iden=['~','@','$','#','?',':','&'];//变量符号，前后缀符号
@@ -373,6 +373,7 @@ type
       procedure AdditionFuncDefine_Time;//时间模块函数定义
       procedure AdditionFuncDefine_File;//文件模块函数定义
       procedure AdditionFuncDefine_Math;//数学模块函数定义
+      procedure AdditionFuncDefine_Image;//图像模块函数定义
 
   end;
 
@@ -2326,7 +2327,6 @@ begin
 
 end;
 
-
 procedure text_str(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
@@ -2867,6 +2867,93 @@ ErrOver_R:
   AufScpt.send_error('指针定义位移超界[R]。');
 
 end;
+
+
+procedure img_newImage(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    arv:TAufRamVar;
+    ari:TARImage;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(2) then exit;
+  if not AAuf.TryArgToARV(1,8,8,[ARV_FixNum],arv) then exit;
+  ari:=TARImage.Create;
+  obj_to_arv(ari,arv);
+end;
+
+procedure img_delImage(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    obj:TObject;
+    arv:TAufRamVar;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(2) then exit;
+  if not AAuf.TryArgToARV(1,8,8,[ARV_FixNum],arv) then exit;
+  obj:=arv_to_obj(arv);
+  if obj is TARImage then begin
+    (obj as TARImage).Free;
+    //AufScpt.writeln('删除Image成功');
+  end else begin
+    AufScpt.send_error('找不到对应的ARImage，删除失败');
+  end;
+end;
+
+procedure img_clearImageList(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    ari_count:integer;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  ari_count:=ARImageList.Count;
+  TARImage.ClearImageList;
+  AufScpt.writeln('共删除'+IntToStr(ari_count)+'个ARI图像。');
+end;
+
+procedure img_AddByLine(Sender:TObject); //img.addln img1,img2[,pw=10,bm=0]
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    a1,a2:TAufRamVar;
+    pw,bm:byte;
+    res:integer;
+    img1,img2,img3:TARImage;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToARV(1,8,8,[ARV_FixNum],a1) then exit;
+  if not AAuf.TryArgToARV(2,8,8,[ARV_FixNum],a2) then exit;
+  if AAuf.ArgsCount>3 then begin
+    if not AAuf.TryArgToByte(3,pw) then exit;
+  end else begin
+    pw:=10;
+  end;
+  if AAuf.ArgsCount>4 then begin
+    if not AAuf.TryArgToByte(4,bm) then exit;
+  end else begin
+    bm:=0;
+  end;
+  img1:=arv_to_obj(a1) as TARImage;
+  img2:=arv_to_obj(a2) as TARImage;
+  AufScpt.writeln('findstart='+IntToStr(img1.FindStart(img2,pw,bm,res)));
+  AufScpt.writeln('backcount='+IntToStr(res));
+  img3:=img1.AddByLine(img2,pw,bm);
+  if img3=nil then AufScpt.writeln('不符合拼接要求。')
+  else begin
+    img1.Free;
+    obj_to_arv(img3,a1);
+  end;
+
+
+end;
+
+
+
+
 
 //内置流程函数结束
 
@@ -4785,6 +4872,7 @@ begin
   AdditionFuncDefine_Time;
   AdditionFuncDefine_File;
   AdditionFuncDefine_Math;
+  AdditionFuncDefine_Image;
 
 
 end;
@@ -4876,6 +4964,17 @@ begin
 
 
 end;
+
+procedure TAufScript.AdditionFuncDefine_Image;
+begin
+  Self.add_func('img.new',@img_newImage,'img','创建image');
+  Self.add_func('img.del',@img_delImage,'img','删除image');
+  Self.add_func('img.clear',@img_clearImageList,'','清除所有image');
+
+  Self.add_func('img.addln',@img_AddByLine,'img1,img2[,pw]','两个图像按照行拼接，拼接需满足边缘pw行像素重合，pw默认值为10。');
+
+end;
+
 
 //////Class Methods end
 
