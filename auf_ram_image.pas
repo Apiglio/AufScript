@@ -12,15 +12,24 @@ type
     FPicture:TPicture;
 
   public
+    function Width:integer;
+    function Height:integer;
+    //Clip
+    function Clip(ARect:TRect):TARImage;
+
     //AddByLine
     function SameWidth(Img:TARImage):boolean;
     function FindStart(Img:TARImage;pixel_width:integer;back_match:integer;var back_count:integer):integer;
     function FindStart(Img:TARImage;pixel_width:integer):integer;
     function AddByLine(Img:TARImage;pixel_width:integer;back_match:integer=0):TARImage;
 
+
   public
+    procedure Clear;
     procedure LoadFromStream(AStream:TStream);
     procedure SaveToStream(AStream:TStream);
+    procedure LoadFromFile(filename:string);
+    procedure SaveToFile(filename:string);
 
   public
     constructor Create;
@@ -48,6 +57,33 @@ begin
   FPicture.Free;
   ARImageList.Remove(Self);
   inherited Destroy;
+end;
+
+function TARImage.Width:integer;
+begin
+  result:=FPicture.Width;
+end;
+
+function TARImage.Height:integer;
+begin
+  result:=FPicture.Height;
+end;
+
+function TARImage.Clip(ARect:TRect):TARImage;
+var rdst:TRect;
+begin
+  result:=nil;
+  if (ARect.Width<=0) or (ARect.Height<=0) then exit;
+  if (ARect.Width>FPicture.Bitmap.Width) or (ARect.Height>FPicture.Bitmap.Height) then exit;
+  result:=TARImage.Create;
+  try
+    rdst:=Rect(0,0,ARect.Width,ARect.Height);
+    result.FPicture.Bitmap.SetSize(ARect.Width,ARect.Height);
+    result.FPicture.Bitmap.Canvas.CopyRect(rdst,FPicture.Bitmap.Canvas,ARect);
+  except
+    result.Free;
+    result:=nil;
+  end;
 end;
 
 function TARImage.SameWidth(Img:TARImage):boolean;
@@ -156,6 +192,11 @@ begin
   result:=true;
 end;
 
+procedure TARImage.Clear;
+begin
+  FPicture.Clear;
+end;
+
 procedure TARImage.LoadFromStream(AStream:TStream);
 begin
   FPicture.LoadFromStream(AStream);
@@ -165,8 +206,14 @@ procedure TARImage.SaveToStream(AStream:TStream);
 begin
   FPicture.SaveToStream(AStream);
 end;
-
-
+procedure TARImage.LoadFromFile(filename:string);
+begin
+  FPicture.LoadFromFile(filename);
+end;
+procedure TARImage.SaveToFile(filename:string);
+begin
+  FPicture.SaveToFile(filename);
+end;
 
 initialization
   ARImageList:=TList.Create;

@@ -40,7 +40,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.3.1';
+  AufScript_Version='beta 2.3.2';
 
   c_divi=[' ',','];//隔断符号
   c_iden=['~','@','$','#','?',':','&'];//变量符号，前后缀符号
@@ -417,6 +417,9 @@ type
 
       function TryArgToAddr(ArgNumber:byte;out res:{20210612改dword为}pRam):boolean;inline;
       //尝试将第ArgNumber个参数转为绝对地址，若不满足类型和长度要求则返回false，并send_error
+
+      function TryArgToObject(ArgNumber:byte;ObjectClass:TClass;out obj:TObject):boolean;inline;
+      //尝试将第ArgNumber个参数转为对象，若不满足对象类型则返回false，并send_error
 
       function RangeCheck(target,min,max:int64):boolean;inline;
       //min<=target<=max时返回true否则返回false，并send_error
@@ -2901,7 +2904,172 @@ begin
     AufScpt.send_error('找不到对应的ARImage，删除失败');
   end;
 end;
+procedure img_copyImage(Sender:TObject);//img.copy img1,img2
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    img1,img2:TARImage;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToObject(1,TARImage,TObject(img1)) then exit;
+  if not AAuf.TryArgToObject(2,TARImage,TObject(img2)) then exit;
+  img1.Clear;
+  img1.FPicture.Assign(img2.FPicture);
+end;
+procedure img_saveImage(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    obj:TObject;
+    arv:TAufRamVar;
+    filename,write_mode:string;
+    noext,ext,stmp:string;
+    rename_series:word;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToARV(1,8,8,[ARV_FixNum],arv) then exit;
+  if not AAuf.TryArgToString(2,filename) then exit;
+  if AAuf.ArgsCount>=4 then begin
+    if not AAuf.TryArgToString(3,write_mode) then exit;
+    write_mode:=lowercase(write_mode);
+  end else begin
+    write_mode:='-e';
+  end;
+  obj:=arv_to_obj(arv);
+  if not (obj is TARImage) then begin
+    AufScpt.send_error('找不到对应的ARImage，删除失败');
+    exit;
+  end;
+  if FileExists(filename) then begin
+    case write_mode of
+      '-f','-force':;//do nothing
+      '-r','-rename':
+        begin
+          rename_series:=0;
+          noext:=ExtractFileNameWithoutExt(filename);
+          ext:=ExtractFileExt(filename);
+          repeat
+            stmp:=noext+'_'+IntToStr(rename_series)+ext;
+            if not FileExists(stmp) then break;
+            inc(rename_series);
+          until rename_series>=10000;
+          if rename_series<10000 then
+            filename:=stmp
+          else begin
+            AufScpt.send_error(filename+'文件及其所有替代文件名均已存在，导出图片失败。');
+            exit;
+          end;
+        end;
+      else // '-e','-error'
+        begin
+          AufScpt.send_error(filename+'文件已存在，导出图片失败。');
+          exit;
+        end;
+    end;
+  end;
+  try
+    (obj as TARImage).SaveToFile(filename);
+  except
+    AufScpt.send_error('图片导出失败，原因未知。');
+  end;
+end;
+procedure img_loadImage(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    obj:TObject;
+    arv:TAufRamVar;
+    filename:string;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToARV(1,8,8,[ARV_FixNum],arv) then exit;
+  if not AAuf.TryArgToString(2,filename) then exit;
+  obj:=arv_to_obj(arv);
+  if not (obj is TARImage) then begin
+    AufScpt.send_error('找不到对应的ARImage，删除失败');
+    exit;
+  end;
+  try
+    (obj as TARImage).LoadFromFile(filename);
+  except
+    AufScpt.send_error('图片导入失败，原因未知。');
+  end;
+end;
+procedure img_clipImage(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    w,h,x,y:integer;
+    rsrc:TRect;
+    img,new_img:TARImage;
+    arv:TAufRamVar;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToObject(1,TARImage,TObject(img)) then exit;
+  AAuf.TryArgToARV(1,8,8,[ARV_FixNum],arv);
 
+  case lowercase(AAuf.args[0]) of
+    'img.clip':begin
+      if not AAuf.CheckArgs(6) then exit;
+      if not AAuf.TryArgToLong(2,x) then exit;
+      if not AAuf.TryArgToLong(3,y) then exit;
+      if not AAuf.TryArgToLong(4,w) then exit;
+      if not AAuf.TryArgToLong(5,h) then exit;
+      rsrc:=Rect(x,y,x+w,y+h);
+    end;
+    'img.trmr':begin
+      if not AAuf.TryArgToLong(2,w) then exit;
+      h:=img.Height;
+      rsrc:=Rect(0,0,w,h);
+    end;
+    'img.trml':begin
+      if not AAuf.TryArgToLong(2,w) then exit;
+      h:=img.Height;
+      rsrc:=Rect(img.Width-w,0,img.Width,h);
+    end;
+    'img.trmb':begin
+      if not AAuf.TryArgToLong(2,h) then exit;
+      w:=img.Width;
+      rsrc:=Rect(0,0,w,h);
+    end;
+    'img.trmt':begin
+      if not AAuf.TryArgToLong(2,h) then exit;
+      w:=img.Width;
+      rsrc:=Rect(0,img.Height-h,w,img.Height);
+    end;
+    else raise Exception.Create('函数名不符合img_clipImage的要求');
+  end;
+  new_img:=img.Clip(rsrc);
+  if new_img<>nil then begin
+    obj_to_arv(new_img,arv);
+    img.Free;
+  end else begin
+    AufScpt.send_error('裁切图像失败。');
+  end;
+end;
+procedure img_getImageValue(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    w,h,x,y:integer;
+    rsrc:TRect;
+    img,new_img:TARImage;
+    arv:TAufRamVar;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToObject(1,TARImage,TObject(img)) then exit;
+  if not AAuf.TryArgToARV(2,4,High(dword),[ARV_FixNum],arv) then exit;
+  case lowercase(AAuf.args[0]) of
+    'img.width':dword_to_arv(img.Width,arv);
+    'img.height':dword_to_arv(img.Height,arv);
+    else raise Exception.Create('函数名不符合img_getImageValue的要求');
+  end;
+end;
 procedure img_clearImageList(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
@@ -3139,6 +3307,18 @@ begin
     end;
   except
     Script.send_error('警告：第'+IntToStr(ArgNumber)+'个参数不能转化绝对地址，代码未执行。');exit
+  end;
+  result:=true;
+end;
+function TAuf.TryArgToObject(ArgNumber:byte;ObjectClass:TClass;out obj:TObject):boolean;
+var arv:TAufRamVar;
+begin
+  result:=false;
+  if not TryArgToARV(ArgNumber,8,8,[ARV_FixNum],arv) then exit;
+  obj:=arv_to_obj(arv);
+  if not (obj is ObjectClass) then begin
+    Script.send_error('警告：第'+IntToStr(ArgNumber)+'个参数无法对应'+ObjectClass.ClassName+'实例，代码未执行。');
+    exit;
   end;
   result:=true;
 end;
@@ -4969,7 +5149,21 @@ procedure TAufScript.AdditionFuncDefine_Image;
 begin
   Self.add_func('img.new',@img_newImage,'img','创建image');
   Self.add_func('img.del',@img_delImage,'img','删除image');
-  Self.add_func('img.clear',@img_clearImageList,'','清除所有image');
+  Self.add_func('img.copy',@img_copyImage,'dst,src','复制src图像到dst');
+  Self.add_func('img.save',@img_saveImage,'img,filename[,-e|-r|-f]','保存image到filename，-e表示重名报错，-f表示覆盖写入，-r表示修改命名写入。');
+  Self.add_func('img.load',@img_loadImage,'img,filename','从filename导入image');
+
+  Self.add_func('img.clip',@img_clipImage,'img,x,y,w,h','裁切img图像');
+  Self.add_func('img.trml',@img_clipImage,'img,width','裁切image图像左侧使宽度为width');
+  Self.add_func('img.trmr',@img_clipImage,'img,width','裁切image图像右侧使宽度为width');
+  Self.add_func('img.trmt',@img_clipImage,'img,height','裁切image图像上部使宽度为height');
+  Self.add_func('img.trmb',@img_clipImage,'img,height','裁切image图像下部使宽度为height');
+
+  Self.add_func('img.width',@img_getImageValue,'img,result','返回img图像的宽到result');
+  Self.add_func('img.height',@img_getImageValue,'img,result','返回img图像的高到result');
+
+
+  Self.add_func('img.freeall',@img_clearImageList,'','清除所有image');
 
   Self.add_func('img.addln',@img_AddByLine,'img1,img2[,pw]','两个图像按照行拼接，拼接需满足边缘pw行像素重合，pw默认值为10。');
 
