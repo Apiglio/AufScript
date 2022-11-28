@@ -40,7 +40,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.3.2';
+  AufScript_Version='beta 2.3.3';
 
   c_divi=[' ',','];//隔断符号
   c_iden=['~','@','$','#','?',':','&'];//变量符号，前后缀符号
@@ -55,6 +55,8 @@ const
   AufProcessControl_RunNext = WM_USER + 19951;
   AufProcessControl_RunClose = WM_USER + 19952;
   {$ENDIF}
+
+  {$I constants.inc}
 
 
 type
@@ -2393,40 +2395,44 @@ begin
   delete(str,len+1,length(str));
   initiate_arv_str(str,tmp);
 end;
-procedure text_strCat(Sender:TObject);//cat @str1 @str2
+procedure text_strCat(Sender:TObject);//cat @str1 @str2 -r
 var AufScpt:TAufScript;
     AAuf:TAuf;
     tmp:TAufRamVar;
-    s1,s2:string;
+    s1,s2,mode:string;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
   if not AAuf.TryArgToARV(1,High(dword),0,[ARV_Char],tmp) then exit;
   if not AAuf.TryArgToString(2,s2) then exit;
+  if AAuf.ArgsCount>3 then begin
+    if not AAuf.TryArgToString(3,mode) then exit;
+  end else begin
+    mode:='';
+  end;
   s1:=arv_to_s(tmp);
-  initiate_arv_str(s1+s2,tmp);
+  case lowercase(mode) of
+    '-r':initiate_arv_str(s2+s1,tmp);
+    else initiate_arv_str(s1+s2,tmp);
+  end;
 end;
 
 procedure time_settimer(Sender:TObject);
 var AufScpt:TAufScript;
-    //h,m,s,cs:word;
 begin
   AufScpt:=Sender as TAufScript;
-  //gettime(h,m,s,cs);
-  AufScpt.PSW.extra_variable.timer:=DateTimeToTimeStamp(Now).Time;//cs*10+s*1000+m*60000+h*3600000;
+  AufScpt.PSW.extra_variable.timer:=DateTimeToTimeStamp(Now).Time;
 end;
 procedure time_gettimer(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
-    //h,m,s,cs:word;
     tmp:longint;
     arv:TAufRamVar;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
-  //gettime(h,m,s,cs);
-  tmp:=DateTimeToTimeStamp(Now).Time;//cs*10+s*1000+m*60000+h*3600000;
+  tmp:=DateTimeToTimeStamp(Now).Time;
   if tmp<AufScpt.PSW.extra_variable.timer then tmp:=tmp+24*60*60*1000;
   tmp:=tmp - AufScpt.PSW.extra_variable.timer;
   if AAuf.ArgsCount=1 then AufScpt.writeln('定时器读数：'+IntToStr(tmp)+'毫秒')
@@ -2438,7 +2444,6 @@ end;
 procedure time_waittimer(Sender:TObject);//线程不可用，需要再看怎么处理//可以用啊？
 var AufScpt:TAufScript;
     AAuf:TAuf;
-    //h,m,s,cs:word;
     tmp,std:dword;
     arv:TAufRamVar;
 begin
@@ -2446,9 +2451,7 @@ begin
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(2) then exit;
   if not AAuf.TryArgToDWord(1,std) then exit;
-  ////////////////
-  //gettime(h,m,s,cs);
-  tmp:=DateTimeToTimeStamp(Now).Time;//cs*10+s*1000+m*60000+h*3600000;
+  tmp:=DateTimeToTimeStamp(Now).Time;
   if tmp<AufScpt.PSW.extra_variable.timer then tmp:=tmp+24*60*60*1000;
   tmp:=tmp - AufScpt.PSW.extra_variable.timer;
 
@@ -2469,28 +2472,40 @@ end;
 procedure time_gettimestr(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
-    //h,m,s,cs:word;
     arv:TAufRamVar;
-    tmp:string;
+    tmp,fmt:string;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
-  //gettime(h,m,s,cs);
-  tmp:=TimeToStr(Now);//Usf.zeroplus(h,2)+':'+Usf.zeroplus(m,2)+':'+Usf.zeroplus(s,2)+'.'+Usf.zeroplus(cs,2)+'0';
+  if AAuf.ArgsCount>2 then begin
+    if not AAuf.TryArgToString(2,fmt) then exit;
+    case fmt of
+      '-f','-filename':tmp:=TimeToStr(Now,fmtsFile);
+      '-F','-FILENAME':tmp:=DateTimeToStr(Now,fmtsFile);
+      '-D','-DISPLAY':tmp:=DateTimeToStr(Now,fmtsDisplay);
+      else tmp:=TimeToStr(Now,fmtsDisplay);
+    end;
+  end else tmp:=TimeToStr(Now,fmtsDisplay);
   if AAuf.ArgsCount=1 then AufScpt.writeln('当前时间：'+tmp)
   else if AAuf.TryArgToARV(1,12,High(dword),[ARV_Char],arv) then s_to_arv(tmp,arv);
 end;
 procedure time_getdatestr(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
-    //y,m,d,w:word;
     arv:TAufRamVar;
-    tmp:string;
+    tmp,fmt:string;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
-  //getdate(y,m,d,w);
-  tmp:=DateToStr(Now);//Usf.zeroplus(y,4)+'-'+Usf.zeroplus(m,2)+'-'+Usf.zeroplus(d,2);
+  if AAuf.ArgsCount>2 then begin
+    if not AAuf.TryArgToString(2,fmt) then exit;
+    case fmt of
+      '-f','-filename':tmp:=DateToStr(Now,fmtsFile);
+      '-F','-FILENAME':tmp:=DateTimeToStr(Now,fmtsFile);
+      '-D','-DISPLAY':tmp:=DateTimeToStr(Now,fmtsDisplay);
+      else tmp:=DateToStr(Now,fmtsDisplay);
+    end;
+  end else tmp:=DateToStr(Now,fmtsDisplay);
   if AAuf.ArgsCount=1 then AufScpt.writeln('当前日期：'+tmp)
   else if AAuf.TryArgToARV(1,10,High(dword),[ARV_Char],arv) then s_to_arv(tmp,arv);
 end;
@@ -5063,13 +5078,13 @@ begin
   Self.add_func('val',@text_val,'$[],str','将str转化成数值存入$[]');
   Self.add_func('srp',@text_strReplace,'#[],old,new','将#[]中的old替换成new');
   Self.add_func('mid',@text_strMid,'#[],pos,len','将#[]从pos处截取len位字符');
-  Self.add_func('cat',@text_strCat,'#[],str','将str加在#[]的末尾');
+  Self.add_func('cat',@text_strCat,'#[],str[,-r]','将str加在#[]的末尾或开头(-r)');
 
 end;
 procedure TAufScript.AdditionFuncDefine_Time;
 begin
-  Self.add_func('gettimestr',@time_gettimestr,'var','显示当前时间字符串或存入字符变量var中');
-  Self.add_func('getdatestr',@time_getdatestr,'var','显示当前日期字符串或存入字符变量var中');
+  Self.add_func('gettimestr',@time_gettimestr,'var[,-d|-f]','显示当前时间字符串或存入字符变量var中，-d为默认显示格式，-f表示符合文件名规则，参数大写则同时输出日期');
+  Self.add_func('getdatestr',@time_getdatestr,'var[,-d|-f]','显示当前日期字符串或存入字符变量var中，-d为默认显示格式，-f表示符合文件名规则，参数大写则同时输出时间');
 
   Self.add_func('settimer',@time_settimer,'','初始化计时器');
   Self.add_func('gettimer',@time_gettimer,'var','获取计时器度数');
