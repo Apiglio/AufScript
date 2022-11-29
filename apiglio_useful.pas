@@ -40,7 +40,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.3.3';
+  AufScript_Version='beta 2.3.4';
 
   c_divi=[' ',','];//隔断符号
   c_iden=['~','@','$','#','?',':','&'];//变量符号，前后缀符号
@@ -409,6 +409,9 @@ type
 
       function TryArgToString(ArgNumber:byte;out res:string):boolean;inline;
       //尝试将第ArgNumber个参数转为string，失败则返回false，并send_error
+
+      function TryArgToStrParam(ArgNumber:byte;paramAllowance:array of string;CaseSensitivity:boolean;out res:string):boolean;inline;
+      //尝试将第ArgNumber个参数转为字符串参数，若不是字符串或不在paramAllowance中，则返回false，并send_error
 
       function TryArgToDouble(ArgNumber:byte;out res:double):boolean;inline;
       //尝试将第ArgNumber个参数转为double，失败则返回false，并send_error
@@ -3269,6 +3272,37 @@ begin
     Script.send_error('警告：第'+IntToStr(ArgNumber)+'个参数不能转化为字符串string，代码未执行。');exit
   end;
   result:=true;
+end;
+function TAuf.TryArgToStrParam(ArgNumber:byte;paramAllowance:array of string;CaseSensitivity:boolean;out res:string):boolean;
+var stmp,list:string;
+    len,idx:integer;
+begin
+  result:=false;
+  if not TryArgToString(ArgNumber,stmp) then exit;
+  len:=Length(paramAllowance);
+  if len<1 then exit;
+  list:='';
+  if CaseSensitivity then begin
+    for idx:=0 to len-1 do begin
+      list:=list+','+paramAllowance[idx];
+      if paramAllowance[idx]=stmp then begin
+        res:=stmp;
+        result:=true;
+        exit
+      end;
+    end;
+  end else begin
+    for idx:=0 to len-1 do begin
+      list:=list+','+paramAllowance[idx];
+      if lowercase(paramAllowance[idx])=lowercase(stmp) then begin
+        res:=stmp;
+        result:=true;
+        exit
+      end;
+    end;
+  end;
+  System.Delete(list,1,1);
+  Script.send_error('警告：第'+IntToStr(ArgNumber)+'个参数不在['+list+']范围内，代码未执行。');
 end;
 function TAuf.TryArgToDouble(ArgNumber:byte;out res:double):boolean;
 begin
