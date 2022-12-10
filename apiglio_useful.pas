@@ -40,7 +40,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.3.4';
+  AufScript_Version='beta 2.3.5';
 
   c_divi=[' ',','];//隔断符号
   c_iden=['~','@','$','#','?',':','&'];//变量符号，前后缀符号
@@ -449,6 +449,7 @@ var
   procedure de_decoder(var str:string);
 
   function narg(Apre,Aarg,Apost:string):Tnargs;
+  procedure compare_jump_mode(var core_mode:string;var is_not,is_call:boolean);
 
   function isprintable(str:string):boolean;
   function DwordToRawStr(inp:dword):string;
@@ -745,7 +746,7 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if AAuf.ArgsCount=1 then AufScpt.helper
-  else AufScpt.func_helper(AAuf.nargs[1].arg);
+  else AufScpt.func_helper(AAuf.args[1]);
 end;
 procedure _define_helper(Sender:TObject);
 var AufScpt:TAufScript;
@@ -1494,6 +1495,29 @@ begin
   end;
 end;
 
+procedure compare_jump_mode(var core_mode:string;var is_not,is_call:boolean);
+var poss:integer;
+begin
+  core_mode:=lowercase(core_mode);
+  poss:=pos('.',core_mode);
+  while poss>0 do begin
+    delete(core_mode,1,poss);
+    poss:=pos('.',core_mode);
+  end;
+  if core_mode[1]='n' then
+    begin
+      is_not:=true;
+      delete(core_mode,1,1);
+    end
+  else is_not:=false;
+  if core_mode[length(core_mode)]='c' then
+    begin
+      is_call:=true;
+      delete(core_mode,length(core_mode),1);
+    end
+  else is_call:=false;
+end;
+
 procedure cj_mode(mode:string;Sender:TObject);//比较两个变量，满足条件则跳转至ofs  cj var1,var2,ofs
 var a,b:double;
     sa,sb:string;
@@ -1513,18 +1537,7 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   core_mode:=mode;
-  if core_mode[1]='n' then
-    begin
-      is_not:=true;
-      delete(core_mode,1,1);
-    end
-  else is_not:=false;
-  if core_mode[length(core_mode)]='c' then
-    begin
-      is_call:=true;
-      delete(core_mode,length(core_mode),1);
-    end
-  else is_call:=false;
+  compare_jump_mode(core_mode,is_not,is_call);
 
   ofs:=0;
   if not AAuf.CheckArgs(4) then exit;
@@ -3072,9 +3085,7 @@ end;
 procedure img_getImageValue(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
-    w,h,x,y:integer;
-    rsrc:TRect;
-    img,new_img:TARImage;
+    img:TARImage;
     arv:TAufRamVar;
 begin
   AufScpt:=Sender as TAufScript;
@@ -3088,6 +3099,58 @@ begin
     else raise Exception.Create('函数名不符合img_getImageValue的要求');
   end;
 end;
+procedure img_getImageAverageColor(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    img:TARImage;
+    arv:TAufRamVar;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToObject(1,TARImage,TObject(img)) then exit;
+  if not AAuf.TryArgToARV(2,4,High(dword),[ARV_FixNum],arv) then exit;
+  dword_to_arv(dword(img.AverageColor),arv);
+end;
+procedure img_getImagePixelFormat(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    img:TARImage;
+    arv:TAufRamVar;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToObject(1,TARImage,TObject(img)) then exit;
+  if not AAuf.TryArgToARV(2,7,High(dword),[ARV_Char],arv) then exit;
+  initiate_arv_str(img.PixelFormat,arv);
+end;
+
+procedure img_cj(Sender:TObject);//img._cje_ img1,img2,:label
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    img1,img2:TARImage;
+    arv:TAufRamVar;
+    addr:pRam;
+    mode:string;
+    is_not,is_call,is_equal:boolean;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToObject(1,TARImage,TObject(img1)) then exit;
+  if not AAuf.TryArgToObject(2,TARImage,TObject(img2)) then exit;
+  if not AAuf.TryArgToAddr(3,addr) then exit;
+  mode:=AAuf.args[0];
+  compare_jump_mode(mode,is_not,is_call);
+  is_equal:=img1.ImgEqual(img2);
+  if is_equal xor is_not then begin
+    if is_call then AufScpt.push_addr(addr)
+    else AufScpt.jump_addr(addr);
+  end;
+
+end;
+
 procedure img_clearImageList(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
@@ -4550,7 +4613,7 @@ procedure TAufScript.push_addr(line:dword);
 begin
   push_addr(Self.ScriptLines,Self.ScriptName,line);
 end;
-procedure TAufScript.push_addr_inline(Ascript:TStrings;Ascriptname:string;line:dword);
+procedure TAufScript.push_addr_inline(Ascript:TStrings;Ascriptname:string;line:dword);//why?
 begin
   if Self.PSW.stack_ptr=stack_range-1 then
     begin
@@ -4566,7 +4629,7 @@ begin
 end;
 procedure TAufScript.push_addr_inline(line:dword);
 begin
-  push_addr(Self.ScriptLines,Self.ScriptName,line);
+  push_addr(Self.ScriptLines,Self.ScriptName,line);//why? 再怎么说也应该要和push_addr_inline一样吧
 end;
 {$ifdef MsgTimerMode}
 procedure TAufScript.send(msg:UINT);
@@ -5210,6 +5273,10 @@ begin
 
   Self.add_func('img.width',@img_getImageValue,'img,result','返回img图像的宽到result');
   Self.add_func('img.height',@img_getImageValue,'img,result','返回img图像的高到result');
+  Self.add_func('img.color',@img_getImageAverageColor,'img,result','返回img图像的平均颜色');
+  Self.add_func('img.pixelformat',@img_getImagePixelFormat,'img,result','返回img图像的像素类型');
+
+  Self.add_func('img.cje,img.cjec,img.ncje,img.ncjec',@img_cj,'img1,img2,:label/ofs','如果两个图像相同则跳转,前加"n"表示否定,后加"c"表示压栈调用');
 
 
   Self.add_func('img.freeall',@img_clearImageList,'','清除所有image');

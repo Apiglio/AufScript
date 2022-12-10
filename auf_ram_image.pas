@@ -14,8 +14,14 @@ type
   public
     function Width:integer;
     function Height:integer;
+    function AverageColor:TColor;
+    function PixelFormat:string;
+
     //Clip
     function Clip(ARect:TRect):TARImage;
+
+    //Compare
+    function ImgEqual(Img:TARImage):boolean;
 
     //AddByLine
     function SameWidth(Img:TARImage):boolean;
@@ -68,7 +74,47 @@ function TARImage.Height:integer;
 begin
   result:=FPicture.Height;
 end;
+function TARImage.AverageColor:TColor;
+var pi,pj,pk:integer;
+    acc:array[0..3] of int64;
+    phead:pbyte;
+    max_color:byte;
+begin
+  result:=clBlack;
+  if FPicture.Bitmap.Height*FPicture.Bitmap.Width=0 then exit;
 
+  case FPicture.Bitmap.PixelFormat of
+    pf32bit:max_color:=3;
+    pf24bit:max_color:=2;
+    else raise Exception.Create('不支持的像素类型。')
+  end;
+
+  for pk:=0 to 3 do acc[pk]:=0;
+  phead:=pbyte(FPicture.Bitmap.ScanLine[0]);
+  for pi:=0 to FPicture.Bitmap.Height-1 do begin
+    for pj:=0 to FPicture.Bitmap.Width-1 do begin
+      for pk:=0 to max_color do begin
+        acc[pk]:=acc[pk]+phead^;
+        phead:=phead+1;
+      end;
+    end;
+  end;
+  for pk:=0 to 3 do acc[pk]:=acc[pk] div (FPicture.Bitmap.Width * FPicture.Bitmap.Height);
+  result:=(acc[0] shl 24) or (acc[1] shl 16) or (acc[2] shl 8) or acc[3];
+end;
+function TARImage.PixelFormat:string;
+begin
+  case FPicture.Bitmap.PixelFormat of
+    pf32bit:result:='32 bits';
+    pf24bit:result:='24 bits';
+    pf16bit:result:='16 bits';
+    pf15bit:result:='15 bits';
+    pf8bit: result:='08 bits';
+    pf4bit: result:='04 bits';
+    pf1bit: result:='01 bit.';
+    else    result:='unknown'
+  end;
+end;
 function TARImage.Clip(ARect:TRect):TARImage;
 var rdst:TRect;
 begin
@@ -86,6 +132,24 @@ begin
   end;
 end;
 
+function TARImage.ImgEqual(Img:TARImage):boolean;
+var b1,b2:TBitmap;
+    pf_width:byte;
+begin
+  result:=false;
+  b1:=FPicture.Bitmap;
+  b2:=Img.FPicture.Bitmap;
+  if b1.PixelFormat<>b2.PixelFormat then exit;
+  if b1.Height<>b2.Height then exit;
+  if b1.Width<>b2.Width then exit;
+  case b1.PixelFormat of
+    pf24bit:pf_width:=3;
+    pf32bit:pf_width:=4;
+    else raise Exception.Create('不支持的像素类型。');
+  end;
+  result:=CompareMem(pbyte(b1.ScanLine[0]),pbyte(b2.ScanLine[0]),b1.Width*b1.Height*pf_width);
+end;
+
 function TARImage.SameWidth(Img:TARImage):boolean;
 begin
   result:=FPicture.Width=Img.FPicture.Width;
@@ -98,14 +162,21 @@ var ht1,ht2,wt:integer;
     cursor1,cursor2,cc1,cc2:integer;
     b1,b2:TBitmap;
     base_pass:boolean;
+    pf_width:byte;
 begin
   result:=-1;
   if not SameWidth(Img) then exit;
   b1:=FPicture.Bitmap;
   b2:=Img.FPicture.Bitmap;
+  if b1.PixelFormat<>b2.PixelFormat then exit;
   ht1:=b1.Height;
   ht2:=b2.Height;
   wt:=b1.Width;
+  case b1.PixelFormat of
+    pf32bit:pf_width:=4;
+    pf24bit:pf_width:=3;
+    else raise Exception.Create('不支持的像素类型。');
+  end;
 
   if back_match<0 then back_match:=0;
   back_count:=0;
@@ -114,7 +185,7 @@ begin
     cursor2:=0;
     if cursor1<0 then exit;
     while cursor2<ht2-pixel_width do begin
-      if CompareMem(pdword(b1.ScanLine[cursor1]),pdword(b2.ScanLine[cursor2]),wt) then begin
+      if CompareMem(pbyte(b1.ScanLine[cursor1]),pbyte(b2.ScanLine[cursor2]),pf_width*wt) then begin
         base_pass:=true;
         cc1:=cursor1;
         cc2:=cursor2;
@@ -122,7 +193,7 @@ begin
           inc(cc1);
           inc(cc2);
           if cc2>=ht2 then base_pass:=false;
-          if not CompareMem(pdword(b1.ScanLine[cc1]),pdword(b2.ScanLine[cc2]),wt) then base_pass:=false;
+          if not CompareMem(pbyte(b1.ScanLine[cc1]),pbyte(b2.ScanLine[cc2]),pf_width*wt) then base_pass:=false;
         until (cc1>=ht1-1-back_count*pixel_width) or not base_pass;
         if base_pass then begin
           result:=cc2+1;
