@@ -40,7 +40,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.3.5';
+  AufScript_Version='beta 2.3.6';
 
   c_divi=[' ',','];//隔断符号
   c_iden=['~','@','$','#','?',':','&'];//变量符号，前后缀符号
@@ -3062,6 +3062,7 @@ var AufScpt:TAufScript;
     rsrc:TRect;
     img,new_img:TARImage;
     arv:TAufRamVar;
+    mode:string;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
@@ -3069,37 +3070,83 @@ begin
   if not AAuf.TryArgToObject(1,TARImage,TObject(img)) then exit;
   AAuf.TryArgToARV(1,8,8,[ARV_FixNum],arv);
 
-  case lowercase(AAuf.args[0]) of
-    'img.clip':begin
-      if not AAuf.CheckArgs(6) then exit;
-      if not AAuf.TryArgToLong(2,x) then exit;
-      if not AAuf.TryArgToLong(3,y) then exit;
-      if not AAuf.TryArgToLong(4,w) then exit;
-      if not AAuf.TryArgToLong(5,h) then exit;
-      rsrc:=Rect(x,y,x+w,y+h);
-    end;
-    'img.trmr':begin
-      if not AAuf.TryArgToLong(2,w) then exit;
-      h:=img.Height;
-      rsrc:=Rect(0,0,w,h);
-    end;
-    'img.trml':begin
-      if not AAuf.TryArgToLong(2,w) then exit;
-      h:=img.Height;
-      rsrc:=Rect(img.Width-w,0,img.Width,h);
-    end;
-    'img.trmb':begin
-      if not AAuf.TryArgToLong(2,h) then exit;
-      w:=img.Width;
-      rsrc:=Rect(0,0,w,h);
-    end;
-    'img.trmt':begin
-      if not AAuf.TryArgToLong(2,h) then exit;
-      w:=img.Width;
-      rsrc:=Rect(0,img.Height-h,w,img.Height);
-    end;
-    else raise Exception.Create('函数名不符合img_clipImage的要求');
+  {
+  if AAuf.ArgsCount>3 then begin
+    if not AAuf.TryArgToStrParam(3,['-sub','-abs'],false,mode) then exit;
+  end else begin
+    mode:='-abs';
   end;
+  }
+
+ IF lowercase(AAuf.args[0]) = 'img.clip' THEN BEGIN
+    if not AAuf.CheckArgs(6) then exit;
+    if not AAuf.TryArgToLong(2,x) then exit;
+    if not AAuf.TryArgToLong(3,y) then exit;
+    if not AAuf.TryArgToLong(4,w) then exit;
+    if not AAuf.TryArgToLong(5,h) then exit;
+    rsrc:=Rect(x,y,x+w,y+h);
+  END ELSE BEGIN
+    if AAuf.ArgsCount>3 then begin
+      if not AAuf.TryArgToStrParam(3,['-sub','-abs'],false,mode) then exit;
+      mode:=lowercase(mode);
+    end else mode:='-abs';
+
+    case lowercase(AAuf.args[0]) of
+      'img.trmr':begin
+        if not AAuf.TryArgToLong(2,w) then exit;
+        case mode of
+          '-abs':begin
+            h:=img.Height;
+            rsrc:=Rect(0,0,w,h);
+          end;
+          '-sub':begin
+            h:=img.Height;
+            rsrc:=Rect(0,0,img.Width-w,h);
+          end;
+        end;
+      end;
+      'img.trml':begin
+        if not AAuf.TryArgToLong(2,w) then exit;
+        case mode of
+          '-abs':begin
+            h:=img.Height;
+            rsrc:=Rect(img.Width-w,0,img.Width,h);
+          end;
+          '-sub':begin
+            h:=img.Height;
+            rsrc:=Rect(w,0,img.Width,h);
+          end;
+        end;
+      end;
+      'img.trmb':begin
+        if not AAuf.TryArgToLong(2,h) then exit;
+        case mode of
+          '-abs':begin
+            w:=img.Width;
+            rsrc:=Rect(0,0,w,h);
+          end;
+          '-sub':begin
+            w:=img.Width;
+            rsrc:=Rect(0,0,w,img.Height-h);
+          end;
+        end;
+      end;
+      'img.trmt':begin
+        if not AAuf.TryArgToLong(2,h) then exit;
+        case mode of
+          '-abs':begin
+            w:=img.Width;
+            rsrc:=Rect(0,img.Height-h,w,img.Height);
+          end;
+          '-sub':begin
+            w:=img.Width;
+            rsrc:=Rect(0,h,w,img.Height);
+          end;
+        end;
+      end;
+      else raise Exception.Create('函数名不符合img_clipImage的要求');
+    end;
+  END;
   new_img:=img.Clip(rsrc);
   if new_img<>nil then begin
     obj_to_arv(new_img,arv);
@@ -5312,14 +5359,14 @@ begin
   Self.add_func('img.new',@img_newImage,'img','创建image');
   Self.add_func('img.del',@img_delImage,'img','删除image');
   Self.add_func('img.copy',@img_copyImage,'dst,src','复制src图像到dst');
-  Self.add_func('img.save',@img_saveImage,'img,filename[,-e|-r|-f]','保存image到filename，-e表示重名报错，-f表示覆盖写入，-r表示修改命名写入。');
+  Self.add_func('img.save',@img_saveImage,'img,filename[,-e|-r|-f]','保存image到filename，-e表示重名报错，-f表示覆盖写入，-r表示修改命名写入');
   Self.add_func('img.load',@img_loadImage,'img,filename','从filename导入image');
 
   Self.add_func('img.clip',@img_clipImage,'img,x,y,w,h','裁切img图像');
-  Self.add_func('img.trml',@img_clipImage,'img,width','裁切image图像左侧使宽度为width');
-  Self.add_func('img.trmr',@img_clipImage,'img,width','裁切image图像右侧使宽度为width');
-  Self.add_func('img.trmt',@img_clipImage,'img,height','裁切image图像上部使宽度为height');
-  Self.add_func('img.trmb',@img_clipImage,'img,height','裁切image图像下部使宽度为height');
+  Self.add_func('img.trml',@img_clipImage,'img,width[,-sub]','裁切image图像左侧使宽度为width，加-sub表示裁剪特定像素宽度');
+  Self.add_func('img.trmr',@img_clipImage,'img,width[,-sub]','裁切image图像右侧使宽度为width，加-sub表示裁剪特定像素宽度');
+  Self.add_func('img.trmt',@img_clipImage,'img,height[,-sub]','裁切image图像上部使宽度为height，加-sub表示裁剪特定像素宽度');
+  Self.add_func('img.trmb',@img_clipImage,'img,height[,-sub]','裁切image图像下部使宽度为height，加-sub表示裁剪特定像素宽度');
 
   Self.add_func('img.width',@img_getImageValue,'img,result','返回img图像的宽到result');
   Self.add_func('img.height',@img_getImageValue,'img,result','返回img图像的高到result');
@@ -5331,7 +5378,7 @@ begin
 
   Self.add_func('img.freeall',@img_clearImageList,'','清除所有image');
 
-  Self.add_func('img.addln',@img_AddByLine,'img1,img2[,pw]','两个图像按照行拼接，拼接需满足边缘pw行像素重合，pw默认值为10。');
+  Self.add_func('img.addln',@img_AddByLine,'img1,img2[,pw[,bm]]','两个图像按照行拼接，拼接需满足边缘pw行像素重合(pw默认值为10)，最大回溯查找bm段(bm默认值为0)');
 
 end;
 
