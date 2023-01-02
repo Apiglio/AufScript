@@ -80,6 +80,7 @@ type
   procedure freeARV(inp:TAufRamVar);
   function assignedARV(inp:TAufRamVar):boolean;
   procedure copyARV(ori_arv:TAufRamVar;var new_arv:TAufRamVar);
+  procedure fillARV(target:byte;var arv:TAufRamVar);
 
   procedure fixnum_add(ina,inb:TAufRamVar;var oup:TAufRamVar);
   procedure fixnum_sub(ina,inb:TAufRamVar;var oup:TAufRamVar);
@@ -137,12 +138,15 @@ type
   procedure qword_to_arv(q:qword;oup:TAufRamVar);
   procedure double_to_arv(d:double;oup:TAufRamVar);
 
-  procedure initiate_arv(exp:string;var arv:TAufRamVar);//根据字符串创建最大相似的ARV
+  procedure initiate_arv(exp:string;var arv:TAufRamVar);//根据字符串创建最大相似的ARV 应该改名initiate_arv_fixnum
   procedure initiate_arv_str(exp:RawByteString;var arv:TAufRamVar);//根据字符串创建字符串的ARV
 
   function arv_clip(src:TAufRamVar;idx,len:longint):TAufRamVar;
   function arv_to_obj(arv:TAufRamVar):TObject;
   procedure obj_to_arv(obj:TObject;var arv:TAufRamVar);
+
+const
+  ARV_AllType:TAufRamVarTypeSet = [ARV_FixNum,ARV_Float,ARV_Char];
 
 var
 
@@ -939,33 +943,18 @@ begin
 end;
 
 procedure copyARV(ori_arv:TAufRamVar;var new_arv:TAufRamVar);
-var pi:integer;
 begin
-  {
-  if new_arv.Is_Temporary then
-    begin
-      new_arv.size:=ori_arv.size;
-      new_arv.Stream.Size:=new_arv.size;
-    end;
-  }
-  pi:=0;
-  while pi<new_arv.size do
-    begin
-      if pi<ori_arv.size then (new_arv.Head+pi)^:=(ori_arv.Head+pi)^
-      else (new_arv.Head+pi)^:=0;
-      inc(pi);
-    end;
+  if ori_arv.size>=new_arv.size then begin
+    Move(ori_arv.Head^,new_arv.Head^,new_arv.size);
+  end else begin
+    Move(ori_arv.Head^,new_arv.Head^,ori_arv.size);
+    FillByte((new_arv.Head+ori_arv.size)^,new_arv.size-ori_arv.size,0);
+  end;
 end;
 
 procedure fillARV(target:byte;var arv:TAufRamVar);
-var pi:integer;
 begin
-  pi:=0;
-  while pi<arv.size do
-    begin
-      (arv.Head+pi)^:=target;
-      inc(pi);
-    end;
+  FillByte(arv.Head^,arv.size,target);
 end;
 
 procedure fixnum_add(ina,inb:TAufRamVar;var oup:TAufRamVar);    //这里要改一下，可以按正常的记录类型来搞
@@ -1452,11 +1441,20 @@ end;
 procedure initiate_arv(exp:string;var arv:TAufRamVar);//根据字符串创建最大相似的ARV，非临时性ARV位数按规定赋值，临时性最大还原字符串
 var size,len,pi:integer;
     str,stmp:string;
+    function isHex(ss:string):boolean;
+    var pi:integer;
+    begin
+      result:=false;
+      for pi:=1 to length(ss) do if not (ss[pi] in ['A'..'F','a'..'f','0'..'9']) then exit;
+      result:=true;
+    end;
+
 begin
   str:=exp;
   if exp[length(exp)] in ['h','H'] then
     begin
       delete(str,length(str),1);
+      if not isHex(str) then raise Exception.Create('[initiate_arv]十六进制整数表达有误。');
       len:=length(str);
       size:=len div 2 + len mod 2;
       if arv.Is_Temporary then
@@ -1682,7 +1680,11 @@ begin
                  result:=arv_to_dec(ina);
                end;
     ARV_Float :begin
-                 raise Exception.Create('暂不支持浮点型的to_s转换，请使用to_hex');
+                 case ina.size of
+                   4:result:=FloatToStrF(psingle(ina.Head)^,ffFixed,6,6);
+                   8:result:=FloatToStrF(pdouble(ina.Head)^,ffFixed,15,15);
+                   else raise Exception.Create('暂不支持4和8字节以外的浮点型字符串转换，请使用to_hex');
+                 end;
                end;
     ARV_Char  :begin
                  for pi:=ina.size-1 downto 0 do

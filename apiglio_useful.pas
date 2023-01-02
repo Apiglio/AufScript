@@ -314,10 +314,10 @@ type
 
     published
       //将Tnargs参数转换成需要的格式，不符合要求的情况下raise，使用时需要解决异常。
-      function TryToDouble(arg:Tnargs):double;
-      function TryToDWord(arg:Tnargs):dword;
-      function TryToLong(arg:Tnargs):longint;
-      function TryToString(arg:Tnargs):string;
+      function TryToDouble(arg:Tnargs):double; deprecated 'Use Auf.TryArgToDouble out of AufScript project.';
+      function TryToDWord(arg:Tnargs):dword;   deprecated 'Use Auf.TryArgToDWord out of AufScript project.';
+      function TryToLong(arg:Tnargs):longint;  deprecated 'Use Auf.TryArgToLong out of AufScript project.';
+      function TryToString(arg:Tnargs):string; deprecated 'Use Auf.TryArgToString out of AufScript project.';
 
       function SharpToDouble(sharp:Tnargs):double;
       function SharpToDword(sharp:Tnargs):dword;
@@ -989,7 +989,8 @@ begin
   if not AAuf.CheckArgs(3) then exit;
   if not AAuf.TryArgToARV(1,High(dword),0,[ARV_FixNum,ARV_Char,ARV_Float,ARV_Raw],tmp) then exit;
   if not AAuf.TryArgToByte(2,target) then exit;
-  for pi:=0 to tmp.size-1 do (tmp.Head+pi)^:=target;
+  //for pi:=0 to tmp.size-1 do (tmp.Head+pi)^:=target;
+  fillARV(target,tmp);
 end;
 
 procedure _swap(Sender:TObject);
@@ -1024,7 +1025,6 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
-  //if AAuf.ArgsCount<3 then begin AAuf.Script.send_error('警告：movb需要两个参数，赋值未成功。');exit end;
   if not (AAuf.nargs[1].pre='$') then begin AAuf.Script.send_error('警告：movb的一个参数需要是byte变量，赋值未成功。');exit end;
   case AAuf.nargs[2].pre of
     '$':a:=pByte(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^;
@@ -1100,28 +1100,53 @@ begin
 end;
 procedure mov_arv(Sender:TObject);
 var a:longint;
-    tmp:TAufRamVar;
+    tmp,tmp_src:TAufRamVar;
     AufScpt:TAufScript;
     AAuf:TAuf;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
-  //if AAuf.ArgsCount<3 then begin AufScpt.send_error('警告：mov_arv需要两个参数，赋值未成功。');exit end;
-  case AAuf.nargs[1].pre of
-    '$"','~"','$&"','~&"','#"','#&"':;
-    else
+  if not AAuf.TryArgToARV(1,1,High(dword),ARV_AllType,tmp) then exit;
+  tmp_src:=AufScpt.RamVar(AAuf.nargs[2]);
+  if tmp_src.size>0 then begin
+    if tmp.VarType = tmp_src.VarType then begin
+      copyARV(tmp,tmp_src);
+    end else begin
+      //arv 类型转换
+      AufScpt.send_error('暂不支持不同类型arv之间的直接转换。');
+    end;
+    exit;
+  end;
+  case tmp.VarType of
+    ARV_Char:
       begin
-        AAuf.Script.send_error('警告：mov_arv的一个参数需要是标准ARV变量形式，赋值未成功。');
-        exit
+        initiate_arv_str(AufScpt.TryToString(AAuf.nargs[2]),tmp);
+      end;
+    ARV_FixNum:
+      begin
+        try
+          initiate_arv(AAuf.nargs[2].arg,tmp);
+        except
+          AufScpt.send_error('整数解析出错。');
+        end;
+      end;
+    ARV_Float:
+      begin
+        case tmp.size of
+          4:psingle(tmp.Head)^:=AufScpt.TryToDouble(AAuf.nargs[2]);
+          8:pdouble(tmp.Head)^:=AufScpt.TryToDouble(AAuf.nargs[2]);
+          else AufScpt.send_error('暂不支持4bytes和8bytes以外的浮点数赋值。');
+        end;
       end;
   end;
-  tmp:=(AufScpt.RamVar(AAuf.nargs[1]));
+
+{
   case AAuf.nargs[2].pre of
-    '$':initiate_arv(IntToHex(pByte(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^,2),tmp);
-    '@':initiate_arv(IntToHex(pLongint(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^,8),tmp);
-    '~':begin AAuf.Script.send_error('警告：mov_arv暂不支持浮点型，赋值未成功。');initiate_arv('0h',tmp) end;
-    '$"','~"','$&"','~&"','#&"','#"':
+    //'$':initiate_arv(IntToHex(pByte(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^,2),tmp);
+    //'@':initiate_arv(IntToHex(pLongint(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^,8),tmp);
+    //'~':begin AAuf.Script.send_error('警告：mov_arv暂不支持浮点型，赋值未成功。');initiate_arv('0h',tmp) end;
+    //'$"','~"','$&"','~&"','#&"','#"':
       begin
         copyARV(AufScpt.RamVar(AAuf.nargs[2]),tmp);
       end;
@@ -1134,6 +1159,7 @@ begin
     '"':initiate_arv_str(AAuf.nargs[2].arg,tmp);
     else begin AAuf.Script.send_error('警告：mov_arv的第二个参数有误，赋值未成功。');exit end;
   end;
+}
 
 end;
 procedure mov(Sender:TObject);
@@ -3892,45 +3918,69 @@ end;
 
 function TAufScript.SharpToDouble(sharp:Tnargs):double;
 var stmp:string;
-    len,let:integer;
+    len,poss,base,offs,dot_already:integer;
+    ln_value:double;
 begin
-  stmp:=sharp.arg;
-  len:=length(stmp);
   result:=0;
+  stmp:=sharp.arg;
+  if stmp='' then exit;
+  len:=length(stmp);
   case stmp[len] of
-    'H','h':
+    'H','h':begin base:=16;delete(stmp,len,1);dec(len);end;
+    'B','b':begin base:=2;delete(stmp,len,1);dec(len);end;
+    '.':begin base:=10;delete(stmp,len,1);dec(len);end;
+    '0'..'9':base:=10;
+    else exit;
+  end;
+  if len=0 then exit;
+  poss:=pos('.',stmp);
+  if poss<=0 then offs:=0 else offs:=poss-len;
+  ln_value:=ln(base);
+  dot_already:=0;
+  case base of
+    16:
       begin
-        delete(stmp,len,1);
         while stmp<>'' do
           begin
-            result:=result*16;
-            case stmp[1] of
-              '0'..'9':result:=result+ord(stmp[1])-ord('0');
-              'A'..'F':result:=result+ord(stmp[1])+10-ord('A');
-              'a'..'f':result:=result+ord(stmp[1])+10-ord('a');
-              else raise Exception.Create('SharpToDouble Error: 十六进制包含非法字符');
+            case stmp[len] of
+              '0'..'9':result:=result+exp(offs*ln_value)*(ord(stmp[len])-ord('0'));
+              'A'..'F':result:=result+exp(offs*ln_value)*(ord(stmp[len])+10-ord('A'));
+              'a'..'f':result:=result+exp(offs*ln_value)*(ord(stmp[len])+10-ord('a'));
+              '.':begin
+                    dec(offs);
+                    if dot_already>0 then begin result:=0;exit;end;
+                    inc(dot_already);
+                  end;
+              else begin result:=0;exit end;
             end;
-            delete(stmp,1,1);
+            delete(stmp,len,1);
+            dec(len);
+            inc(offs);
           end;
       end;
-    'B','b':
+    02:
       begin
-        delete(stmp,len,1);
         while stmp<>'' do
           begin
-            result:=result*2;
-            case stmp[1] of
-              '1':result:=result+1;
-              else raise Exception.Create('SharpToDouble Error: 二进制包含非法字符');
+            case stmp[len] of
+              '1':result:=result+exp(offs*ln_value);
+              '0':;
+              '.':begin
+                    dec(offs);
+                    if dot_already>0 then begin result:=0;exit;end;
+                    inc(dot_already);
+                  end;
+              else begin result:=0;exit end;
             end;
-            delete(stmp,1,1);
+            delete(stmp,len,1);
+            dec(len);
+            inc(offs);
           end;
       end;
     else
       begin
-        let:=0;
-        val(stmp,result,let);
-        if let<>0 then raise Exception.Create('SharpToDouble Error: 十进制包含非法字符');
+        {let}offs:=0;
+        val(stmp,result,{let}offs);
       end;
   end;
 end;
