@@ -5,8 +5,14 @@ unit aufscript_frame;
 interface
 
 uses
+  {$ifdef UNIX}
+  cthreads,
+  {$endif}
+  {$ifdef WINDOWS}
+  Windows,
+  {$endif}
   Classes, SysUtils, FileUtil, Forms, Controls, StdCtrls, Buttons, ComCtrls,
-  Dialogs, ExtCtrls, Windows, LazUTF8, SynEdit, Apiglio_Useful, SynHighlighterAuf;
+  Dialogs, ExtCtrls, LazUTF8, SynEdit, Apiglio_Useful, SynHighlighterAuf;
 
 const
   ARF_CommonGap      = 6;
@@ -168,9 +174,12 @@ begin
   Frame:=AufScpt.Owner as TFrame_AufScript;
   if AufScpt.PSW.print_mode.is_screen then str_list:=Frame.Memo_out.Lines
   else str_list:=AufScpt.PSW.print_mode.str_list;
+  {
   str_list[str_list.Count-1]:=
   str_list[str_list.Count-1]+str;
-  str_list.add('');
+  }
+  str_list.Text:=str_list.Text+str+#13#10;
+  //str_list.add('');
   if AufScpt.PSW.print_mode.is_screen then Application.ProcessMessages;
 end;
 procedure frm_renew_write(Sender:TObject;str:string);
@@ -182,8 +191,11 @@ begin
   Frame:=AufScpt.Owner as TFrame_AufScript;
   if AufScpt.PSW.print_mode.is_screen then str_list:=Frame.Memo_out.Lines
   else str_list:=AufScpt.PSW.print_mode.str_list;
+  {
   str_list[str_list.Count-1]:=
   str_list[str_list.Count-1]+str;
+  }
+  str_list.Text:=str_list.Text+str;
   if AufScpt.PSW.print_mode.is_screen then Application.ProcessMessages;
 end;
 procedure frm_renew_readln(Sender:TObject);
@@ -339,7 +351,8 @@ begin
       Memo_cmd.Lines.LoadFromFile(OpenDialog.FileName);
       if FOnChangeTitle<>nil then FOnChangeTitle(Self,ExtractFilename(OpenDialog.FileName));
     except
-      MessageBox(0,Usf.ExPChar(utf8towincp('载入文件失败')),'Error',MB_OK);
+      //MessageBox(0,Usf.ExPChar(utf8towincp('载入文件失败')),'Error',MB_OK);
+      ShowMessage('载入文件失败');
     end;
 end;
 
@@ -433,7 +446,8 @@ begin
       Memo_cmd.Lines.SaveToFile(SaveDialog.FileName);
       if FOnChangeTitle<>nil then FOnChangeTitle(Self,ExtractFilename(SaveDialog.FileName));
     except
-      MessageBox(0,Usf.ExPChar(utf8towincp('保存文件失败')),'Error',MB_OK);
+      //MessageBox(0,Usf.ExPChar(utf8towincp('保存文件失败')),'Error',MB_OK);
+      ShowMessage('保存文件失败');
     end;
 end;
 

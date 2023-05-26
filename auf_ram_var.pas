@@ -5,6 +5,9 @@ unit auf_ram_var;
 interface
 
 uses
+  {$ifdef UNIX}
+  cthreads,
+  {$endif}
   Classes, SysUtils, LazUTF8;
 
 type

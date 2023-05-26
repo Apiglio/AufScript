@@ -11,7 +11,8 @@ UNIT Apiglio_Useful;
 {$if defined(WINDOWS)}
   {$define MsgTimerMode}
   {$define SynEditMode}
-{$elseif defined(ANDROID)}
+{$elseif defined(UNIX)}
+  {$define SynEditMode}
 {$endif}
 
 
@@ -20,6 +21,9 @@ UNIT Apiglio_Useful;
 INTERFACE
 
 uses
+  {$IFDEF UNIX}
+  cthreads,
+  {$ENDIF}
   {$IFDEF WINDOWS}
   Windows, WinCrt, Interfaces, Dos,
   {$ENDIF}
@@ -32,6 +36,8 @@ uses
   Classes, SysUtils, Registry, FileUtil,
   {$ifdef MsgTimerMode}
   ExtCtrls, Controls, Forms,
+  {$else}
+  aufscript_thread,
   {$endif}
   {$ifdef can_be_removed}
   StdCtrls,
@@ -40,7 +46,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.3.6';
+  AufScript_Version='beta 2.3.7';
 
   c_divi=[' ',','];//隔断符号
   c_iden=['~','@','$','#','?',':','&'];//变量符号，前后缀符号
@@ -207,11 +213,12 @@ type
       property RamOccupation[head,size:pRam]:boolean read GetRamOccupation write SetRamOccupation;
 
     public
+      Owner:TComponent;//用于附着在窗体上，与Auf相同
       {$ifdef MsgTimerMode}
       Control:TAufControl;
-      Owner:TComponent;//用于附着在窗体上，与Auf相同
       {$else}
-      AufThreadID:TThreadID;
+      //AufThreadID:TThreadID;
+      AufThread:TAufScriptThread;
       {$endif}
 
       {$ifdef SynEditMode}
@@ -832,8 +839,12 @@ begin
   end;
   {$if defined(WINDOWS)}
   Windows.beep(freq,dura);
-  //{$elseif defined(ANDROID)}
-  //jForm(AAuf.Owner).Vibrate(dura);
+  //{$elseif defined(UNIX)}
+    //{$if defined(ANDROID)}
+    //jForm(AAuf.Owner).Vibrate(dura);
+    //{$else}
+    //Beep;
+    //{$endif}
   {$else}
   AufScpt.send_error('当前系统不支持beep');
   {$endif}
@@ -870,6 +881,8 @@ begin
     AufScpt.Time.Timer.Interval:=ms;
     AufScpt.Time.Timer.Enabled:=true;
     AufScpt.Time.TimerPause:=true;
+    {$else}
+    sleep(ms);
     {$endif}
   END ELSE BEGIN
     sleep(ms);
@@ -2505,6 +2518,8 @@ begin
       AufScpt.Time.Timer.Interval:=tmp;
       AufScpt.Time.Timer.Enabled:=true;
       AufScpt.Time.TimerPause:=true;
+      {$else}
+      sleep(tmp);
       {$endif}
     END ELSE BEGIN
       sleep(tmp);
@@ -3926,7 +3941,7 @@ begin
     end;
 
   {if arg.post[length(arg.post)]<>arg.pre[1] then }
-  result.head:=result.head+dword(Self.PSW.run_parameter.ram_zero);
+  result.head:=result.head+qword(Self.PSW.run_parameter.ram_zero);//dword() failed in deepin(linux) test
 
   result.Is_Temporary:=false;
   result.Stream:=nil;
@@ -4443,11 +4458,13 @@ begin
   if not shown then Self.writeln('函数指南：无指定函数。');
 end;
 procedure TAufScript.helper;
+const line_break = {$ifdef WINDOWS}#13#10{$else}#10{$endif};
 var i:word;
-    tmp:string;
+    tmp,res:string;
     tmo:integer;
 begin
   Self.writeln('函数列表:');
+  res:='';
   for i:=0 to func_range-1 do begin
     if Self.func[i].name='' then break;
     tmp:=Self.func[i].name;
@@ -4455,8 +4472,9 @@ begin
       tmo:=pos(',',tmp);
       if tmo>0 then delete(tmp,tmo,length(tmp));
     //until tmo<=0;
-    Self.writeln(Usf.left_adjust(tmp+' '+Self.func[i].parameter,16)+' '+Usf.left_adjust(Self.func[i].helper,16));
+    res:=res+line_break+Usf.left_adjust(tmp+' '+Self.func[i].parameter,16)+' '+Usf.left_adjust(Self.func[i].helper,16);
   end;
+  Self.writeln(res);
 end;
 procedure TAufScript.define_helper;
 var i:word;
@@ -4748,7 +4766,8 @@ begin
       false:;
     end;
     {$else}
-    SuspendThread(AufThreadID);
+    //AufThread.Suspend;
+    AufThread.Priority:=tpIdle;
     {$endif}
   end;
   if Self.Func_process.OnPause<>nil then Self.Func_process.OnPause(Self);
@@ -4766,7 +4785,8 @@ begin
       false:Self.send(AufProcessControl_RunNext);
     end;
     {$else}
-    ResumeThread(AufThreadID);
+    //AufThread.Resume;
+    AufThread.Priority:=tpNormal;
     {$endif}
   end;
 end;
@@ -4778,7 +4798,8 @@ begin
   {$ifdef MsgTimerMode}
   Self.send(AufProcessControl_RunClose);
   {$else}
-  CloseThread(AufThreadID);
+  //AufThread.Terminate;
+  Self.PSW.haltoff:=true;
   {$endif}
 end;
 procedure TAufScript.RunFirst;//代码执行初始化
@@ -4802,7 +4823,8 @@ begin
     //使用Self.Control的消息来激活下一个过程
     Self.send(AufProcessControl_RunNext);
     {$else}
-    AufThreadID:=BeginThread(nil);
+    //AufThread:=TAufScriptThread.Create(Self,false);
+    AufThread.Priority:=tpNormal;
     {$endif}
     exit;
   END ELSE BEGIN
@@ -4939,7 +4961,11 @@ begin
     end;
   {$endif}
 
+  {$ifdef MsgTimerMode}
   Self.RunFirst;
+  {$else}
+  AufThread:=TAufScriptThread.Create(Self,false);
+  {$endif}
 
   {$ifdef command_detach}
   if Self.PSW.haltoff then Self.ScriptLines.Free;
@@ -5145,9 +5171,7 @@ begin
     begin
       raise Exception.Create('AufScript初始化错误，异常的Owner');
     end;
-  {$ifdef MsgTimerMode}
   Self.Owner:=AOwner;
-  {$endif}
 
   IO_fptr.echo:=@de_writeln;//默认的输出函数
   IO_fptr.print:=@de_write;//默认的不换行输出函数
