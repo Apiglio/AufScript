@@ -47,6 +47,24 @@ uses
 const
 
   AufScript_Version='beta 2.3.7';
+  {$if defined(cpu32)}
+  AufScript_CPU='32bits';
+  {$elseif defined(cpu64)}
+  AufScript_CPU='64bits';
+  {$else}
+  AufScript_CPU='Unknown CPU';
+  {$endif}
+  {$if defined(WINDOWS)}
+  AufScript_OS='Windows';
+  {$elseif defined(UNIX)}
+    {$ifdef ANDROID}
+    AufScript_OS='Android';
+    {$else}
+    AufScript_OS='Unix';
+    {$endif}
+  {$else}
+  AufScript_OS='Unknown OS';
+  {$endif}
 
   c_divi=[' ',','];//隔断符号
   c_iden=['~','@','$','#','?',':','&'];//变量符号，前后缀符号
@@ -67,7 +85,7 @@ const
 
 type
 
-  pRam = Dword;//内存编号
+  pRam = {$ifdef cpu64}QWord{$else}DWord{$endif};//内存编号
 
   {Usf  工具库}
   pFuncFileByte= procedure(str:string);
@@ -316,8 +334,8 @@ type
       function RamVar(arg:Tnargs):TAufRamVar;//将标准变量形式转化成ARV
       function RamVarToNargs(arv:TAufRamVar;not_offset:boolean=false):Tnargs;
       function RamVarClipToNargs(arv:TAufRamVar;idx,len:pRam;not_offset:boolean=false):Tnargs;
-      function to_double(Iden,Index:string):double;deprecated;//将nargs[].pre和nargs[].arg表示的变量转换成double类型
-      function to_string(Iden,Index:string):string;deprecated;//将nargs[].pre和nargs[].arg表示的变量转换成string类型
+      //function to_double(Iden,Index:string):double;deprecated;//将nargs[].pre和nargs[].arg表示的变量转换成double类型
+      //function to_string(Iden,Index:string):string;deprecated;//将nargs[].pre和nargs[].arg表示的变量转换成string类型
 
     published
       //将Tnargs参数转换成需要的格式，不符合要求的情况下raise，使用时需要解决异常。
@@ -399,39 +417,22 @@ type
     public
       Owner:TComponent;//用于附着在窗体上，命令行调用则为nil
     public
-      procedure ReadArgs(ps:string);
-      //将字符串按照隔断符号和变量符号分离出多个参数
+      procedure ReadArgs(ps:string);              //将字符串按照隔断符号和变量符号分离出多个参数
+      function CheckArgs(MinCount:byte):boolean;  //检验参数数量是否满足最小数量要求，数量包括函数名本身
 
-      function CheckArgs(MinCount:byte):boolean;
-      //检验参数数量是否满足最小数量要求，数量包括函数名本身
-
+      //尝试将第ArgNumber个参数转为某个类型，失败则返回false，并send_error
       function TryArgToByte(ArgNumber:byte;out res:byte):boolean;inline;
-      //尝试将第ArgNumber个参数转为byte，失败则返回false，并send_error
-
       function TryArgToDWord(ArgNumber:byte;out res:dword):boolean;inline;
-      //尝试将第ArgNumber个参数转为dword，失败则返回false，并send_error
-
       function TryArgToLong(ArgNumber:byte;out res:longint):boolean;inline;
-      //尝试将第ArgNumber个参数转为longint，失败则返回false，并send_error
-
       function TryArgToString(ArgNumber:byte;out res:string):boolean;inline;
-      //尝试将第ArgNumber个参数转为string，失败则返回false，并send_error
-
-      function TryArgToStrParam(ArgNumber:byte;paramAllowance:array of string;CaseSensitivity:boolean;out res:string):boolean;inline;
-      //尝试将第ArgNumber个参数转为字符串参数，若不是字符串或不在paramAllowance中，则返回false，并send_error
-
+      function TryArgToStrParam(ArgNumber:byte;paramAllowance:array of string;
+        CaseSensitivity:boolean;out res:string):boolean;inline;
       function TryArgToDouble(ArgNumber:byte;out res:double):boolean;inline;
-      //尝试将第ArgNumber个参数转为double，失败则返回false，并send_error
-
+      function TryArgToPRam(ArgNumber:byte;out res:pRam):boolean;inline;
       function TryArgToARV(ArgNumber:byte;minsize,maxsize:dword;
         TypeAllowance:TAufRamVarTypeSet;out res:TAufRamVar):boolean;inline;
-      //尝试将第ArgNumber个参数转为ARV，若不满足类型和长度要求则返回false，并send_error
-
-      function TryArgToAddr(ArgNumber:byte;out res:{20210612改dword为}pRam):boolean;inline;
-      //尝试将第ArgNumber个参数转为绝对地址，若不满足类型和长度要求则返回false，并send_error
-
+      function TryArgToAddr(ArgNumber:byte;out res:pRam):boolean;inline;
       function TryArgToObject(ArgNumber:byte;ObjectClass:TClass;out obj:TObject):boolean;inline;
-      //尝试将第ArgNumber个参数转为对象，若不满足对象类型则返回false，并send_error
 
       function RangeCheck(target,min,max:int64):boolean;inline;
       //min<=target<=max时返回true否则返回false，并send_error
@@ -459,13 +460,11 @@ var
   procedure compare_jump_mode(var core_mode:string;var is_not,is_call:boolean);
 
   function isprintable(str:string):boolean;
-  function DwordToRawStr(inp:dword):string;
-  function RawStrToDword(str:string):dword;
   function pRamToRawStr(inp:pRam):string;
   function RawStrTopRam(str:string):pRam;
-  function HexToDword(exp:string):dword;
-  function BinaryToDword(exp:string):dword;
-  function ExpToDword(exp:string):dword;
+  function HexToPRam(exp:string):pRam;
+  function BinaryToPRAM(exp:string):pRam;
+  function ExpToPRam(exp:string):pRam;
 
 
 IMPLEMENTATION
@@ -550,51 +549,24 @@ begin
   result:=true;
 end;
 
-function DwordToRawStr(inp:dword):string;
-begin
-  result:='XXXXDDDD';
-  result[1]:=chr(64+inp shr 28);
-  result[2]:=chr(64+inp shr 24 mod 16);
-  result[3]:=chr(64+inp shr 20 mod 16);
-  result[4]:=chr(64+inp shr 16 mod 16);
-  result[5]:=chr(64+inp shr 12 mod 16);
-  result[6]:=chr(64+inp shr 8 mod 16);
-  result[7]:=chr(64+inp shr 4 mod 16);
-  result[8]:=chr(64+inp mod 16);
-end;
-function RawStrToDword(str:string):dword;
-begin
-  result:=0;
-  result:=result+((ord(str[1])-64) shl 28);
-  result:=result+((ord(str[2])-64) shl 24);
-  result:=result+((ord(str[3])-64) shl 20);
-  result:=result+((ord(str[4])-64) shl 16);
-  result:=result+((ord(str[5])-64) shl 12);
-  result:=result+((ord(str[6])-64) shl 8);
-  result:=result+((ord(str[7])-64) shl 4);
-  result:=result+(ord(str[8])-64);
-end;
-
 function pRamToRawStr(inp:pRam):string;
+var bit:byte;
 begin
-  {
-  result:='DD';
-  result[1]:=chr(64+inp shr 4);
-  result[2]:=chr(64+inp mod 16);
-  }
-  result:=DwordToRawStr(inp);
+  result:='';
+  for bit:={$ifdef cpu64}15{$else}7{$endif} downto 0 do begin
+    result:=result+chr(64+inp shr bit*4 mod 16);
+  end;
 end;
 function RawStrTopRam(str:string):pRam;
+var bit:byte;
 begin
-  {
   result:=0;
-  result:=result+((ord(str[1])-64) shl 4);
-  result:=result+(ord(str[2])-64);
-  }
-  result:=RawStrToDword(str);
+  for bit:={$ifdef cpu64}15{$else}7{$endif} downto 0 do begin
+    result:=result+((ord(str[1])-64) shl bit*4);
+  end;
 end;
 
-function HexToDword(exp:string):dword;
+function HexToPRam(exp:string):pRam;
 var str:string;
 begin
   result:=0;
@@ -616,7 +588,7 @@ begin
       delete(str,1,1);
     end;
 end;
-function BinaryToDword(exp:string):dword;
+function BinaryToPRam(exp:string):pRam;
 var str:string;
 begin
   result:=0;
@@ -635,7 +607,7 @@ begin
     end;
 end;
 
-function ExpToDword(exp:string):dword;
+function ExpToPRam(exp:string):pRam;
 var len:byte;
     str:string;
 begin
@@ -646,7 +618,7 @@ begin
     begin
       try
         delete(str,len,1);
-        result:=HexToDword(str);
+        result:=HexToPRam(str);
       except
         result:=0;
       end;
@@ -655,7 +627,7 @@ begin
     begin
       try
         delete(str,len,1);
-        result:=BinaryToDword(str);
+        result:=BinaryToPRam(str);
       except
         result:=0;
       end;
@@ -745,6 +717,7 @@ begin
   AAuf:=AufScpt.Auf as TAuf;
   AufScpt.writeln('AufScript version:');
   AufScpt.writeln(AufScpt.Version);
+  AufScpt.writeln(AufScript_OS+' ('+AufScript_CPU+')');
 end;
 procedure _helper(Sender:TObject);
 var AufScpt:TAufScript;
@@ -1585,7 +1558,7 @@ begin
     '$':ofs:=pByte(AufScpt.Pointer(AAuf.nargs[3].pre,Usf.to_i(AAuf.nargs[3].arg)))^;
     '@':ofs:=pLongint(AufScpt.Pointer(AAuf.nargs[3].pre,Usf.to_i(AAuf.nargs[3].arg)))^;
     '~':ofs:=round(pDouble(AufScpt.Pointer(AAuf.nargs[3].pre,Usf.to_i(AAuf.nargs[3].arg)))^);
-    '&"':ofs:=RawStrToDword(AAuf.nargs[3].arg) - AufScpt.PSW.run_parameter.current_line_number;
+    '&"':ofs:=RawStrToPRam(AAuf.nargs[3].arg) - AufScpt.PSW.run_parameter.current_line_number;
     '':ofs:=Usf.to_i(AAuf.nargs[3].arg);
     else begin AufScpt.send_error('警告：地址偏移参数有误，语句未执行');exit end;
   end;
@@ -1647,7 +1620,7 @@ begin
 end;
 
 procedure jmp(Sender:TObject);//满足条件执行下一句，不满足条件跳过下一句  jmp ofs|:label
-var ofs:smallint;
+var ofs:pRam;
     AufScpt:TAufScript;
     AAuf:TAuf;
 begin
@@ -1657,15 +1630,20 @@ begin
   if not AAuf.CheckArgs(2) then exit;
   //if AAuf.ArgsCount<2 then begin AufScpt.send_error('警告：jmp需要一个变量，该语句未执行。');exit end;
   case AAuf.nargs[1].pre of
-    '&"':ofs:=RawStrToDword(AAuf.nargs[1].arg) - AufScpt.PSW.run_parameter.current_line_number;
-    else ofs:=Round(AAuf.Script.to_double(AAuf.nargs[1].pre,AAuf.nargs[1].arg));
+    '&"':ofs:=RawStrToPRam(AAuf.nargs[1].arg) - AufScpt.PSW.run_parameter.current_line_number;
+    //else ofs:=Round(AAuf.Script.to_double(AAuf.nargs[1].pre,AAuf.nargs[1].arg));
+    else
+      if not AAuf.TryArgToPRam(1,ofs) then begin
+        AufScpt.send_error('警告：地址偏移量解析错误，该语句未执行。');
+        exit;
+      end;
   end;
   if ofs=0 then begin AufScpt.send_error('警告：jmp需要非零的地址偏移量，该语句未执行。');exit end;
   AufScpt.jump_addr(AufScpt.currentLine+ofs);
 end;
 
 procedure call(Sender:TObject);//满足条件执行下一句，使用ret返回至该位置的下一行，不满足条件跳过下一句  call ofs|:label
-var ofs:smallint;
+var ofs:pRam;
     AufScpt:TAufScript;
     AAuf:TAuf;
 begin
@@ -1675,8 +1653,13 @@ begin
   if not AAuf.CheckArgs(2) then exit;
   //if AAuf.ArgsCount<2 then begin AAuf.Script.send_error('警告：call需要一个变量，该语句未执行。');exit end;
   case AAuf.nargs[1].pre of
-    '&"':ofs:=RawStrToDword(AAuf.nargs[1].arg) - AufScpt.PSW.run_parameter.current_line_number;
-    else ofs:=Round(AufScpt.to_double(AAuf.nargs[1].pre,AAuf.nargs[1].arg));
+    '&"':ofs:=RawStrToPRam(AAuf.nargs[1].arg) - AufScpt.PSW.run_parameter.current_line_number;
+    //else ofs:=Round(AufScpt.to_double(AAuf.nargs[1].pre,AAuf.nargs[1].arg));
+    else
+      if not AAuf.TryArgToPRam(1,ofs) then begin
+        AufScpt.send_error('警告：地址偏移量解析错误，该语句未执行。');
+        exit;
+      end;
   end;
   if ofs=0 then begin AufScpt.send_error('警告：call需要非零的地址偏移量，该语句未执行。');exit end;
   //AufScpt.push_addr(AufScpt.ScriptLines,AufScpt.ScriptName,AufScpt.currentLine+ofs);
@@ -1689,7 +1672,7 @@ procedure _loop(Sender:TObject);
 //向下loop是n次截取一次
 var AufScpt:TAufScript;
     AAuf:TAuf;
-    ofs:smallint;
+    ofs:pRam;
     times,now:dword;
 begin
   AufScpt:=Sender as TAufScript;
@@ -1697,8 +1680,13 @@ begin
   ofs:=0;
   if not AAuf.CheckArgs(3) then exit;
   case AAuf.nargs[1].pre of
-    '&"':ofs:=RawStrToDword(AAuf.nargs[1].arg) - AufScpt.PSW.run_parameter.current_line_number;
-    else ofs:=Round(AAuf.Script.to_double(AAuf.nargs[1].pre,AAuf.nargs[1].arg));
+    '&"':ofs:=RawStrToPRam(AAuf.nargs[1].arg) - AufScpt.PSW.run_parameter.current_line_number;
+    //else ofs:=Round(AAuf.Script.to_double(AAuf.nargs[1].pre,AAuf.nargs[1].arg));
+    else
+      if not AAuf.TryArgToPRam(1,ofs) then begin
+        AufScpt.send_error('警告：地址偏移量解析错误，该语句未执行。');
+        exit;
+      end;
   end;
   if ofs=0 then begin AufScpt.send_error('警告：loop需要非零的地址偏移量，该语句未执行。');exit end;
   try
@@ -1971,7 +1959,7 @@ begin
       exit
     end;
   if AAuf.ArgsCount>3 then begin
-    if not AAuf.TryArgToDWord(3,size) then exit;
+    if not AAuf.TryArgToPRam(3,size) then exit;
   end else size:=8;
   head:=AufScpt.FindRamVacant(size);
   exp.arg:=pRamToRawStr(head)+'|'+pRamToRawStr(size);
@@ -2500,7 +2488,6 @@ procedure time_waittimer(Sender:TObject);//线程不可用，需要再看怎么�
 var AufScpt:TAufScript;
     AAuf:TAuf;
     tmp,std:dword;
-    arv:TAufRamVar;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
@@ -2807,8 +2794,8 @@ begin
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(4) then exit;
   if not AAuf.TryArgToARV(1,0,High(longint),[ARV_Char,ARV_FixNum],arv) then exit;
-  if not AAuf.TryArgToDWord(2,idx) then exit;
-  if not AAuf.TryArgToDWord(3,len) then exit;
+  if not AAuf.TryArgToPRam(2,idx) then exit;
+  if not AAuf.TryArgToPRam(3,len) then exit;
 
   AufScpt.Expression.Local.TryAddExp('prev_res',AufScpt.RamVarClipToNargs(arv,idx,len));
 
@@ -2825,7 +2812,7 @@ begin
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(4) then exit;
   if not AAuf.TryArgToARV(1,0,High(longint),[ARV_Char,ARV_FixNum],arv) then exit;
-  if not AAuf.TryArgToDWord(2,idx) then exit;
+  if not AAuf.TryArgToPRam(2,idx) then exit;
   if not AAuf.TryArgToARV(3,0,High(longint),[ARV_Char,ARV_FixNum],src) then exit;
 
   if arv.size<src.size+idx then len:=arv.size-idx+1 else len:=src.size;
@@ -3197,7 +3184,7 @@ begin
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
   if not AAuf.TryArgToObject(1,TARImage,TObject(img)) then exit;
-  if not AAuf.TryArgToARV(2,4,High(dword),[ARV_FixNum],arv) then exit;
+  if not AAuf.TryArgToARV(2,sizeof(dword),High(pRam),[ARV_FixNum],arv) then exit;
   dword_to_arv(dword(img.AverageColor),arv);
 end;
 procedure img_getImagePixelFormat(Sender:TObject);
@@ -3466,6 +3453,17 @@ begin
   end;
   result:=true;
 end;
+function TAuf.TryArgToPRam(ArgNumber:byte;out res:pRam):boolean;
+begin
+  Assert(ArgNumber in [1..args_range],'ArgNumber必须在[1..args_range]范围内。');
+  result:=false;
+  try
+    res:=Script.TryToDWord(nargs[ArgNumber]);
+  except
+    Script.send_error('警告：第'+IntToStr(ArgNumber)+'个参数不能转化为pRam('+AufScript_CPU+'整型数)，代码未执行。');exit
+  end;
+  result:=true;
+end;
 function TAuf.TryArgToARV(ArgNumber:byte;minsize,maxsize:dword;TypeAllowance:TAufRamVarTypeSet;out res:TAufRamVar):boolean;
 begin
   Assert(ArgNumber in [1..args_range],'ArgNumber必须在[1..args_range]范围内。');
@@ -3496,13 +3494,13 @@ begin
   end;
   result:=true;
 end;
-function TAuf.TryArgToAddr(ArgNumber:byte;out res:dword):boolean;
+function TAuf.TryArgToAddr(ArgNumber:byte;out res:pRam):boolean;
 begin
   Assert(ArgNumber in [1..args_range],'ArgNumber必须在[1..args_range]范围内。');
   result:=false;
   try
     case Self.nargs[ArgNumber].pre of
-      '&"':res:=RawStrToDword(Self.nargs[ArgNumber].arg);
+      '&"':res:=RawStrToPRam(Self.nargs[ArgNumber].arg);
       else res:=Self.Script.TryToDword(Self.nargs[ArgNumber])+Self.Script.PSW.run_parameter.current_line_number;
     end;
   except
@@ -3901,7 +3899,7 @@ begin
   end;
   val(arg.arg,value,codee);
   if codee<>0 then begin raise Exception.Create('没有中部');exit end;
-  result.head:=pbyte(value)+dword(Self.PSW.run_parameter.ram_zero);
+  result.head:=pbyte(value)+pRam(Self.PSW.run_parameter.ram_zero);
   result.Is_Temporary:=false;
   result.Stream:=nil;
 end;
@@ -3931,17 +3929,17 @@ begin
   s_size:=arg.arg;
   delete(s_size,1,pos('|',s_size));
   delete(s_addr,pos('|',s_addr),999);
-  result.size:=RawStrTopRam(s_size);
+  result.size:=RawStrToPRam(s_size);
   if result.size=0 then result.size:=4;
-  result.head:=pbyte(RawStrToDWord(s_addr));
+  result.head:=pbyte(RawStrToPRam(s_addr));
 
   if is_ref then
     begin
-      result.Head:=pbyte(pdword(result.Head+dword(Self.PSW.run_parameter.ram_zero))^);
+      result.Head:=pbyte(pdword(result.Head+pRam(Self.PSW.run_parameter.ram_zero))^);
     end;
 
   {if arg.post[length(arg.post)]<>arg.pre[1] then }
-  result.head:=result.head+qword(Self.PSW.run_parameter.ram_zero);//dword() failed in deepin(linux) test
+  result.head:=result.head+pRam(Self.PSW.run_parameter.ram_zero);//dword() failed in deepin(linux) test
 
   result.Is_Temporary:=false;
   result.Stream:=nil;
@@ -3966,9 +3964,9 @@ begin
   result.pre:=result.pre+'"';
   result.post:='"';
 
-  if not_offset then result.arg:=DwordToRawStr(int64(arv.Head))
-  else result.arg:=DwordToRawStr(int64(arv.Head)-int64(Self.PSW.run_parameter.ram_zero));
-  result.arg:=result.arg+'|'+DwordToRawStr(arv.size);
+  if not_offset then result.arg:=pRamToRawStr(int64(arv.Head))
+  else result.arg:=pRamToRawStr(int64(arv.Head)-int64(Self.PSW.run_parameter.ram_zero));
+  result.arg:=result.arg+'|'+pRamToRawStr(arv.size);
 end;
 
 function TAufScript.RamVarClipToNargs(arv:TAufRamVar;idx,len:pRam;not_offset:boolean=false):Tnargs;
@@ -4239,6 +4237,7 @@ begin
       end;
   end;
 end;
+{
 function TAufScript.to_double(Iden,Index:string):double;deprecated;//将nargs[].pre和nargs[].arg表示的变量转换成double类型
 var dbl:double;
     value:pRam;
@@ -4319,6 +4318,7 @@ begin
     else begin Self.send_error('警告：无效的指针类型，返回0！');result:='';exit end;
   end;
 end;
+}
 procedure TAufScript.ram_export(filename:string);
 begin
   if filename='' then filename:='ram.var';
@@ -4614,7 +4614,7 @@ begin
               begin
                 AAuf.nargs[i].pre:='&"';
                 AAuf.nargs[i].post:='"';
-                AAuf.nargs[i].arg:=DwordToRawStr(line);
+                AAuf.nargs[i].arg:=pRamToRawStr(line);
               end
             else
               begin
@@ -4637,7 +4637,7 @@ begin
                 delete(ts1,idx1,9999);
                 delete(ts2,1,idx1);
                 if ts2[length(ts2)]=']' then delete(ts2,length(ts2),1);
-                AAuf.nargs[i].arg:=DwordToRawStr(ExpToDword(ts2))+'|'+pRamToRawStr(ExpToDword(ts1) mod (High(pRam)+1){256});
+                AAuf.nargs[i].arg:=pRamToRawStr(ExpToPRam(ts2))+'|'+pRamToRawStr(ExpToPRam(ts1){ mod (High(pRam)+1){256}(wth was that)});
               end
             else if idx2>0 then
               begin
@@ -4648,7 +4648,7 @@ begin
                 delete(ts1,idx2,9999);
                 delete(ts2,1,idx2);
                 if ts2[length(ts2)]='}' then delete(ts2,length(ts2),1);
-                AAuf.nargs[i].arg:=DwordToRawStr(ExpToDword(ts2))+'|'+pRamToRawStr(ExpToDword(ts1) mod (High(pRam)+1){256});
+                AAuf.nargs[i].arg:=pRamToRawStr(ExpToPRam(ts2))+'|'+pRamToRawStr(ExpToPRam(ts1){ mod (High(pRam)+1){256}(wth was that)});
               end
             else
               begin
@@ -4658,14 +4658,14 @@ begin
         '@':
           begin
             case AAuf.nargs[i].arg of
-              'current_line':AAuf.nargs[i]:=narg('&"',DwordToRawStr(dword(Self.PSW.run_parameter.current_line_number)),'"');
-              'prev_line':AAuf.nargs[i]:=narg('&"',DwordToRawStr(dword(Self.PSW.run_parameter.current_line_number-1)),'"');
-              'next_line':AAuf.nargs[i]:=narg('&"',DwordToRawStr(dword(Self.PSW.run_parameter.current_line_number+1)),'"');
-              '2_lines_prev':AAuf.nargs[i]:=narg('&"',DwordToRawStr(dword(Self.PSW.run_parameter.current_line_number-2)),'"');
-              '2_lines_next':AAuf.nargs[i]:=narg('&"',DwordToRawStr(dword(Self.PSW.run_parameter.current_line_number+2)),'"');
-              '3_lines_prev':AAuf.nargs[i]:=narg('&"',DwordToRawStr(dword(Self.PSW.run_parameter.current_line_number-3)),'"');
-              '3_lines_next':AAuf.nargs[i]:=narg('&"',DwordToRawStr(dword(Self.PSW.run_parameter.current_line_number+3)),'"');
-              'ram_zero':AAuf.nargs[i]:=narg('',IntToStr(dword(Self.PSW.run_parameter.ram_zero)),'');
+              'current_line':AAuf.nargs[i]:=narg('&"',pRamToRawStr(pRam(Self.PSW.run_parameter.current_line_number)),'"');
+              'prev_line':AAuf.nargs[i]:=narg('&"',pRamToRawStr(pRam(Self.PSW.run_parameter.current_line_number-1)),'"');
+              'next_line':AAuf.nargs[i]:=narg('&"',pRamToRawStr(pRam(Self.PSW.run_parameter.current_line_number+1)),'"');
+              '2_lines_prev':AAuf.nargs[i]:=narg('&"',pRamToRawStr(pRam(Self.PSW.run_parameter.current_line_number-2)),'"');
+              '2_lines_next':AAuf.nargs[i]:=narg('&"',pRamToRawStr(pRam(Self.PSW.run_parameter.current_line_number+2)),'"');
+              '3_lines_prev':AAuf.nargs[i]:=narg('&"',pRamToRawStr(pRam(Self.PSW.run_parameter.current_line_number-3)),'"');
+              '3_lines_next':AAuf.nargs[i]:=narg('&"',pRamToRawStr(pRam(Self.PSW.run_parameter.current_line_number+3)),'"');
+              'ram_zero':AAuf.nargs[i]:=narg('',IntToStr(pRam(Self.PSW.run_parameter.ram_zero)),'');
               'ram_size':AAuf.nargs[i]:=narg('',IntToStr(Self.PSW.run_parameter.ram_size),'');
               'error_raise':AAuf.nargs[i]:=narg('',BoolToStr(Self.PSW.run_parameter.error_raise),'');
               else case AAuf.nargs[i].arg[1] of

@@ -131,6 +131,7 @@ type
   function arv_to_hex(ina:TAufRamVar):string;
   function arv_to_dec(ina:TAufRamVar):string;
   function arv_to_dec_fraction(ina:TAufRamVar):string;//小数点后
+  function arv_to_qword(ina:TAufRamVar):qword;
   function arv_to_dword(ina:TAufRamVar):dword;
   function arv_to_double(ina:TAufRamVar):double;
 
@@ -1481,7 +1482,7 @@ begin
         begin
           stmp:=str[length(str)-1]+str[length(str)];
           delete(str,length(str)-1,2);
-          (arv.Head+pi)^:=HexToDword(stmp) mod 256;
+          (arv.Head+pi)^:=HexToPRam(stmp) mod 256;
           inc(pi);
         end;
     end
@@ -1620,7 +1621,7 @@ begin
       result:='0';
     end;
 end;
-function arv_to_dword(ina:TAufRamVar):dword;
+function arv_to_qword(ina:TAufRamVar):qword;
 var pi:dword;
 begin
   result:=0;
@@ -1646,6 +1647,10 @@ begin
                end;
     else begin raise Exception.Create('错误的ARV类型，不能转换为dword');result:=0;exit end;
   end;
+end;
+function arv_to_dword(ina:TAufRamVar):dword;
+begin
+  result:=arv_to_qword(ina);
 end;
 function arv_to_double(ina:TAufRamVar):double;
 var pi:dword;
