@@ -5,6 +5,7 @@ manual/*
 scpt/*
 测试脚本/*
 规划计划/*
+script_test/*
 *.o
 *.exe
 *.bak
