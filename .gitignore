@@ -12,3 +12,4 @@ scpt/*
 *.compiled
 *.obj
 *.auf
+!script_test/*.auf
