@@ -40,7 +40,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.3.6';
+  AufScript_Version='beta 2.3.8';
 
   c_divi=[' ',','];//隔断符号
   c_iden=['~','@','$','#','?',':','&'];//变量符号，前后缀符号
@@ -2928,6 +2928,41 @@ ErrOver_R:
 
 end;
 
+function img_get_filename(AufScpt:TAufScript;filename:string;write_mode:string):string;
+var rename_series:integer;
+    noext,ext,stmp:string;
+begin
+  if FileExists(filename) then begin
+    case lowercase(write_mode) of
+      '-f','-force':;//do nothing
+      '-r','-rename':
+        begin
+          rename_series:=0;
+          noext:=ExtractFileNameWithoutExt(filename);
+          ext:=ExtractFileExt(filename);
+          repeat
+            stmp:=noext+'_'+IntToStr(rename_series)+ext;
+            if not FileExists(stmp) then break;
+            inc(rename_series);
+          until rename_series>=10000;
+          if rename_series<10000 then
+            result:=stmp
+          else begin
+            AufScpt.send_error(filename+'文件及其所有替代文件名均已存在，导出图片失败。');
+            result:='';
+          end;
+          exit;
+        end;
+      else // '-e','-error'
+        begin
+          AufScpt.send_error(filename+'文件已存在，导出图片失败。');
+          result:='';
+          exit;
+        end;
+    end;
+  end;
+  result:=filename;
+end;
 
 procedure img_newImage(Sender:TObject);
 var AufScpt:TAufScript;
@@ -2980,8 +3015,6 @@ var AufScpt:TAufScript;
     obj:TObject;
     arv:TAufRamVar;
     filename,write_mode:string;
-    noext,ext,stmp:string;
-    rename_series:word;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
@@ -2989,7 +3022,7 @@ begin
   if not AAuf.TryArgToARV(1,8,8,[ARV_FixNum],arv) then exit;
   if not AAuf.TryArgToString(2,filename) then exit;
   if AAuf.ArgsCount>=4 then begin
-    if not AAuf.TryArgToString(3,write_mode) then exit;
+    if not AAuf.TryArgToStrParam(3,['-f','-force','-r','-rename','-e','-error'],false,write_mode) then exit;
     write_mode:=lowercase(write_mode);
   end else begin
     write_mode:='-e';
@@ -2999,33 +3032,8 @@ begin
     AufScpt.send_error('找不到对应的ARImage，删除失败');
     exit;
   end;
-  if FileExists(filename) then begin
-    case write_mode of
-      '-f','-force':;//do nothing
-      '-r','-rename':
-        begin
-          rename_series:=0;
-          noext:=ExtractFileNameWithoutExt(filename);
-          ext:=ExtractFileExt(filename);
-          repeat
-            stmp:=noext+'_'+IntToStr(rename_series)+ext;
-            if not FileExists(stmp) then break;
-            inc(rename_series);
-          until rename_series>=10000;
-          if rename_series<10000 then
-            filename:=stmp
-          else begin
-            AufScpt.send_error(filename+'文件及其所有替代文件名均已存在，导出图片失败。');
-            exit;
-          end;
-        end;
-      else // '-e','-error'
-        begin
-          AufScpt.send_error(filename+'文件已存在，导出图片失败。');
-          exit;
-        end;
-    end;
-  end;
+  filename:=img_get_filename(AufScpt,filename,write_mode);
+  if filename='' then exit;
   try
     (obj as TARImage).SaveToFile(filename);
   except
@@ -3069,16 +3077,7 @@ begin
   if not AAuf.CheckArgs(3) then exit;
   if not AAuf.TryArgToObject(1,TARImage,TObject(img)) then exit;
   AAuf.TryArgToARV(1,8,8,[ARV_FixNum],arv);
-
-  {
-  if AAuf.ArgsCount>3 then begin
-    if not AAuf.TryArgToStrParam(3,['-sub','-abs'],false,mode) then exit;
-  end else begin
-    mode:='-abs';
-  end;
-  }
-
- IF lowercase(AAuf.args[0]) = 'img.clip' THEN BEGIN
+  IF lowercase(AAuf.args[0]) = 'img.clip' THEN BEGIN
     if not AAuf.CheckArgs(6) then exit;
     if not AAuf.TryArgToLong(2,x) then exit;
     if not AAuf.TryArgToLong(3,y) then exit;
@@ -3272,6 +3271,42 @@ begin
 
 
 end;
+
+procedure img_VoidSegmentByLine(Sender:TObject); //img.vsegln img,min,tor,basename
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    a1,a2:TAufRamVar;
+    pw,bm:byte;
+    res:integer;
+    img,img_out,img_rest:TARImage;
+    min,tor:integer;
+    basename,filename:string;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(5) then exit;
+  if not AAuf.TryArgToObject(1,TARImage,TObject(img)) then exit;
+  if not AAuf.TryArgToLong(2,min) then exit;
+  if not AAuf.TryArgToLong(3,tor) then exit;
+  if not AAuf.TryArgToString(4,basename) then exit;
+
+  repeat
+    img_out:=img.VoidSegmentByLine(img_rest,min,tor);
+    filename:=img_get_filename(AufScpt,basename,'-r');
+    if filename='' then break;
+    if img_out=nil then begin
+      img.SaveToFile(filename);
+      img.free;
+    end else begin
+      img_out.SaveToFile(filename);
+      img_out.free;
+      img.free;
+      img:=img_rest;
+    end;
+  until img_out=nil;
+end;
+
+
 
 
 
@@ -5379,6 +5414,7 @@ begin
   Self.add_func('img.freeall',@img_clearImageList,'','清除所有image');
 
   Self.add_func('img.addln',@img_AddByLine,'img1,img2[,pw[,bm]]','两个图像按照行拼接，拼接需满足边缘pw行像素重合(pw默认值为10)，最大回溯查找bm段(bm默认值为0)');
+  Self.add_func('img.vsegln',@img_VoidSegmentByLine,'img,min,tor,basename','按行分割图像，min为最小像素高度，tor为最大行颜色差值，basename为原始存储文件名称');
 
 end;
 

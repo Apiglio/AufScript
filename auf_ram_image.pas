@@ -28,6 +28,8 @@ type
     function FindStart(Img:TARImage;pixel_width:integer;back_match:integer;var back_count:integer):integer;
     function FindStart(Img:TARImage;pixel_width:integer):integer;
     function AddByLine(Img:TARImage;pixel_width:integer;back_match:integer=0):TARImage;
+    function FindVoid(min_height,tolerance:integer):integer;
+    function VoidSegmentByLine(out ImgRest:TARImage;min,tor:integer):TARImage;
 
 
   public
@@ -217,6 +219,7 @@ var start,wt,h1,h2:integer;
     r_src,r_dst:TRect;
 begin
   result:=nil;
+  if (Img.Width<=0) or (Img.Height<=0) or (Width<=0) or (Height<=0) then exit;
   start:=FindStart(Img,pixel_width,back_match,back_count);
   if start<0 then exit;
   wt:=FPicture.Width;
@@ -248,6 +251,45 @@ begin
     result.Free;
     result:=nil;
   end;
+end;
+
+function TARImage.FindVoid(min_height,tolerance:integer):integer;
+var line,max_line,max_row,row:integer;
+    diff:int64;
+    color:byte;
+    ptr:pbyte;
+begin
+  result:=-1;
+  if (FPicture.Height<=0) or (FPicture.Width<=0) then exit;
+  color:=FPicture.Bitmap.RawImage.DataSize div FPicture.Height div FPicture.Width;
+  max_line:=FPicture.Height;
+  max_row:=FPicture.Width;
+  line:=min_height;
+  while line<max_line do begin
+    ptr:=pbyte(FPicture.Bitmap.ScanLine[line]);//+max_row*color*line;
+    diff:=0;
+    for row:=0 to (max_row-1)*color-1 do begin
+      inc(diff,abs((ptr+row)^-(ptr+row+color)^));
+      //writeln('value1 = ',(ptr+row)^,#9,'value2 = ',(ptr+row+color)^,#9,'diff = ',diff);
+      if diff>tolerance then break;
+    end;
+    result:=line;
+    if diff<=tolerance then exit;
+    inc(line);
+  end;
+  result:=-1;
+end;
+
+function TARImage.VoidSegmentByLine(out ImgRest:TARImage;min,tor:integer):TARImage;
+var split_line:integer;
+begin
+  result:=nil;
+  ImgRest:=nil;
+  if (min<=0) or (tor<0) then exit;
+  split_line:=FindVoid(min,tor);
+  if split_line<min then exit;
+  ImgRest:=Clip(Classes.Rect(0,split_line,FPicture.Width,FPicture.Height));
+  result:=Clip(Classes.Rect(0,0,FPicture.Width,split_line-1));
 end;
 
 class function TARImage.ImageCount:Integer;
