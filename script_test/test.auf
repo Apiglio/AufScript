@@ -31,6 +31,33 @@ println "中文测试：下一个操作会清理屏幕"
 pause
 clear
 
+println "【定义与变量测试】"
+define aa,$8[8]
+echoln @aa
+mov @aa,12
+println @aa
+deflist
+deldef aa
+cwln
+println "delete define"
+cwln
+deflist
+mov @aa,12
+println @aa
+
+//deprecated use of @n/$n/~n
+mov @1,123456789
+println @1
+mov $1,1234567
+println $1
+mov ~1,12.34567890123456789
+println ~1
+mov #1,"12345678901234567890"
+println #1
+define 1,#128[]
+echo @1
+
+
 println "【常规变量赋值测试】"
 mov $1[0],34
 hexln $1[0]
@@ -65,18 +92,7 @@ println #16[0]
 mov #5[0],"中文测试"
 hexln #5[0]
 println #5[0]
-mov ~[0],12.34567890123456789
-hexln ~[0]
-println ~[0]
-mov ~4[0],12.34567890123456789
-hexln ~4[0]
-println ~4[0]
-mov ~8[0],12.34567890123456789
-hexln ~8[0]
-println ~8[0]
-mov ~14[0],12.34567890123456789
-hexln ~14[0]
-println ~14[0]
+
 
 println "【特殊变量赋值测试】"
 mov $3[0],16777216
@@ -126,32 +142,65 @@ println ~8[0]
 mov ~8[0],1f23.43ad
 println ~8[0]
 
+
 println "【随机与简易循环测试】"
 random_loop_test:
 rand $8[]
 println $8[]
 loop :random_loop_test,12
 
-println "【变量运算测试】"
-calc_loop_test:
+println "【整型变量运算测试】"
+calc_int_loop_test:
 fill $10[0],0
 rand $2[0]
 rand $2[5]
-print "num_1 = "
+print "A   = "
 println $5[0]
-print "num_2 = "
+print "B   = "
 println $5[5]
 add $5[0],$5[5]
+print "A+B = "
 println $5[0]
 sub $5[0],$5[5]
+print "A-B = "
 println $5[0]
 mul $5[0],$5[5]
+print "A*B = "
 println $5[0]
 div $5[0],$5[5]
+print "A/B = "
 println $5[0]
-loop :calc_loop_test,12
+cwln
+loop :calc_int_loop_test,12
 
+println "【ARV 测试】"
+load "script_test\arv_test.auf"
 
+println "【浮点型变量运算测试】"
+calc_float_loop_test:
+fill ~8[0],0
+rand ~4[0],1000
+cje ~4[0],0,@prev_line
+rand ~4[4],1000
+cje ~4[4],0,@prev_line
+print "A   = "
+println ~4[0]
+print "B   = "
+println ~4[4]
+add ~4[0],~4[4]
+print "A+B = "
+println ~4[0]
+sub ~4[0],~4[4]
+print "A-B = "
+println ~4[0]
+mul ~4[0],~4[4]
+print "A*B = "
+println ~4[0]
+div ~4[0],~4[4]
+print "A/B = "
+println ~4[0]
+cwln
+loop :calc_float_loop_test,12
 
 
 println "【逻辑测试】"
@@ -162,8 +211,69 @@ loo:
 
 
 println "【时钟测试】"
+print "未初始化时钟："
+gettimer
+print "初始化时钟："
+settimer
+gettimer
+sleep 432
+println "执行sleep 432和println之后: "
+gettimer
+cwln
+
+println "【sleep测试】"
+settimer
+timer_loop_test_sleep:
+sleep 100
+gettimer
+loop :timer_loop_test_sleep, 10
+cwln
+
+println "【waittimer测试】"
+mov $[],0
+settimer
+timer_loop_test_wait:
+add $[],100
+waittimer $[]
+gettimer
+loop :timer_loop_test_wait, 10
+cwln
+
+println "【时间测试】"
+gettimestr #32[]
+println #32[]
+gettimestr #32[],-F
+println #32[]
+gettimestr #32[],-f
+println #32[]
+gettimestr #32[],-D
+println #32[]
+gettimestr #32[],-d
+println #32[]
+cwln
+getdatestr #32[]
+println #32[]
+getdatestr #32[],-F
+println #32[]
+getdatestr #32[],-f
+println #32[]
+getdatestr #32[],-D
+println #32[]
+getdatestr #32[],-d
+println #32[]
+cwln
 
 
+println "【文件测试】"
+
+file.exist? +3,"script_test\image_test.auf"
+define content,""
+jmp +2
+file.read content,"script_test\image_test.auf"
+mov #100[],@content
+swap #100[]
+print #100[]
+deldef content
 
 
 end

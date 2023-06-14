@@ -1,0 +1,60 @@
+println "【浮点型赋值(dec)】"
+
+var float f0 0
+var float f4 4
+var float f8 8
+var float f14 14
+
+mov @f0,12.34567890123456789
+hex @f0
+print "	"
+println @f0
+mov @f4,12.34567890123456789
+hex @f4
+print "	"
+println @f4
+mov @f8,12.34567890123456789
+hex @f8
+print "	"
+println @f8
+mov @f14,12.34567890123456789
+hex @f14
+print "	"
+println @f14
+
+unvar f0
+unvar f4
+unvar f8
+unvar f14
+
+cwln
+println "【浮点型赋值(hex)】"
+
+fill $128[],0
+mov $04[00],7F800000H
+mov $04[04],7F800031H
+mov $04[08],7F100000H
+mov $04[12],7F100031H
+mov $08[16],7FF0000000000000H
+mov $08[24],7FF000DD00000301H
+mov $08[32],7AF0D00000000000H
+mov $08[40],7AF0D0DD00000301H
+mov $06[48],7FC000000000H
+mov $06[54],7FC000000001H
+mov $06[60],7FA000000000H
+mov $06[66],7FA000000001H
+println ~04[00]
+println ~04[04]
+println ~04[08]
+println ~04[12]
+println ~08[16]
+println ~08[24]
+println ~08[32]
+println ~08[40]
+println ~06[48]
+println ~06[54]
+println ~06[60]
+println ~06[66]
+
+
+

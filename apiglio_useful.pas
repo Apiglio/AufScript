@@ -40,7 +40,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.3.8';
+  AufScript_Version='beta 2.3.9';
 
   c_divi=[' ',','];//隔断符号
   c_iden=['~','@','$','#','?',':','&'];//变量符号，前后缀符号
@@ -1479,7 +1479,7 @@ begin
   end;
 end;
 procedure rand(Sender:TObject);
-var rand_res,rand_max:dword;
+var rand_max:dword;
     pos:pbyte;
     tmp:TAufRamVar;
     AufScpt:TAufScript;
@@ -1488,36 +1488,20 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(2) then exit;
-  if AAuf.ArgsCount>2 then //rand @var,max
-    begin
-      if not AAuf.TryArgToDWord(2,rand_max) then exit;
-      if rand_max=0 then begin AufScpt.send_error('警告：rand的第二个参数不能为0，语句未执行。');exit end;
-    end
-  else //rand @var
-    begin
-      //
+  if not AAuf.TryArgToARV(1,1,High(pRam),[ARV_FixNum,ARV_Float],tmp) then exit;
+  if AAuf.ArgsCount>2 then begin
+    if not AAuf.TryArgToDWord(2,rand_max) then exit;
+    if rand_max=0 then begin AufScpt.send_error('警告：第二个参数不能为0，语句未执行。');exit end;
+    case tmp.VarType of
+      ARV_FixNum:dword_to_arv(random(rand_max),tmp);
+      ARV_Float:double_to_arv(random*rand_max,tmp);
     end;
-  try
-    //randomize;//转移到RunFirst里头了
-    tmp:=AufScpt.RamVar(AAuf.nargs[1]);
-    if AAuf.ArgsCount>2 then begin
-      rand_res:=random(rand_max);
-      case tmp.VarType of
-        ARV_Char:;
-        ARV_FixNum:dword_to_arv(rand_res,tmp);
-        ARV_Float:double_to_arv(rand_res,tmp);
-      end;
-    end else begin
-      pos:=tmp.Head;
-      while pos<tmp.Head+tmp.size do
-        begin
-          pos^:=random(255);
-          inc(pos);
-        end;
+  end else begin
+    pos:=tmp.Head;
+    while pos<tmp.Head+tmp.size do begin
+      pos^:=random(255);
+      inc(pos);
     end;
-  except
-    AufScpt.send_error('警告：rand的第一个参数需要是Float或FixNum变量，语句未执行。');
-    exit;
   end;
 end;
 
@@ -1582,27 +1566,11 @@ begin
     exit;
   end;
   if core_mode[3]<>'s' then begin
-    try
-      b:=AufScpt.TryToDouble(AAuf.nargs[2]);
-    except
-      AufScpt.send_error('警告：'+AAuf.nargs[0].arg+'的第二个参数不能转换为double类型，语句未执行。');exit;
-    end;
-    try
-      a:=AufScpt.TryToDouble(AAuf.nargs[1]);
-    except
-      AufScpt.send_error('警告：'+AAuf.nargs[0].arg+'的第一个参数不能转换为double类型，语句未执行。');exit;
-    end;
+    if not AAuf.TryArgToDouble(2,b) then exit;
+    if not AAuf.TryArgToDouble(1,a) then exit;
   end else begin
-    try
-      sb:=AufScpt.TryToString(AAuf.nargs[2]);
-    except
-      AufScpt.send_error('警告：'+AAuf.nargs[0].arg+'的第二个参数不能转换为string类型，语句未执行。');exit;
-    end;
-    try
-      sa:=AufScpt.TryToString(AAuf.nargs[1]);
-    except
-      AufScpt.send_error('警告：'+AAuf.nargs[0].arg+'的第一个参数不能转换为string类型，语句未执行。');exit;
-    end;
+    if not AAuf.TryArgToString(2,sb) then exit;
+    if not AAuf.TryArgToString(1,sa) then exit;
   end;
   case core_mode of
     'cje':if (a=b) xor is_not then switch_addr(AufScpt.currentLine+ofs,is_call);
