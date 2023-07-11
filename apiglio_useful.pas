@@ -554,15 +554,16 @@ var bit:byte;
 begin
   result:='';
   for bit:={$ifdef cpu64}15{$else}7{$endif} downto 0 do begin
-    result:=result+chr(64+inp shr bit*4 mod 16);
+    result:=result+chr(64+inp shr (bit*4) mod 16);
   end;
 end;
 function RawStrTopRam(str:string):pRam;
 var bit:byte;
 begin
   result:=0;
-  for bit:={$ifdef cpu64}15{$else}7{$endif} downto 0 do begin
-    result:=result+((ord(str[1])-64) shl bit*4);
+  for bit:=0 to {$ifdef cpu64}15{$else}7{$endif} do begin
+    result:=result shl 4;
+    result:=result or ((ord(str[bit+1])-64));
   end;
 end;
 
@@ -3482,13 +3483,13 @@ begin
   if maxsize>minsize then begin
     if (res.size>maxsize) or (res.size<minsize) then
       begin
-        Script.send_error('警告：第'+IntToStr(ArgNumber)+'个参数变量长度应在'+IntToStr(minsize)+'至'+IntToStr(maxsize)+'范围内，代码未执行。');
+        Script.send_error('警告：第'+IntToStr(ArgNumber)+'个参数变量长度应在'+IntToStr(minsize)+'至'+IntToStr(maxsize)+'范围内，而不能是'+IntToStr(res.size)+'，代码未执行。');
         exit
       end;
   end else if maxsize=minsize then begin
     if res.size<>maxsize then
       begin
-        Script.send_error('警告：第'+IntToStr(ArgNumber)+'个参数变量长度应为'+IntToStr(maxsize)+'，代码未执行。');
+        Script.send_error('警告：第'+IntToStr(ArgNumber)+'个参数变量长度应为'+IntToStr(maxsize)+'，而不能是'+IntToStr(res.size)+'，代码未执行。');
         exit
       end;
   end;
