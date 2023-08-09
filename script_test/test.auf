@@ -1,0 +1,405 @@
+version
+
+print "aa"
+print "-"
+println "bb"
+
+echo aa
+echo -
+echoln bb
+
+help help
+cwln
+help deflist
+
+help
+cwln
+cwln
+deflist
+cwln
+cwln
+
+echoln p1,p2,p3
+echoln "string",123,1.414
+
+println string
+println "string between quotation marks"
+println 1234845
+println 3.1415926
+
+println "中文测试：下一个操作会清理屏幕"
+pause
+clear
+
+println "【定义与变量测试】"
+define aa,$8[8]
+echoln @aa
+mov @aa,12
+println @aa
+deflist
+deldef aa
+cwln
+println "delete define"
+cwln
+deflist
+mov @aa,12
+println @aa
+
+//deprecated use of @n/$n/~n
+mov @1,123456789
+println @1
+mov $1,1234567
+println $1
+mov ~1,12.34567890123456789
+println ~1
+mov #1,"12345678901234567890"
+println #1
+define 1,#128[]
+echo @1
+
+
+println "【常规变量赋值测试】"
+mov $1[0],34
+hexln $1[0]
+println $1[0]
+mov $1[0],300
+hexln $1[0]
+println $1[0]
+mov $[0],8848
+hexln $[0]
+println $[0]
+mov $[0],1000000000
+hexln $[0]
+println $[0]
+mov $[0],5000000000
+hexln $[0]
+println $[0]
+mov $512[0],12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890
+hexln $512[0]
+println $512[0]
+mov #[0],"1234567890"
+hexln #[0]
+println #[0]
+mov #32[0],"1234567890"
+hexln #32[0]
+println #32[0]
+mov #512[0],"12345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890"
+hexln #512[0]
+println #512[0]
+mov #16[0],"中文测试"
+hexln #16[0]
+println #16[0]
+mov #5[0],"中文测试"
+hexln #5[0]
+println #5[0]
+
+
+println "【特殊变量赋值测试】"
+mov $3[0],16777216
+println $3[0]
+mov $3[0],100000.12345
+println $3[0]
+mov $3[0],"12345"
+println $3[0]
+mov $3[0],"."
+println $3[0]
+mov $3[0],""
+println $3[0]
+mov $3[0],1234H
+hexln $3[0]
+println $3[0]
+mov $3[0],10111011101B
+hexln $3[0]
+println $3[0]
+mov #9[0],raw_string_test
+println #9[0]
+mov #9[0],ra"w_string_te"st
+println #9[0]
+mov #9[0],12345678987654321
+println #9[0]
+mov ~[0],123.45678987654321
+println ~[0]
+mov ~[0],123456789876543.21
+println ~[0]
+mov ~8[0],123.45678987654321
+println ~8[0]
+mov ~8[0],123456789876543.21
+println ~8[0]
+mov ~8[0],7F7F7F.43AED3H
+hexln ~8[0]
+println ~8[0]
+mov ~8[0],1011110101101.01110101101B
+hexln ~8[0]
+println ~8[0]
+
+println "【异常变量赋值测试】"
+mov $3[0],32f
+println $3[0]
+mov $3[0],32fkh
+println $3[0]
+mov ~8[0],123.43tfh
+println ~8[0]
+mov ~8[0],1f23.43ad
+println ~8[0]
+
+
+println "【随机与简易循环测试】"
+random_loop_test:
+rand $8[]
+println $8[]
+loop :random_loop_test,12
+
+println "【整型变量运算测试】"
+calc_int_loop_test:
+fill $10[0],0
+rand $2[0]
+rand $2[5]
+print "A   = "
+println $5[0]
+print "B   = "
+println $5[5]
+add $5[0],$5[5]
+print "A+B = "
+println $5[0]
+sub $5[0],$5[5]
+print "A-B = "
+println $5[0]
+mul $5[0],$5[5]
+print "A*B = "
+println $5[0]
+div $5[0],$5[5]
+print "A/B = "
+println $5[0]
+cwln
+loop :calc_int_loop_test,12
+
+println "【ARV 测试】"
+load "script_test\arv_test.auf"
+
+println "【浮点型变量运算测试】"
+calc_float_loop_test:
+fill ~8[0],0
+rand ~4[0],1000
+cje ~4[0],0,@prev_line
+rand ~4[4],1000
+cje ~4[4],0,@prev_line
+print "A   = "
+println ~4[0]
+print "B   = "
+println ~4[4]
+add ~4[0],~4[4]
+print "A+B = "
+println ~4[0]
+sub ~4[0],~4[4]
+print "A-B = "
+println ~4[0]
+mul ~4[0],~4[4]
+print "A*B = "
+println ~4[0]
+div ~4[0],~4[4]
+print "A/B = "
+println ~4[0]
+cwln
+loop :calc_float_loop_test,12
+
+
+println "【逻辑测试】"
+
+loo:
+
+
+
+
+println "【时钟测试】"
+print "未初始化时钟："
+gettimer
+print "初始化时钟："
+settimer
+gettimer
+sleep 432
+println "执行sleep 432和println之后: "
+gettimer
+cwln
+
+println "【sleep测试】"
+settimer
+timer_loop_test_sleep:
+sleep 100
+gettimer
+loop :timer_loop_test_sleep, 10
+cwln
+
+println "【waittimer测试】"
+mov $[],0
+settimer
+timer_loop_test_wait:
+add $[],100
+waittimer $[]
+gettimer
+loop :timer_loop_test_wait, 10
+cwln
+
+println "【时间测试】"
+gettimestr #32[]
+println #32[]
+gettimestr #32[],-F
+println #32[]
+gettimestr #32[],-f
+println #32[]
+gettimestr #32[],-D
+println #32[]
+gettimestr #32[],-d
+println #32[]
+cwln
+getdatestr #32[]
+println #32[]
+getdatestr #32[],-F
+println #32[]
+getdatestr #32[],-f
+println #32[]
+getdatestr #32[],-D
+println #32[]
+getdatestr #32[],-d
+println #32[]
+cwln
+
+
+println "【文件测试】"
+
+file.exist? +3,"script_test\image_test.auf"
+define content,""
+jmp +2
+file.read content,"script_test\image_test.auf"
+mov #100[],@content
+swap #100[]
+print #100[]
+deldef content
+
+
+end
+
+print "you are not supposed to see this line"
+
+
+
+函数列表:
+set option,value 代码窗运行设置   
+ramex -option/arv,filename       将内存导出到ram.var       
+ramim filename [,var [,-f]]      从文件中载入数据到内存       
+sleep n          等待n毫秒           
+beep freq,dura   以freq的频率蜂鸣dura毫秒
+cmd command      调用命令提示行   
+hex var          输出标准变量形式的十六进制,后加"ln"则换行             
+of [filename]    改为输出到文件   
+os               改为输出到屏幕，同时保存已经输出到文件的内容      
+mov v1,v2        将v2值赋值给v1     
+add v1,v2        将v1和v2的值相加并返回给v1    
+sub v1,v2        将v1和v2的值相减并返回给v1    
+mul v1,v2        将v1和v2的值相乘并返回给v1    
+div v1,v2        将v1和v2的值相除并返回给v1    
+mod v1,v2        将v1和v2的值求余并返回给v1    
+rand v1,v2       将不大于v2的随机整数返回给v1
+swap v1          将v1字节倒序       
+fill var,byte    用byte填充var
+loop :label/ofs,times[,st]       简易循环times次    
+jmp :label/ofs   跳转到相对地址   
+call :lable/ofs  跳转到相对地址，并将当前地址压栈
+ret              从栈中取出一个地址，并跳转至该地址     
+load filename    加载运行指定脚本文件  
+fend             从加载的脚本文件中跳出       
+halt             无条件结束 
+end              有条件结束，根据运行状态转译为ret, fend或halt   
+cje v1,v2,:label/ofs     如果v1等于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用     
+cjm v1,v2,:label/ofs     如果v1大于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用     
+cjl v1,v2,:label/ofs     如果v1小于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用     
+cjs s1,s2,:label/ofs     如果s1相等s2则跳转,前加"n"表示否定,后加"c"表示压栈调用     
+cjsub sub,str,:label/ofs 如果str包含sub则跳转,前加"n"表示否定,后加"c"表示压栈调用   
+cjsreg reg,str,:label/ofs        如果str符合reg则跳转,前加"n"表示否定,后加"c"表示压栈调用   
+define name,expr 定义一个以@开头的局部宏定义
+rendef old,new   修改一个局部宏定义的名称    
+deldef name              删除一个局部宏定义的名称    
+ifdef name               如果有定义则跳转
+ifndef name              如果没有定义则跳转     
+var type,name,size       创建一个ARV变量   
+unvar name               释放一个ARV变量   
+pshl byte        指针左位移byte个字节    
+pshr byte        指针右位移byte个字节    
+pofl n           以指针宽度为基准向左偏移n个单位  
+pofr n           以指针宽度为基准向右偏移n个单位  
+pexl byte        指针向左拓展byte个字节 
+pexr byte        指针向右拓展byte个字节 
+pcpl byte        指针向左压缩byte个字节 
+pcpr byte        指针向右压缩byte个字节 
+str #[],var      将var转化成字符串存入#[]       
+val $[],str      将str转化成数值存入$[]  
+srp #[],old,new  将#[]中的old替换成new     
+mid #[],pos,len  将#[]从pos处截取len位字符       
+cat #[],str[,-r] 将str加在#[]的末尾或开头(-r)   
+gettimestr var[,-d|-f]   显示当前时间字符串或存入字符变量var中，-d为默认显示格式，-f表示符合文件名规则，参数大写则同时输出日期    
+getdatestr var[,-d|-f]   显示当前日期字符串或存入字符变量var中，-d为默认显示格式，-f表示符合文件名规则，参数大写则同时输出时间    
+settimer         初始化计时器      
+gettimer var     获取计时器度数   
+waittimer var    等待计时器达到var
+file.exist? addr,filename,mode   如果存在文件filename则跳转至addr，mode="[N][C]"      
+file.read var,filename   读取文件并保存至var     
+file.write var,filename  将var保存至文件   
+file.list pathname,filter,@list,:func    遍历路径中的每一个文件(filter为过滤器)，文件名赋值给文本列表@list     
+list.pop @list,@out      将文本列表的第一个转存给@out
+list.has? @list,addr     文本列表还有元素则跳转至addr
+getbytes var,idx,len     截取变量var中从idx起的len个字节到@prev_res  
+setbytes var,idx,src     将变量src保存到变量var的第idx个字节，超出部分不保存
+cmp v1,v2,out    比较          
+shl var,bit      左移          
+shr var,bit      右移          
+not var          位非          
+and v1,v2        位与          
+or v1,v2         位或          
+xor v1,v2        异或          
+ofs v1,v2,threshold,out  差值位计数 
+h_add #[],#[]            高精加       
+h_sub #[],#[]            高精减       
+h_mul #[],#[]            高精乘       
+h_divreal #[],#[]        高精实数除 
+img.new img      创建image     
+img.del img      删除image     
+img.copy dst,src 复制src图像到dst   
+img.save img,filename[,-e|-r|-f] 保存image到filename，-e表示重名报错，-f表示覆盖写入，-r表示修改命名写入       
+img.load img,filename    从filename导入image  
+img.clip img,x,y,w,h     裁切img图像 
+img.trml img,width[,-sub]        裁切image图像左侧使宽度为width，加-sub表示裁剪特定像素宽度
+img.trmr img,width[,-sub]        裁切image图像右侧使宽度为width，加-sub表示裁剪特定像素宽度
+img.trmt img,height[,-sub]       裁切image图像上部使宽度为height，加-sub表示裁剪特定像素宽度       
+img.trmb img,height[,-sub]       裁切image图像下部使宽度为height，加-sub表示裁剪特定像素宽度       
+img.width img,result     返回img图像的宽到result  
+img.height img,result    返回img图像的高到result  
+img.color img,result     返回img图像的平均颜色  
+img.pixelformat img,result       返回img图像的像素类型  
+img.cje img1,img2,:label/ofs     如果两个图像相同则跳转,前加"n"表示否定,后加"c"表示压栈调用     
+img.freeall      清除所有image       
+img.addln img1,img2[,pw[,bm]]    两个图像按照行拼接，拼接需满足边缘pw行像素重合(pw默认值为10)，最大回溯查找bm段(bm默认值为0)       
+about            版本信息    
+string hwnd,str  向窗口输入字符串
+keybd hwnd,"U/D",key|"char"      向hwnd窗口发送一个键盘消息   
+mouse hwnd,"L/M/R"+"U/D/B",x,y   向hwnd窗口发送一个鼠标消息   
+keypress hwnd,key|"char",deley   向hwnd窗口发送一对间隔delay毫秒的按键消息       
+mouseclk hwnd,"L/M/R",x,y,delay  向hwnd窗口发送一对间隔delay毫秒的鼠标消息       
+mousemov hwnd,"LRSCM12",x,y      向hwnd窗口发送鼠标坐标更新的消息  
+mousewhl hwnd,delta,"LRSCM12",x,y        向hwnd窗口发送鼠标滚轮的消息，delta推荐值为±120       
+post hwnd,msg,w,l        调用Postmessage       
+send hwnd,msg,w,l        调用Sendmessage       
+getwnd_v hwnd,wind_name  查找名称为wind_name且可见的窗体句柄
+getwnd_t         返回当前置顶的窗体句柄       
+wndlist.update filter,"on/off"   刷新窗体列表，filter为筛选字符串，第2参数规定是否使用正则表达式     
+wndlist.find filter,"on/off"     查找符合条件的递归窗体，filter为筛选字符串，第2参数规定是否使用正则表达式      
+wndlist.set_comp         将当前WndList保存为对比列表   
+wndlist.find_new hwnd,filter,"on/off"    从对比列表返回第一个符合条件的新增窗体，filter为筛选字符串，第2参数规定是否使用正则表达式      
+wndlist.list_new hwnd,filter,"on/off"    从对比列表列出符合条件的新增窗体，并返回第一个，filter为筛选字符串，第2参数规定是否使用正则表达式  
+getpixel hwnd,x,y,out_var        返回窗体指定像素点颜色       
+getrect hwnd,x1,x2,y1,y2,out_var 返回窗体指定矩形范围内像素点颜色
+ramimg col,row,in_var    根据内存变量显示图片  
+ari.get hwnd,@img[,x,y,w,h]      读取窗体画面并保存到ARI图像中      
+ari.dsp @img     从ARI图像中显示图片     
+
+
+
+

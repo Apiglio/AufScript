@@ -99,6 +99,7 @@ type
   function ARV_EqlZero(inp:TAufRamVar):boolean;
   function ARV_comp(ina,inb:TAufRamVar):smallint;//ina<=>inb
   function ARV_offset_count(ina,inb:TAufRamVar;offset_threshold:byte):dword;//统计每个字节差距大于offset_threshold的字节数量
+  function ARV_float_valid(ina:TAufRamVar):boolean;//判断浮点型是否是有效值
 
   procedure ARV_shl(var inp:TAufRamVar;bit:qword);
   procedure ARV_shr(var inp:TAufRamVar;bit:qword);
@@ -1137,6 +1138,17 @@ begin
   until ia=0;
 end;
 
+function ARV_float_valid(ina:TAufRamVar):boolean;
+begin
+  result:=false;
+  case ina.size of
+     4:if ((ina.Head+3)^ and $7f = $7f) and ((ina.Head+2)^ and $80=$80) then exit;
+     8:if ((ina.Head+7)^ and $7f = $7f) and ((ina.Head+6)^ and $f0=$f0) then exit;
+     else exit;
+  end;
+  result:=true;
+end;
+
 procedure ARV_shl(var inp:TAufRamVar;bit:qword);
 var pi:dword;
     byte_ofs,bit_ofs:dword;
@@ -1638,6 +1650,7 @@ begin
                    end;
                end;
     ARV_Float :begin
+                 if not ARV_float_valid(ina) then raise Exception.Create('警告：ARV浮点型数值为NaN');
                  raise Exception.Create('警告：浮点型不支持to_dword转换');
                  result:=0;
                end;
@@ -1669,8 +1682,13 @@ begin
                    end;
                end;
     ARV_Float :begin
-                 raise Exception.Create('警告：浮点型不支持to_double转换');
                  result:=0;
+                 if not ARV_float_valid(ina) then raise Exception.Create('警告：ARV浮点型数值为NaN');
+                 case ina.size of
+                   4:result:=psingle(ina.Head)^;
+                   8:result:=pdouble(ina.Head)^;
+                   else raise Exception.Create('警告：4或8位以外的浮点型不支持to_double转换');
+                 end;
                end;
     ARV_Char  :begin
                  raise Exception.Create('警告：暂不支持字符型的to_double转换');
@@ -1688,6 +1706,7 @@ begin
                  result:=arv_to_dec(ina);
                end;
     ARV_Float :begin
+                 if not ARV_float_valid(ina) then raise Exception.Create('警告：ARV浮点型数值为NaN');
                  case ina.size of
                    4:result:=FloatToStrF(psingle(ina.Head)^,ffFixed,6,6);
                    8:result:=FloatToStrF(pdouble(ina.Head)^,ffFixed,15,15);
