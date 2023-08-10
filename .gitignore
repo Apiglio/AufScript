@@ -13,4 +13,6 @@ script_test/*
 *.compiled
 *.obj
 *.auf
+fpcunitproject1
+fpcunitproject1.or
 !script_test/*.auf

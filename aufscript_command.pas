@@ -5,8 +5,14 @@ unit aufscript_command;
 interface
 
 uses
+  {$ifdef UNIX}
+  cthreads,
+  {$endif}
+  {$ifdef WINDOWS}
+  Windows,
+  {$endif}
   Classes, SysUtils, FileUtil, Forms, Controls, StdCtrls,
-  Dialogs, LazUTF8, Apiglio_Useful, Windows;
+  Dialogs, LazUTF8, Apiglio_Useful;
 
 type
   TMemo_AufScript = class(TMemo)

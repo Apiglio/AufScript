@@ -11,9 +11,15 @@ program fpcunitproject1;
 {$mode objfpc}{$H+}
 
 uses
+  {$ifdef UNIX}
+  cthreads,
+  {$endif}
+  {$ifdef WINDOWS}
+  Windows,
+  {$endif}
   Classes, StdCtrls, ExtCtrls, Sysutils, Forms, consoletestrunner, Interfaces,
-  Controls, LazUTF8, Windows, Apiglio_Useful, auf_ram_var, aufscript_frame,
-  aufscript_command, auf_ram_syntax, auf_ram_image;
+  Controls, Dialogs, LazUTF8, Apiglio_Useful, auf_ram_var, aufscript_frame,
+  aufscript_command, auf_ram_syntax, auf_ram_image, aufscript_thread, svo_tree;
 
 type
 
@@ -100,7 +106,8 @@ end;
 { TMyTestForm }
 procedure TMyTestForm.test;
 begin
-  MessageBox(0,'TEST:OK','TEST',MB_OK);
+  //MessageBox(0,'TEST:OK','TEST',MB_OK);
+  ShowMessage('TEST');
 end;
 procedure TMyTestForm.ChangeMainTitle(Sender:TObject;str:string);
 begin
