@@ -1359,17 +1359,8 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
-  //if AAuf.ArgsCount<3 then begin AufScpt.send_error('警告：sub_add需要两个参数，赋值未成功。');exit end;
-  tmp1:=AufScpt.RamVar(AAuf.nargs[1]);
-  if tmp1.size=0 then begin
-    AufScpt.send_error('警告：div_arv的第1个参数错误，语句未执行。');
-    exit;
-  end;
-  tmp2:=AufScpt.RamVar(AAuf.nargs[2]);
-  if tmp2.size=0 then begin
-    AufScpt.send_error('警告：div_arv的第2个参数错误，语句未执行。');
-    exit;
-  end;
+  if not AAuf.TryArgToARV(1,0,High(pRam),ARV_AllType,tmp1) then exit;
+  if not AAuf.TryArgToARV(2,0,High(pRam),ARV_AllType,tmp2) then exit;
   if ARV_EqlZero(tmp2) then begin
     AufScpt.send_error('警告：div_arv的第2个参数不能为0，语句未执行。');
     exit;
