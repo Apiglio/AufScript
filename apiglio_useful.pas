@@ -2433,6 +2433,65 @@ begin
   end;
 end;
 
+procedure text_strEnumerate(Sender:TObject);
+//每次执行都从enum_text中选取一个字母存储给var，从first_index开始  enum var string [first_index]
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    times,now:dword;
+    arv:TAufRamVar;
+    enum_text:string;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToARV(1,1,High(dword),[ARV_Char],arv) then exit;
+  if not AAuf.TryArgToString(2,enum_text) then exit;
+  if not length(enum_text)>0 then begin
+    s_to_arv('',arv);
+    exit;
+  end;
+  times:=length(enum_text);
+  if AAuf.ArgsCount=3 then now:=0
+  else now:=StrToInt(AAuf.args[3]);
+  if now>=times then now:=0;
+  s_to_arv(enum_text[now+1],arv);
+  AAuf.args[3]:=IntToStr(now+1);
+  AufScpt.ScriptLines[AufScpt.PSW.run_parameter.current_line_number]:=AAuf.args[0]+' '+AAuf.args[1]+','+AAuf.args[2]+','+AAuf.args[3];
+
+end;
+
+procedure text_strFormat(Sender:TObject);//fmt @res, "AAA", 123, @str, ...
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    arv:TAufRamVar;
+    pi:byte;
+    res,stmp:string;
+    dtmp:Double;
+    ltmp:LongInt;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToARV(1,1,High(dword),[ARV_Char],arv) then exit;
+  res:='';
+  for pi:=2 to AAuf.ArgsCount-1 do begin
+    if AAuf.TryArgToString(pi,stmp) then begin
+      res:=res+stmp;
+      continue;
+    end;
+    if AAuf.TryArgToDouble(pi,dtmp) then begin
+      res:=res+FloatToStr(dtmp);
+      continue;
+    end;
+    if AAuf.TryArgToLong(pi,ltmp) then begin
+      res:=res+IntToStr(ltmp);
+      continue;
+    end;
+    AufScpt.send_error('第'+IntToStr(pi)+'个参数'+AAuf.args[3]+'无法转换成字符串。');
+  end;
+  s_to_arv(res,arv);
+end;
+
 procedure time_settimer(Sender:TObject);
 var AufScpt:TAufScript;
 begin
@@ -5456,6 +5515,8 @@ begin
   Self.add_func('srp',@text_strReplace,'#[],old,new','将#[]中的old替换成new');
   Self.add_func('mid',@text_strMid,'#[],pos,len','将#[]从pos处截取len位字符');
   Self.add_func('cat',@text_strCat,'#[],str[,-r]','将str加在#[]的末尾或开头(-r)');
+  Self.add_func('enum',@text_strEnumerate,'#[],str[,st]','将str的其中一位按执行次数依次赋值给#[]');
+  Self.add_func('fmt',@text_strFormat,'#[],s1[, ...]','从第2个参数起，连接成字符串赋值给#[]');
 
 end;
 procedure TAufScript.AdditionFuncDefine_Time;
