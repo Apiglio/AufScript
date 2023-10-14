@@ -42,11 +42,13 @@ uses
   {$ifdef can_be_removed}
   StdCtrls,
   {$endif}
-  LazUTF8, Auf_Ram_Var, Auf_Ram_Image, RegExpr, Variants;
+  LazUTF8, RegExpr, Variants,
+  Auf_Ram_Var, Auf_Ram_Image,
+  auf_type_base, auf_type_array;
 
 const
 
-  AufScript_Version='beta 2.3.9';
+  AufScript_Version='beta 2.4.1';
   {$if defined(cpu32)}
   AufScript_CPU='32bits';
   {$elseif defined(cpu64)}
@@ -400,6 +402,7 @@ type
       procedure AdditionFuncDefine_Time;//时间模块函数定义
       procedure AdditionFuncDefine_File;//文件模块函数定义
       procedure AdditionFuncDefine_Math;//数学模块函数定义
+      procedure AdditionFuncDefine_AufBase;//内建类型模块定义
       procedure AdditionFuncDefine_Image;//图像模块函数定义
 
   end;
@@ -731,9 +734,18 @@ begin
 end;
 procedure _define_helper(Sender:TObject);
 var AufScpt:TAufScript;
+    AAuf:TAuf;
+    tmpUnit:TAufExpressionUnit;
 begin
   AufScpt:=Sender as TAufScript;
-  AufScpt.define_helper;
+  AAuf:=AufScpt.Auf as TAuf;
+  if AAuf.ArgsCount=1 then AufScpt.define_helper
+  else begin
+    tmpUnit:=AufScpt.Expression.Local.Find(AAuf.args[1]);
+    if tmpUnit=nil then tmpUnit:=AufScpt.Expression.Global.Find(AAuf.args[1]);
+    if tmpUnit=nil then AufScpt.writeln('找不到'+AAuf.args[1]+'的定义。')
+    else AufScpt.writeln(AAuf.args[1]+' = '+tmpUnit.value.pre+tmpUnit.value.arg+tmpUnit.value.post);
+  end;
 end;
 procedure ramex(Sender:TObject);
 //ramex | ramex -all [file] | ramex -ocp [file] | ramex arv [file]
@@ -2888,6 +2900,157 @@ ErrOver_L:
 ErrOver_R:
   AufScpt.send_error('指针定义位移超界[R]。');
 
+end;
+
+procedure array_newArray(Sender:TObject);
+var AAuf:TAuf;
+    AufScpt:TAufScript;
+    obj:TAufArray;
+    arv:TAufRamVar;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(2) then exit;
+  if not AAuf.TryArgToARV(1,8,8,[ARV_FixNum],arv) then exit;
+  obj:=TAufArray.Create;
+  obj_to_arv(obj,arv);
+end;
+
+procedure array_delArray(Sender:TObject);
+var AAuf:TAuf;
+    AufScpt:TAufScript;
+    obj:TObject;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(2) then exit;
+  if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
+  if obj is TAufArray then begin
+    (obj as TAufArray).Free;
+  end else begin
+    AufScpt.send_error('找不到对应的TAufArray，删除失败');
+  end;
+end;
+
+procedure array_copyArray(Sender:TObject);
+var AAuf:TAuf;
+    AufScpt:TAufScript;
+    src,dst:TObject;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToObject(1,TAufArray,dst) then exit;
+  if not AAuf.TryArgToObject(2,TAufArray,src) then exit;
+  TAufArray(dst).Assign(TAufArray(src));
+end;
+
+procedure array_ClearArrayList(Sender:TObject);
+var AufScpt:TAufScript;
+    count:integer;
+begin
+  AufScpt:=Sender as TAufScript;
+  count:=TAufArray.InstanceCount;
+  TAufArray.InstanceClear;
+  AufScpt.writeln('共删除'+IntToStr(count)+'个TAufArray数组。');
+end;
+
+procedure array_Insert(Sender:TObject);//array.insert @arr,12[,0]
+var AAuf:TAuf;
+    AufScpt:TAufScript;
+    obj:TObject;
+    value,index:integer;
+    element:TAufBase;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
+  if not AAuf.TryArgToLong(2,value) then exit;
+  if AAuf.ArgsCount<4 then index:=TAufArray(obj).Count else begin
+    if not AAuf.TryArgToLong(3,index) then exit;
+  end;
+  element:=TAufBase.CreateAsFixnum(value);
+  TAufArray(obj).Insert(index,element);
+end;
+
+procedure array_Delete(Sender:TObject);//array.delete @arr,index[,@res]
+var AAuf:TAuf;
+    AufScpt:TAufScript;
+    obj:TObject;
+    index:integer;
+    arv,res:TAufRamVar;
+    element:TAufBase;
+    screen_output:boolean;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
+  if not AAuf.TryArgToLong(2,index) then exit;
+  if AAuf.ArgsCount<4 then begin
+    screen_output:=true;
+  end else begin
+    if not AAuf.TryArgToARV(3,1,High(dword),[ARV_FixNum],arv) then exit;
+    screen_output:=false;
+  end;
+
+  element:=TAufArray(obj).Delete(index);
+  res:=element.ARV;
+  if screen_output then AufScpt.writeln('删除数组中的元素['+IntToStr(index)+']：'+arv_to_s(res))
+  else copyARV(res,arv);
+  element.Free;
+end;
+
+procedure array_Clear(Sender:TObject);
+var AAuf:TAuf;
+    AufScpt:TAufScript;
+    obj:TObject;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(2) then exit;
+  if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
+  TAufArray(obj).Clear;
+end;
+
+procedure array_Print(Sender:TObject);
+var AAuf:TAuf;
+    AufScpt:TAufScript;
+    obj:TObject;
+    afn:TAufBase;
+    idx,len:Integer;
+    stmp:string;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(2) then exit;
+  if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
+  stmp:='[';
+  with TAufArray(obj) do begin
+    for idx:=0 to Count-1 do begin
+      afn:=Items[idx];
+      stmp:=stmp+arv_to_s(afn.ARV)+',';
+    end;
+  end;
+  len:=length(stmp);
+  if len>2 then System.Delete(stmp,len,1);
+  stmp:=stmp+']';
+  AufScpt.writeln(stmp);
+end;
+
+procedure array_Count(Sender:TObject);
+var AAuf:TAuf;
+    AufScpt:TAufScript;
+    obj:TObject;
+    arv:TAufRamVar;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
+  if not AAuf.TryArgToARV(2,1,High(longint),[ARV_FixNum],arv) then exit;
+  dword_to_arv(TAufArray(obj).Count,arv);
 end;
 
 function img_get_filename(AufScpt:TAufScript;filename:string;write_mode:string):string;
@@ -5280,6 +5443,7 @@ begin
   AdditionFuncDefine_Time;
   AdditionFuncDefine_File;
   AdditionFuncDefine_Math;
+  AdditionFuncDefine_AufBase;
   AdditionFuncDefine_Image;
 
 
@@ -5368,6 +5532,25 @@ begin
   //Self.add_func('h_div',@math_hr_arithmetic,'#[],#[]      ','高精整除');
   //Self.add_func('h_mod',@math_hr_arithmetic,'#[],#[]      ','高精求余');
   Self.add_func('h_divreal',@math_hr_arithmetic,'#[],#[]','高精实数除');
+
+
+
+end;
+
+procedure TAufScript.AdditionFuncDefine_AufBase;
+begin
+
+
+  Self.add_func('array.new',@array_newArray,'arr','创建array');
+  Self.add_func('array.del',@array_delArray,'arr','删除array');
+  Self.add_func('array.copy',@array_copyArray,'dst,src','复制src数组到dst');
+  Self.add_func('array.freeall',@array_ClearArrayList,'','清除所有array');
+
+  Self.add_func('array.insert',@array_Insert,'arr,element[,index]','在arr数组的index处插入element');
+  Self.add_func('array.delete',@array_Delete,'arr,index[,element]','返回arr数组在index处的元素并从数组中移除');
+  Self.add_func('array.clear',@array_Clear,'arr','清空arr数组');
+  Self.add_func('array.count',@array_Count,'arr,out','返回arr数组的元素数量');
+  Self.add_func('array.print',@array_Print,'arr','在屏幕中打印arr数组');
 
 
 
