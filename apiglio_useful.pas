@@ -4809,8 +4809,8 @@ end;
 procedure TAufScript.line_transfer;//将当前行代码转译成标准形式
 var i:0..args_range;
     line:dword;
-    ts1,ts2:string;
-    idx1,idx2:integer;
+    ts1,ts2,at_expr,at_num:string;
+    idx1,idx2,at_len,at_ofs:integer;
     AAuf:TAuf;
     tmp_nargs:Tnargs;
 begin
@@ -4874,25 +4874,37 @@ begin
           end;
         '@':
           begin
-            case AAuf.nargs[i].arg of
-              'current_line':AAuf.nargs[i]:=narg('&"',pRamToRawStr(pRam(Self.PSW.run_parameter.current_line_number)),'"');
-              'prev_line':AAuf.nargs[i]:=narg('&"',pRamToRawStr(pRam(Self.PSW.run_parameter.current_line_number-1)),'"');
-              'next_line':AAuf.nargs[i]:=narg('&"',pRamToRawStr(pRam(Self.PSW.run_parameter.current_line_number+1)),'"');
-              '2_lines_prev':AAuf.nargs[i]:=narg('&"',pRamToRawStr(pRam(Self.PSW.run_parameter.current_line_number-2)),'"');
-              '2_lines_next':AAuf.nargs[i]:=narg('&"',pRamToRawStr(pRam(Self.PSW.run_parameter.current_line_number+2)),'"');
-              '3_lines_prev':AAuf.nargs[i]:=narg('&"',pRamToRawStr(pRam(Self.PSW.run_parameter.current_line_number-3)),'"');
-              '3_lines_next':AAuf.nargs[i]:=narg('&"',pRamToRawStr(pRam(Self.PSW.run_parameter.current_line_number+3)),'"');
-              'ram_zero':AAuf.nargs[i]:=narg('',IntToStr(pRam(Self.PSW.run_parameter.ram_zero)),'');
-              'ram_size':AAuf.nargs[i]:=narg('',IntToStr(Self.PSW.run_parameter.ram_size),'');
-              'error_raise':AAuf.nargs[i]:=narg('',BoolToStr(Self.PSW.run_parameter.error_raise),'');
-              else case AAuf.nargs[i].arg[1] of
-                '0'..'9':;
-                'a'..'z','A'..'Z','_':
-                  begin
-                    tmp_nargs:=Self.Expression.Local.Translate(AAuf.nargs[i].arg);
-                    if tmp_nargs.arg='~Error' then tmp_nargs:=Self.Expression.Global.Translate(AAuf.nargs[i].arg);
-                    if tmp_nargs.arg<>'~Error' then AAuf.nargs[i]:=tmp_nargs;
+            at_expr:=AAuf.nargs[i].arg;
+            case at_expr[1] of
+              '0'..'9':
+              begin
+                //计划取消TmpExp
+              end;
+              'a'..'z','A'..'Z','_':
+              begin
+                case at_expr of
+                  'ram_zero':AAuf.nargs[i]:=narg('',IntToStr(pRam(Self.PSW.run_parameter.ram_zero)),'');
+                  'ram_size':AAuf.nargs[i]:=narg('',IntToStr(Self.PSW.run_parameter.ram_size),'');
+                  'error_raise':AAuf.nargs[i]:=narg('',BoolToStr(Self.PSW.run_parameter.error_raise),'');
+                  else begin
+                    if pos('line[',at_expr) = 1 then begin
+                      at_num:=at_expr;
+                      delete(at_num,1,5);
+                      at_len:=length(at_num);
+                      if (at_len<>0) and (pos(']',at_num)=at_len) then delete(at_num,at_len,1);
+                      try
+                        at_ofs:=StrToInt(at_num);
+                      except
+                        at_ofs:=0;
+                      end;
+                      AAuf.nargs[i]:=narg('&"',pRamToRawStr(pRam(Self.PSW.run_parameter.current_line_number+at_ofs)),'"');
+                    end else begin
+                      tmp_nargs:=Self.Expression.Local.Translate(at_expr);
+                      if tmp_nargs.arg='~Error' then tmp_nargs:=Self.Expression.Global.Translate(at_expr);
+                      if tmp_nargs.arg<>'~Error' then AAuf.nargs[i]:=tmp_nargs;
+                    end;
                   end;
+                end;
               end;
             end;
           end;
