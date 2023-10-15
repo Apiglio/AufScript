@@ -1,15 +1,16 @@
 object Frame_AufScript: TFrame_AufScript
   Left = 0
-  Height = 266
+  Height = 422
   Top = 0
-  Width = 412
-  ClientHeight = 266
-  ClientWidth = 412
-  DesignTimePPI = 120
+  Width = 728
+  ClientHeight = 422
+  ClientWidth = 728
+  Constraints.MinWidth = 200
+  DesignTimePPI = 144
   ParentFont = False
   TabOrder = 0
-  DesignLeft = 1186
-  DesignTop = 555
+  DesignLeft = 1057
+  DesignTop = 403
   object ProgressBar: TProgressBar
     AnchorSideLeft.Control = Owner
     AnchorSideRight.Control = Owner
@@ -17,9 +18,9 @@ object Frame_AufScript: TFrame_AufScript
     AnchorSideBottom.Control = Owner
     AnchorSideBottom.Side = asrBottom
     Left = 4
-    Height = 8
-    Top = 254
-    Width = 404
+    Height = 10
+    Top = 408
+    Width = 720
     Anchors = [akLeft, akRight, akBottom]
     BorderSpacing.Left = 4
     BorderSpacing.Right = 4
@@ -32,19 +33,21 @@ object Frame_AufScript: TFrame_AufScript
     TabOrder = 6
   end
   object Memo_out: TMemo
-    AnchorSideTop.Control = TrackBar
-    AnchorSideTop.Side = asrBottom
+    AnchorSideLeft.Control = Splitter_Vert
+    AnchorSideLeft.Side = asrBottom
+    AnchorSideTop.Control = Owner
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
     AnchorSideBottom.Control = Button_ScriptLoad
-    Left = 230
-    Height = 168
-    Top = 56
-    Width = 178
-    Anchors = [akTop, akRight, akBottom]
+    Left = 376
+    Height = 368
+    Top = 4
+    Width = 348
+    Anchors = [akTop, akLeft, akRight, akBottom]
     BorderSpacing.Top = 4
     BorderSpacing.Right = 4
     BorderSpacing.Bottom = 4
+    Constraints.MinWidth = 90
     Font.CharSet = ANSI_CHARSET
     Font.Height = -14
     Font.Name = 'Consolas'
@@ -61,9 +64,9 @@ object Frame_AufScript: TFrame_AufScript
     AnchorSideLeft.Control = Memo_out
     AnchorSideTop.Control = Button_ScriptLoad
     AnchorSideBottom.Control = ProgressBar
-    Left = 230
-    Height = 22
-    Top = 228
+    Left = 376
+    Height = 28
+    Top = 376
     Width = 57
     Anchors = [akTop, akLeft, akBottom]
     BorderSpacing.Bottom = 4
@@ -79,9 +82,9 @@ object Frame_AufScript: TFrame_AufScript
     AnchorSideLeft.Side = asrCenter
     AnchorSideTop.Control = Button_ScriptLoad
     AnchorSideBottom.Control = ProgressBar
-    Left = 291
-    Height = 22
-    Top = 228
+    Left = 522
+    Height = 28
+    Top = 376
     Width = 57
     Anchors = [akTop, akLeft, akBottom]
     BorderSpacing.Bottom = 4
@@ -97,9 +100,9 @@ object Frame_AufScript: TFrame_AufScript
     AnchorSideRight.Control = Memo_out
     AnchorSideRight.Side = asrBottom
     AnchorSideBottom.Control = ProgressBar
-    Left = 351
-    Height = 22
-    Top = 228
+    Left = 667
+    Height = 28
+    Top = 376
     Width = 57
     Anchors = [akTop, akRight, akBottom]
     BorderSpacing.Bottom = 4
@@ -114,8 +117,8 @@ object Frame_AufScript: TFrame_AufScript
     AnchorSideLeft.Control = Memo_cmd
     AnchorSideBottom.Control = ProgressBar
     Left = 4
-    Height = 22
-    Top = 228
+    Height = 28
+    Top = 376
     Width = 57
     Anchors = [akLeft, akBottom]
     BorderSpacing.Bottom = 4
@@ -131,9 +134,9 @@ object Frame_AufScript: TFrame_AufScript
     AnchorSideRight.Control = Memo_cmd
     AnchorSideRight.Side = asrBottom
     AnchorSideBottom.Control = ProgressBar
-    Left = 89
-    Height = 22
-    Top = 228
+    Left = 313
+    Height = 28
+    Top = 376
     Width = 57
     Anchors = [akTop, akRight, akBottom]
     BorderSpacing.Bottom = 4
@@ -146,17 +149,18 @@ object Frame_AufScript: TFrame_AufScript
   end
   inline Memo_cmd: TSynEdit
     AnchorSideLeft.Control = Owner
-    AnchorSideTop.Control = TrackBar
-    AnchorSideTop.Side = asrBottom
+    AnchorSideTop.Control = Owner
+    AnchorSideRight.Control = Splitter_Vert
     AnchorSideBottom.Control = Button_ScriptLoad
     Left = 4
-    Height = 168
-    Top = 56
-    Width = 142
+    Height = 368
+    Top = 4
+    Width = 366
     BorderSpacing.Left = 4
     BorderSpacing.Top = 4
     BorderSpacing.Bottom = 4
-    Anchors = [akTop, akLeft, akBottom]
+    Anchors = [akTop, akLeft, akRight, akBottom]
+    Constraints.MinWidth = 90
     Font.CharSet = ANSI_CHARSET
     Font.Height = -14
     Font.Name = 'Consolas'
@@ -168,7 +172,7 @@ object Frame_AufScript: TFrame_AufScript
     OnKeyUp = Memo_cmdKeyUp
     OnMouseEnter = Memo_cmdMouseEnter
     OnMouseLeave = Memo_cmdMouseLeave
-    Gutter.Width = 68
+    Gutter.Width = 59
     Gutter.MouseActions = <>
     RightGutter.Width = 0
     RightGutter.MouseActions = <>
@@ -619,11 +623,11 @@ object Frame_AufScript: TFrame_AufScript
     LineHighlightColor.Foreground = clNone
     inline SynLeftGutterPartList1: TSynGutterPartList
       object SynGutterMarks1: TSynGutterMarks
-        Width = 30
+        Width = 24
         MouseActions = <>
       end
       object SynGutterLineNumber1: TSynGutterLineNumber
-        Width = 17
+        Width = 19
         MouseActions = <>
         MarkupInfo.Background = clBtnFace
         MarkupInfo.Foreground = clNone
@@ -633,19 +637,18 @@ object Frame_AufScript: TFrame_AufScript
         LeadingZeros = False
       end
       object SynGutterChanges1: TSynGutterChanges
-        Width = 5
+        Width = 4
         MouseActions = <>
         ModifiedColor = 59900
         SavedColor = clGreen
       end
       object SynGutterSeparator1: TSynGutterSeparator
-        Width = 3
+        Width = 2
         MouseActions = <>
         MarkupInfo.Background = clWhite
         MarkupInfo.Foreground = clGray
       end
       object SynGutterCodeFolding1: TSynGutterCodeFolding
-        Width = 13
         MouseActions = <>
         MarkupInfo.Background = clNone
         MarkupInfo.Foreground = clGray
@@ -654,28 +657,18 @@ object Frame_AufScript: TFrame_AufScript
       end
     end
   end
-  object TrackBar: TTrackBar
-    AnchorSideLeft.Control = Owner
+  object Splitter_Vert: TSplitter
     AnchorSideTop.Control = Owner
-    AnchorSideRight.Control = Owner
-    AnchorSideRight.Side = asrBottom
-    Left = 4
-    Height = 48
-    Hint = '调整代码框和输出框的宽度比例'
-    Top = 4
-    Width = 404
-    Max = 100
-    OnChange = TrackBarChange
-    Position = 50
-    Anchors = [akTop, akLeft, akRight]
-    BorderSpacing.Left = 4
-    BorderSpacing.Top = 4
-    BorderSpacing.Right = 4
-    OnMouseEnter = TrackBarMouseEnter
-    OnMouseLeave = TrackBarMouseLeave
-    ParentFont = False
-    ParentShowHint = False
-    TabOrder = 8
+    AnchorSideBottom.Control = Memo_cmd
+    AnchorSideBottom.Side = asrBottom
+    Left = 370
+    Height = 372
+    Top = 0
+    Width = 6
+    Align = alNone
+    Anchors = [akTop, akBottom]
+    OnMoved = Splitter_VertMoved
+    ResizeStyle = rsLine
   end
   object OpenDialog: TOpenDialog
     left = 167

@@ -4,11 +4,11 @@
     <PathDelim Value="\"/>
     <Version Value="10"/>
     <BuildModes Active="Default"/>
-    <Units Count="72">
+    <Units Count="74">
       <Unit0>
         <Filename Value="fpcunitproject1.lpr"/>
         <IsPartOfProject Value="True"/>
-        <EditorIndex Value="12"/>
+        <EditorIndex Value="14"/>
         <TopLine Value="170"/>
         <CursorPos Y="188"/>
         <UsageCount Value="200"/>
@@ -28,8 +28,8 @@
         <IsPartOfProject Value="True"/>
         <UnitName Value="Apiglio_Useful"/>
         <IsVisibleTab Value="True"/>
-        <TopLine Value="4879"/>
-        <CursorPos X="40" Y="4899"/>
+        <TopLine Value="28"/>
+        <CursorPos X="32" Y="51"/>
         <UsageCount Value="201"/>
         <Loaded Value="True"/>
       </Unit2>
@@ -40,8 +40,8 @@
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Frame"/>
         <EditorIndex Value="10"/>
-        <TopLine Value="135"/>
-        <CursorPos Y="153"/>
+        <TopLine Value="447"/>
+        <CursorPos X="5" Y="465"/>
         <UsageCount Value="202"/>
         <Loaded Value="True"/>
         <LoadedDesigner Value="True"/>
@@ -49,7 +49,7 @@
       <Unit4>
         <Filename Value="aufscript_command.pas"/>
         <IsPartOfProject Value="True"/>
-        <EditorIndex Value="11"/>
+        <EditorIndex Value="13"/>
         <CursorPos X="11" Y="9"/>
         <UsageCount Value="200"/>
         <Loaded Value="True"/>
@@ -68,7 +68,7 @@
         <IsPartOfProject Value="True"/>
         <EditorIndex Value="9"/>
         <TopLine Value="6"/>
-        <UsageCount Value="185"/>
+        <UsageCount Value="186"/>
         <Loaded Value="True"/>
       </Unit6>
       <Unit7>
@@ -77,7 +77,7 @@
         <EditorIndex Value="7"/>
         <TopLine Value="300"/>
         <CursorPos X="3" Y="302"/>
-        <UsageCount Value="141"/>
+        <UsageCount Value="142"/>
         <Loaded Value="True"/>
       </Unit7>
       <Unit8>
@@ -85,7 +85,7 @@
         <IsPartOfProject Value="True"/>
         <EditorIndex Value="3"/>
         <CursorPos X="22" Y="8"/>
-        <UsageCount Value="106"/>
+        <UsageCount Value="107"/>
         <Loaded Value="True"/>
       </Unit8>
       <Unit9>
@@ -94,7 +94,7 @@
         <EditorIndex Value="1"/>
         <TopLine Value="30"/>
         <CursorPos X="45" Y="64"/>
-        <UsageCount Value="90"/>
+        <UsageCount Value="91"/>
         <Loaded Value="True"/>
       </Unit9>
       <Unit10>
@@ -103,7 +103,7 @@
         <EditorIndex Value="6"/>
         <TopLine Value="28"/>
         <CursorPos X="39" Y="32"/>
-        <UsageCount Value="66"/>
+        <UsageCount Value="67"/>
         <Loaded Value="True"/>
       </Unit10>
       <Unit11>
@@ -112,7 +112,7 @@
         <EditorIndex Value="4"/>
         <TopLine Value="10"/>
         <CursorPos X="5" Y="39"/>
-        <UsageCount Value="54"/>
+        <UsageCount Value="55"/>
         <Loaded Value="True"/>
       </Unit11>
       <Unit12>
@@ -121,7 +121,7 @@
         <EditorIndex Value="5"/>
         <TopLine Value="53"/>
         <CursorPos X="33" Y="66"/>
-        <UsageCount Value="53"/>
+        <UsageCount Value="54"/>
         <Loaded Value="True"/>
       </Unit12>
       <Unit13>
@@ -547,123 +547,139 @@
         <CursorPos X="12" Y="331"/>
         <UsageCount Value="10"/>
       </Unit71>
+      <Unit72>
+        <Filename Value="C:\lazarus\lcl\include\customsplitter.inc"/>
+        <EditorIndex Value="11"/>
+        <TopLine Value="572"/>
+        <CursorPos Y="589"/>
+        <UsageCount Value="10"/>
+        <Loaded Value="True"/>
+      </Unit72>
+      <Unit73>
+        <Filename Value="C:\lazarus\lcl\include\control.inc"/>
+        <EditorIndex Value="12"/>
+        <TopLine Value="2738"/>
+        <CursorPos Y="2755"/>
+        <UsageCount Value="10"/>
+        <Loaded Value="True"/>
+      </Unit73>
     </Units>
     <JumpHistory Count="29" HistoryIndex="28">
       <Position1>
-        <Filename Value="auftype\auf_type_base.pas"/>
-        <Caret Line="29" Column="10" TopLine="4"/>
+        <Filename Value="aufscript_frame.pas"/>
+        <Caret Line="292" TopLine="289"/>
       </Position1>
       <Position2>
-        <Filename Value="auftype\auf_type_base.pas"/>
-        <Caret Line="23" Column="7" TopLine="5"/>
+        <Filename Value="aufscript_frame.pas"/>
+        <Caret Line="288" Column="39" TopLine="277"/>
       </Position2>
       <Position3>
-        <Filename Value="auftype\auf_type_base.pas"/>
-        <Caret Line="73" Column="6" TopLine="47"/>
+        <Filename Value="aufscript_frame.pas"/>
+        <Caret Line="511" TopLine="507"/>
       </Position3>
       <Position4>
-        <Filename Value="auftype\auf_type_base.pas"/>
-        <Caret Line="75" Column="11" TopLine="47"/>
+        <Filename Value="aufscript_frame.pas"/>
+        <Caret Line="294" Column="3" TopLine="273"/>
       </Position4>
       <Position5>
-        <Filename Value="auftype\auf_type_base.pas"/>
-        <Caret Line="79" Column="6" TopLine="56"/>
+        <Filename Value="aufscript_frame.pas"/>
+        <Caret Line="80" Column="26" TopLine="63"/>
       </Position5>
       <Position6>
-        <Filename Value="auftype\auf_type_base.pas"/>
-        <Caret Line="82" Column="42" TopLine="56"/>
+        <Filename Value="aufscript_frame.pas"/>
+        <Caret Line="296" Column="81" TopLine="283"/>
       </Position6>
       <Position7>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="2915" Column="22" TopLine="2897"/>
+        <Filename Value="aufscript_frame.pas"/>
+        <Caret Line="295" Column="55" TopLine="277"/>
       </Position7>
       <Position8>
-        <Filename Value="auftype\auf_type_array.pas"/>
-        <Caret Line="16" Column="3" TopLine="10"/>
+        <Filename Value="aufscript_frame.pas"/>
+        <Caret Line="508" Column="55" TopLine="490"/>
       </Position8>
       <Position9>
-        <Filename Value="auftype\auf_type_array.pas"/>
-        <Caret Line="39" Column="19" TopLine="10"/>
+        <Filename Value="C:\lazarus\lcl\include\customsplitter.inc"/>
+        <Caret Line="589" TopLine="553"/>
       </Position9>
       <Position10>
-        <Filename Value="auftype\auf_type_array.pas"/>
-        <Caret Line="167" Column="3" TopLine="150"/>
+        <Filename Value="C:\lazarus\lcl\include\customsplitter.inc"/>
+        <Caret Line="595" TopLine="578"/>
       </Position10>
       <Position11>
-        <Filename Value="auftype\auf_type_array.pas"/>
-        <Caret Line="18" Column="30" TopLine="13"/>
+        <Filename Value="C:\lazarus\lcl\include\customsplitter.inc"/>
+        <Caret Line="654" TopLine="635"/>
       </Position11>
       <Position12>
-        <Filename Value="auftype\auf_type_array.pas"/>
-        <Caret Line="29" Column="80" TopLine="12"/>
+        <Filename Value="C:\lazarus\lcl\include\control.inc"/>
+        <Caret Line="2314" TopLine="2296"/>
       </Position12>
       <Position13>
-        <Filename Value="auftype\auf_type_array.pas"/>
-        <Caret Line="28" Column="16" TopLine="12"/>
+        <Filename Value="C:\lazarus\lcl\include\control.inc"/>
+        <Caret Line="2755" TopLine="2738"/>
       </Position13>
       <Position14>
-        <Filename Value="auftype\auf_type_array.pas"/>
-        <Caret Line="90" Column="33" TopLine="72"/>
+        <Filename Value="aufscript_frame.pas"/>
+        <Caret Line="298" TopLine="278"/>
       </Position14>
       <Position15>
-        <Filename Value="auftype\auf_type_array.pas"/>
-        <Caret Line="157" Column="23" TopLine="139"/>
+        <Filename Value="aufscript_frame.pas"/>
+        <Caret Line="292" TopLine="288"/>
       </Position15>
       <Position16>
-        <Filename Value="auftype\auf_type_array.pas"/>
-        <Caret Line="37" Column="78" TopLine="13"/>
+        <Filename Value="aufscript_frame.pas"/>
+        <Caret Line="297" Column="45" TopLine="285"/>
       </Position16>
       <Position17>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="2915" Column="24" TopLine="2897"/>
+        <Filename Value="aufscript_frame.pas"/>
+        <Caret Line="293" TopLine="285"/>
       </Position17>
       <Position18>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="2974" Column="36" TopLine="2955"/>
+        <Filename Value="aufscript_frame.pas"/>
+        <Caret Line="294" TopLine="285"/>
       </Position18>
       <Position19>
-        <Filename Value="auftype\auf_type_base.pas"/>
-        <Caret Line="71" Column="15" TopLine="43"/>
+        <Filename Value="aufscript_frame.pas"/>
+        <Caret Line="295" TopLine="285"/>
       </Position19>
       <Position20>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="2975" Column="24" TopLine="2953"/>
+        <Filename Value="aufscript_frame.pas"/>
+        <Caret Line="296" TopLine="285"/>
       </Position20>
       <Position21>
-        <Filename Value="auftype\auf_type_base.pas"/>
-        <Caret Line="26" Column="17" TopLine="8"/>
+        <Filename Value="aufscript_frame.pas"/>
+        <Caret Line="297" TopLine="285"/>
       </Position21>
       <Position22>
-        <Filename Value="auftype\auf_type_base.pas"/>
-        <Caret Line="66" Column="33" TopLine="53"/>
+        <Filename Value="aufscript_frame.pas"/>
+        <Caret Line="298" TopLine="285"/>
       </Position22>
       <Position23>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="2973" Column="8" TopLine="2951"/>
+        <Filename Value="aufscript_frame.pas"/>
+        <Caret Line="299" TopLine="285"/>
       </Position23>
       <Position24>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="3000" Column="24" TopLine="2975"/>
+        <Filename Value="aufscript_frame.pas"/>
+        <Caret Line="301" TopLine="285"/>
       </Position24>
       <Position25>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="3014" Column="24" TopLine="3003"/>
+        <Filename Value="aufscript_frame.pas"/>
+        <Caret Line="470" TopLine="452"/>
       </Position25>
       <Position26>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="3030" Column="25" TopLine="3019"/>
+        <Filename Value="C:\lazarus\lcl\include\customsplitter.inc"/>
+        <Caret Line="589" TopLine="572"/>
       </Position26>
       <Position27>
-        <Filename Value="auf_ram_var.pas"/>
-        <Caret Line="131" Column="12" TopLine="113"/>
+        <Filename Value="aufscript_frame.pas"/>
+        <Caret Line="296" Column="29" TopLine="275"/>
       </Position27>
       <Position28>
-        <Filename Value="auf_ram_var.pas"/>
-        <Caret Line="1703" Column="3" TopLine="1700"/>
+        <Filename Value="aufscript_frame.pas"/>
+        <Caret Line="28" Column="34"/>
       </Position28>
       <Position29>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="5553" Column="33" TopLine="5522"/>
+        <Filename Value="aufscript_frame.pas"/>
+        <Caret Line="80" Column="7" TopLine="65"/>
       </Position29>
     </JumpHistory>
   </ProjectSession>

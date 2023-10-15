@@ -15,8 +15,8 @@ uses
   Dialogs, ExtCtrls, LazUTF8, SynEdit, Apiglio_Useful, SynHighlighterAuf;
 
 const
-  ARF_CommonGap      = 6;
-  ARF_MemoProportion = 0.85;
+  ARF_CommonGap      = 4;
+  //ARF_MemoProportion = 0.85;
   ARF_TrackBarHeight = 24;
   ARF_ButtonHeight   = 24;
   ARF_ProcessBarH    = 12;
@@ -37,7 +37,7 @@ type
     OpenDialog: TOpenDialog;
     ProgressBar: TProgressBar;
     SaveDialog: TSaveDialog;
-    TrackBar: TTrackBar;
+    Splitter_Vert: TSplitter;
     procedure Button_pauseClick(Sender: TObject);
     procedure Button_pauseMouseEnter(Sender: TObject);
     procedure Button_pauseMouseLeave(Sender: TObject);
@@ -62,9 +62,7 @@ type
     procedure Memo_outMouseLeave(Sender: TObject);
     procedure ProgressBarMouseEnter(Sender: TObject);
     procedure ProgressBarMouseLeave(Sender: TObject);
-    procedure TrackBarChange(Sender: TObject);
-    procedure TrackBarMouseEnter(Sender: TObject);
-    procedure TrackBarMouseLeave(Sender: TObject);
+    procedure Splitter_VertMoved(Sender: TObject);
   protected
     FOnChangeTitle:TNotifyStringEvent;
     FOnHelper:ptrFuncStr;
@@ -79,7 +77,7 @@ type
     ProgressBarEnabled:boolean;
     ProgressBarMaxString:string;//用于节约进度条文字提示的计算时间。
     CommonGap:word;
-    MemoProportion:single;
+    //MemoProportion:single;
     TrackBarHeight:word;
     ButtonHeight:word;
     ProcessBarH:word;
@@ -286,41 +284,10 @@ end;
 
 procedure TFrame_AufScript.FrameResize(Sender: TObject);
 var Memo_Left,Memo_Right:word;
-    //ButtonTop:word;
     L2,R3:word;
 begin
-
-  //TrackBar.Top:=CommonGap;
-  //TrackBar.Left:=CommonGap;
-  //TrackBar.Width:=Self.Width - 2*CommonGap;
-  //TrackBar.Height:=TrackBarHeight;
-
-  Memo_Left:=round(MemoProportion * (Self.Width - 3*CommonGap) / (MemoProportion + 1));
-  Memo_Right:=Self.Width - Memo_Left - 3*CommonGap;
-
-  //Memo_cmd.Left:=CommonGap;
-  //Memo_out.Left:=CommonGap*2 + Memo_Left;
-  //Memo_cmd.Top:=2*CommonGap+TrackBarHeight;
-  //Memo_out.Top:=Memo_cmd.Top;
-  Memo_cmd.Width:=Memo_Left;
-  Memo_out.Width:=Memo_Right;
-  //Memo_cmd.Height:=Self.Height - 5*CommonGap - ButtonHeight - ProcessBarH - TrackBarHeight;
-  //Memo_out.Height:=Memo_cmd.Height;
-
-  {
-  ButtonTop:=CommonGap*3+Memo_cmd.Height+TrackBarHeight;
-  Button_Run.Top:=ButtonTop;
-  Button_Stop.Top:=ButtonTop;
-  Button_Pause.Top:=ButtonTop;
-  Button_ScriptLoad.Top:=ButtonTop;
-  Button_ScriptSave.Top:=ButtonTop;
-  Button_Run.Height:=ButtonHeight;
-  Button_Stop.Height:=ButtonHeight;
-  Button_Pause.Height:=ButtonHeight;
-  Button_ScriptLoad.Height:=ButtonHeight;
-  Button_ScriptSave.Height:=ButtonHeight;
-  }
-
+  Memo_Left:=Memo_cmd.Width;
+  Memo_Right:=Memo_out.Width;
   L2:=(Memo_Left - CommonGap) div 2;
   R3:=(Memo_Right - 2*CommonGap) div 3;
   Button_Run.Width:=R3;
@@ -328,16 +295,6 @@ begin
   Button_Pause.Width:=R3;
   Button_ScriptLoad.Width:=L2;
   Button_ScriptSave.Width:=L2;
-  //Button_Run.Left:=Memo_Left+2*CommonGap;
-  //Button_Stop.Left:=Memo_Left+3*CommonGap+R3;
-  //Button_Pause.Left:=Memo_Left+4*CommonGap+2*R3;
-  //Button_ScriptLoad.Left:=CommonGap;
-  //Button_ScriptSave.Left:=CommonGap*2 + L2;
-
-  //ProgressBar.Left:=CommonGap;
-  //ProgressBar.Width:=Self.Width - 2*CommonGap;
-  //ProgressBar.Top:=ButtonTop + ButtonHeight +CommonGap;
-  //ProgressBar.Height:=ProcessBarH;
 end;
 
 procedure TFrame_AufScript.Button_ScriptLoadClick(Sender: TObject);
@@ -503,31 +460,9 @@ begin
   InstantHelper('');
 end;
 
-
-
-procedure TFrame_AufScript.TrackBarChange(Sender: TObject);
-var tmp:single;
+procedure TFrame_AufScript.Splitter_VertMoved(Sender: TObject);
 begin
-  tmp:=((Sender as TTrackBar).Position);
-  if tmp=100 then tmp:=99;
-  tmp:=tmp/(100-tmp);
-  if tmp<0.2 then
-    Self.MemoProportion:=0.2
-  else if tmp>4 then
-    Self.MemoProportion:=4
-  else
-    Self.MemoProportion:=tmp;
-  Self.FrameResize(nil);
-end;
-
-procedure TFrame_AufScript.TrackBarMouseEnter(Sender: TObject);
-begin
-  InstantHelper('左右拖动游标调整代码窗口与输出窗口的占比。');
-end;
-
-procedure TFrame_AufScript.TrackBarMouseLeave(Sender: TObject);
-begin
-  InstantHelper('');
+  FrameResize(Self);
 end;
 
 procedure TFrame_AufScript.HighLighterReNew;
@@ -545,7 +480,6 @@ begin
 end;
 
 procedure TFrame_AufScript.AufGenerator;
-var tmp:single;
 begin
   Self.Auf:=TAuf.Create(Self);
   Self.Auf.Script.add_func('set',@FRM_FUNC_SETTING,'option,value','代码窗运行设置');
@@ -568,12 +502,9 @@ begin
 
   Self.ProgressBarEnabled:=true;
   Self.CommonGap:=ARF_CommonGap;
-  Self.MemoProportion:=ARF_MemoProportion;
   Self.TrackBarHeight:=ARF_TrackBarHeight;
   Self.ButtonHeight:=ARF_ButtonHeight;
   Self.ProcessBarH:=ARF_ProcessBarH;
-  tmp:=Self.MemoProportion;
-  Self.TrackBar.Position:=round(100*(1-tmp/(1+tmp)));
 
   //Self.SynAufSyn:=TSynAufSyn.Create(Self);
   Self.Memo_cmd.Highlighter:=Self.Auf.Script.SynAufSyn;
