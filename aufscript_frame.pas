@@ -172,13 +172,9 @@ begin
   Frame:=AufScpt.Owner as TFrame_AufScript;
   if AufScpt.PSW.print_mode.is_screen then str_list:=Frame.Memo_out.Lines
   else str_list:=AufScpt.PSW.print_mode.str_list;
-  {
-  str_list[str_list.Count-1]:=
-  str_list[str_list.Count-1]+str;
-  }
   str_list.Text:=str_list.Text+str+#13#10;
-  //str_list.add('');
   if AufScpt.PSW.print_mode.is_screen then Application.ProcessMessages;
+
 end;
 procedure frm_renew_write(Sender:TObject;str:string);
 var Frame:TFrame_AufScript;
@@ -189,10 +185,6 @@ begin
   Frame:=AufScpt.Owner as TFrame_AufScript;
   if AufScpt.PSW.print_mode.is_screen then str_list:=Frame.Memo_out.Lines
   else str_list:=AufScpt.PSW.print_mode.str_list;
-  {
-  str_list[str_list.Count-1]:=
-  str_list[str_list.Count-1]+str;
-  }
   str_list.Text:=str_list.Text+str;
   if AufScpt.PSW.print_mode.is_screen then Application.ProcessMessages;
 end;

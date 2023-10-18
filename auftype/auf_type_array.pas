@@ -161,12 +161,8 @@ begin
 end;
 
 destructor TAufArray.Destroy;
-var len,pi:Integer;
 begin
-  len:=Length(FArray);
-  for pi:=0 to len-1 do begin
-    FArray[pi].Free;
-  end;
+  Clear;
   List_AufArray.Remove(Self);
   inherited Destroy;
 end;

@@ -1,5 +1,6 @@
 AufScript.Tutorial/*
-/backup/*
+backup/*
+*/backup/*
 his/*
 manual/*
 scpt/*

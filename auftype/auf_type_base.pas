@@ -23,7 +23,9 @@ type
     function Equal(ACompare:TAufBase):boolean;
   public
     constructor Create;
+    constructor CreateAsARV(value:TAufRamVar);
     constructor CreateAsFixnum(value:integer);
+    constructor CreateAsString(value:string);
     destructor Destroy;override;
   protected
     function GetLargeInt:int64;
@@ -51,11 +53,23 @@ constructor TAufBase.Create;
 begin
   FARV.VarType:=ARV_Raw;
   FARV.size:=0;
+  FARV.Head:=nil;
+end;
+
+constructor TAufBase.CreateAsARV(value:TAufRamVar);
+begin
+  Create;
+  with FARV do begin
+    size:=value.size;//默认int64，可变长度
+    VarType:=value.VarType;
+    Is_Temporary:=false;
+    GetMem(Head,size);
+  end;
+  copyARV(value,FARV);
 end;
 
 constructor TAufBase.CreateAsFixnum(value:integer);
 begin
-  //inherited Create;
   Create;
   with FARV do begin
     size:=8;//默认int64，可变长度
@@ -67,20 +81,36 @@ begin
   end;
 end;
 
+constructor TAufBase.CreateAsString(value:string);
+var len:integer;
+begin
+  Create;
+  len:=length(value);
+  if len<8 then len:=8;
+  with FARV do begin
+    size:=len;
+    VarType:=ARV_Char;
+    Is_Temporary:=false;
+    GetMem(Head,size);
+    s_to_arv(value,FARV);
+  end;
+end;
+
 destructor TAufBase.Destroy;
 begin
-  FreeMem(FARV.Head,FARV.size);
+  if FARV.Head<>nil then FreeMem(FARV.Head,FARV.size);
   inherited Destroy;
 end;
 
 procedure TAufBase.Assign(ASource:TAufBase);
 begin
   with Self.FARV do begin
-    if size<>0 then FreeMem(head,size);
+    if head<>nil then FreeMem(head,size);
     VarType:=ASource.FARV.VarType;
     size:=ASource.FARV.size;
     Head:=GetMem(size);
-    Move(ASource.FARV.Head,head,size);
+    //Move(ASource.FARV.Head,head,size);
+    copyARV(ASource.FARV,FARV);
   end;
 end;
 

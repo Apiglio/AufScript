@@ -1,8 +1,6 @@
 
 unit SynHighlighterAuf;
 
-{$I SynEdit.inc}
-
 interface
 
 uses

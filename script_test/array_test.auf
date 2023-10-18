@@ -1,0 +1,15 @@
+var int arr 8
+var int ele 1
+array.new @arr
+rand @ele
+array.insert @arr, @ele
+loop @line[-2], 20
+array.print @arr
+cwln
+mov @ele, 0
+array.delete @arr, 1, @ele
+println @ele
+array.print @arr
+array.del @arr
+unvar arr
+unvar ele

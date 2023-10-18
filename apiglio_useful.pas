@@ -48,7 +48,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.4.2';
+  AufScript_Version='beta 2.4.3';
   {$if defined(cpu32)}
   AufScript_CPU='32bits';
   {$elseif defined(cpu64)}
@@ -2698,13 +2698,13 @@ begin
 
 end;
 
-procedure file_list(Sender:TObject);//file.list "path","filter",@list
-{$ifdef WINDOWS}
+procedure file_list(Sender:TObject);//file.list "path","filter",@array
 var AufScpt:TAufScript;
     AAuf:TAuf;
-    pathname,filter,exprname,list_res:string;
-    Rec:^SearchRec;
-    ARec:SearchRec;
+    pathname,filter,stmp:string;
+    obj:TObject;
+    array_obj:TAufArray;
+    file_list:TStringList;
 
 begin
   AufScpt:=Sender as TAufScript;
@@ -2712,32 +2712,19 @@ begin
   if not AAuf.CheckArgs(4) then exit;
   if not AAuf.TryArgToString(1,pathname) then exit;
   if not AAuf.TryArgToString(2,filter) then exit;
-  //if not AAuf.TryArgToString(3,exprname) then exit;
-  exprname:=AAuf.nargs[3].arg;
-  if filter='' then filter:='*.*';
-  if exprname='' then begin AufScpt.send_error('警告：第3个参数至少需要一个字符要是字母或下划线，该语句未执行。');exit end;
-  case exprname[1] of
-    'a'..'z','A'..'Z','_':;
-    else begin AufScpt.send_error('警告：第3个参数的第一个字符需要是字母或下划线，该语句未执行。');exit end;
+  if not AAuf.TryArgToObject(3,TAufArray,obj) then exit;
+  array_obj:=obj as TAufArray;
+  array_obj.Clear;
+  file_list:=TStringList.Create;
+  try
+    FindAllFiles(file_list,pathname,filter,false,faAnyFile);
+    for stmp in file_list do begin
+      array_obj.Insert(array_obj.Count,TAufBase.CreateAsString(stmp));
+    end;
+  finally
+    file_list.Free;
   end;
-  list_res:='';
-  Rec:=@ARec;
-  Dos.findfirst(pathname+'\'+filter,$2F,Rec^);
-  while dosError=0 do begin
-    list_res:=list_res+'|'+wincpToUtf8(pathname+'\'+Rec^.name);
-    Dos.findnext(Rec^);
-  end;
-  Dos.findclose(Rec^);
-  if list_res<>'' then delete(list_res,1,1);
-  AufScpt.Expression.Local.TryAddExp(exprname,Narg('',list_res,''));
-
 end;
-{$else}
-var AufScpt:TAufScript;
-begin
-  AufScpt.send_error('非windows平台，暂不可用。');
-end;
-{$endif}
 
 procedure list_pop(Sender:TObject);//list.pop @list,var
 var AufScpt:TAufScript;
@@ -3020,16 +3007,19 @@ var AAuf:TAuf;
     obj:TObject;
     value,index:integer;
     element:TAufBase;
+    arv:TAufRamVar;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
   if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
-  if not AAuf.TryArgToLong(2,value) then exit;
+  //if not AAuf.TryArgToLong(2,value) then exit;
+  if not AAuf.TryArgToARV(2,1,High(dword),[ARV_FixNum, ARV_Float, ARV_Char],arv) then exit;
   if AAuf.ArgsCount<4 then index:=TAufArray(obj).Count else begin
     if not AAuf.TryArgToLong(3,index) then exit;
   end;
-  element:=TAufBase.CreateAsFixnum(value);
+  //element:=TAufBase.CreateAsFixnum(value);
+  element:=TAufBase.CreateAsARV(arv);
   TAufArray(obj).Insert(index,element);
 end;
 
@@ -3050,7 +3040,7 @@ begin
   if AAuf.ArgsCount<4 then begin
     screen_output:=true;
   end else begin
-    if not AAuf.TryArgToARV(3,1,High(dword),[ARV_FixNum],arv) then exit;
+    if not AAuf.TryArgToARV(3,1,High(dword),[ARV_FixNum, ARV_Float, ARV_Char],arv) then exit;
     screen_output:=false;
   end;
 
@@ -3110,6 +3100,21 @@ begin
   if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
   if not AAuf.TryArgToARV(2,1,High(longint),[ARV_FixNum],arv) then exit;
   dword_to_arv(TAufArray(obj).Count,arv);
+end;
+
+procedure array_HasElement(Sender:TObject);//array.has_element? @array, :addr
+var AAuf:TAuf;
+    AufScpt:TAufScript;
+    obj:TObject;
+    addr:pRam;
+
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
+  if not AAuf.TryArgToAddr(2,addr) then exit;
+  if (obj as TAufArray).Count>0 then AufScpt.jump_addr(addr);
 end;
 
 function img_get_filename(AufScpt:TAufScript;filename:string;write_mode:string):string;
@@ -5547,7 +5552,7 @@ begin
   Self.add_func('file.read',@file_read,'var,filename','读取文件并保存至var');
   Self.add_func('file.write',@file_write,'var,filename','将var保存至文件');
 
-  Self.add_func('file.list',@file_list,'pathname,filter,@list,:func','遍历路径中的每一个文件(filter为过滤器)，文件名赋值给文本列表@list');
+  Self.add_func('file.list',@file_list,'pathname,filter,@array','遍历路径中的每一个文件(filter为过滤器)，文件名赋值给数组@array');
 
 
   Self.add_func('list.pop',@list_pop,'@list,@out','将文本列表的第一个转存给@out');
@@ -5623,6 +5628,8 @@ begin
   Self.add_func('array.delete',@array_Delete,'arr,index[,element]','返回arr数组在index处的元素并从数组中移除');
   Self.add_func('array.clear',@array_Clear,'arr','清空arr数组');
   Self.add_func('array.count',@array_Count,'arr,out','返回arr数组的元素数量');
+  Self.add_func('array.has_element?',@array_HasElement,'arr, :label','如果arr数组中有元素则跳转');
+
   Self.add_func('array.print',@array_Print,'arr','在屏幕中打印arr数组');
 
 
