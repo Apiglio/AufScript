@@ -48,7 +48,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.4.3';
+  AufScript_Version='beta 2.4.4';
   {$if defined(cpu32)}
   AufScript_CPU='32bits';
   {$elseif defined(cpu64)}
@@ -562,9 +562,11 @@ begin
 end;
 function RawStrTopRam(str:string):pRam;
 var bit:byte;
+    len:integer;
 begin
   result:=0;
-  for bit:=0 to {$ifdef cpu64}15{$else}7{$endif} do begin
+  len:=length(str);
+  for bit:=0 to len-1 do begin
     result:=result shl 4;
     result:=result or ((ord(str[bit+1])-64));
   end;
