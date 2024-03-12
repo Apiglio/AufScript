@@ -2973,6 +2973,25 @@ begin
   TAufArray(obj).Insert(index,element);
 end;
 
+procedure array_Reinsert(Sender:TObject);//array.reinsert @arr,elem
+var AAuf:TAuf;
+    AufScpt:TAufScript;
+    obj:TObject;
+    element:TAufBase;
+    arv:TAufRamVar;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
+  element:=CreateAufTypeByText(AAuf.args[2]);
+  if element=nil then begin
+    if not AAuf.TryArgToARV(2,1,High(dword),[ARV_FixNum, ARV_Float, ARV_Char],arv) then exit;
+    element:=TAufBase.CreateAsARV(arv);
+  end;
+  TAufArray(obj).Reinsert(element);
+end;
+
 procedure array_Delete(Sender:TObject);//array.delete @arr,index[,@res]
 var AAuf:TAuf;
     AufScpt:TAufScript;
@@ -2997,6 +3016,33 @@ begin
   element:=TAufArray(obj).Delete(index);
   res:=element.ARV;
   if screen_output then AufScpt.writeln('删除数组中的元素['+IntToStr(index)+']：'+arv_to_s(res))
+  else copyARV(res,arv);
+  element.Free;
+end;
+
+procedure array_Draw(Sender:TObject);//array.draw @arr[,@res]
+var AAuf:TAuf;
+    AufScpt:TAufScript;
+    obj:TObject;
+    arv,res:TAufRamVar;
+    element:TAufBase;
+    screen_output:boolean;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(2) then exit;
+  if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
+  if AAuf.ArgsCount<3 then begin
+    screen_output:=true;
+  end else begin
+    if not AAuf.TryArgToARV(2,1,High(dword),[ARV_FixNum, ARV_Float, ARV_Char],arv) then exit;
+    screen_output:=false;
+  end;
+
+  element:=TAufArray(obj).Draw();
+  res:=element.ARV;
+  copyARV(element.ARV,res);
+  if screen_output then AufScpt.writeln('随机抽取数组中的元素：'+arv_to_s(res))
   else copyARV(res,arv);
   element.Free;
 end;
@@ -5491,6 +5537,8 @@ begin
 
   Self.add_func('array.insert',@array_Insert,'arr,element[,index]','在arr数组的index处插入element');
   Self.add_func('array.delete',@array_Delete,'arr,index[,element]','返回arr数组在index处的元素并从数组中移除');
+  Self.add_func('array.reinsert',@array_Reinsert,'arr,element','在arr数组中随机插入element');
+  Self.add_func('array.draw',@array_Draw,'arr[,element]','从arr数组中随机抽取元素并从数组中移除');
   Self.add_func('array.clear',@array_Clear,'arr','清空arr数组');
   Self.add_func('array.count',@array_Count,'arr,out','返回arr数组的元素数量');
   Self.add_func('array.has_element?',@array_HasElement,'arr, :label','如果arr数组中有元素则跳转');
