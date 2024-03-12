@@ -48,7 +48,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.4.4';
+  AufScript_Version='beta 2.5.1';
   {$if defined(cpu32)}
   AufScript_CPU='32bits';
   {$elseif defined(cpu64)}
@@ -281,6 +281,7 @@ type
           ram_zero:pbyte;//内存零点
           ram_size:pRam;//内存大小
           error_raise:boolean;//报错是否直接退出
+          time_consuming:array of double;//记录每一行的累计时间开销
         end;
         calc:record
           YC:boolean;//位溢出标识
@@ -471,12 +472,6 @@ var
 
 
 IMPLEMENTATION
-{$ifdef TEST_MODE}
-procedure SysWriteln(str:string);deprecated;
-begin
-  Auf.Script.writeln(str);
-end;
-{$endif}
 
 procedure de_decoder(var str:string);
 begin
@@ -810,6 +805,22 @@ begin
     end;
   end;
 end;
+procedure time_consuming_log(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    line_idx:pRam;
+    stmp:string;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  line_idx:=0;
+  AufScpt.writeln('Time Consuming By Lines:');
+  with AufScpt.PSW.run_parameter do
+  for stmp in current_strings do begin
+    AufScpt.writeln(FloatToStrF(time_consuming[line_idx]*1e6,ffFixed,9,9)+#9+stmp);
+    inc(line_idx);
+  end;
+end;
 procedure _beep(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
@@ -963,20 +974,6 @@ procedure _os(Sender:TObject);
 begin
   (Sender as TAufScript).EndOF;
 end;
-{$ifdef TEST_MODE}
-procedure _debugln(Sender:TObject);
-var AufScpt:TAufScript;
-begin
-  AufScpt:=Sender as TAufScript;
-  SysWriteln(AufScpt.to_string((AufScpt.Auf as TAuf).nargs[1].pre,(AufScpt.Auf as TAuf).nargs[1].arg));
-end;
-procedure _pause_resume(Sender:TObject);
-begin
-  _pause(Sender);
-  Application.ProcessMessages;
-  (Sender as TAufScript).Resume;
-end;
-{$endif}
 procedure _fillbyte(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
@@ -1014,9 +1011,48 @@ begin
       pa^:=pb^;
       pb^:=btmp;
     end;
-
 end;
 
+procedure _getbytes(Sender:TObject);//getbytes mem,seg,idx
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    arv1,arv2:TAufRamVar;
+    idx,len:pRam;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(4) then exit;
+  if not AAuf.TryArgToARV(1,0,High(longint),[ARV_Char,ARV_FixNum],arv1) then exit;
+  if not AAuf.TryArgToARV(2,0,High(longint),[ARV_Char,ARV_FixNum],arv2) then exit;
+  if not AAuf.TryArgToPRam(3,idx) then exit;
+  if idx+arv2.size>arv1.size then begin
+    len:=arv1.size-idx;
+    FillByte((arv2.Head+len)^,arv2.size-len,0);
+  end else begin
+    len:=arv2.size;
+  end;
+  move((arv1.Head+idx)^,arv2.Head^,len);
+end;
+
+procedure _setbytes(Sender:TObject);//setbytes mem,seg,idx
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    arv1,arv2:TAufRamVar;
+    idx,len:pRam;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(4) then exit;
+  if not AAuf.TryArgToARV(1,0,High(longint),[ARV_Char,ARV_FixNum],arv1) then exit;
+  if not AAuf.TryArgToARV(2,0,High(longint),[ARV_Char,ARV_FixNum],arv2) then exit;
+  if not AAuf.TryArgToPRam(3,idx) then exit;
+  if idx+arv2.size>arv1.size then begin
+    len:=arv1.size-idx;
+  end else begin
+    len:=arv2.size;
+  end;
+  move(arv2.Head^,(arv1.Head+idx)^,len);
+end;
 
 procedure movb(Sender:TObject);deprecated;
 var a:byte;
@@ -1141,27 +1177,6 @@ begin
         end;
       end;
   end;
-
-{
-  case AAuf.nargs[2].pre of
-    //'$':initiate_arv(IntToHex(pByte(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^,2),tmp);
-    //'@':initiate_arv(IntToHex(pLongint(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^,8),tmp);
-    //'~':begin AAuf.Script.send_error('警告：mov_arv暂不支持浮点型，赋值未成功。');initiate_arv('0h',tmp) end;
-    //'$"','~"','$&"','~&"','#&"','#"':
-      begin
-        copyARV(AufScpt.RamVar(AAuf.nargs[2]),tmp);
-      end;
-    '':
-      try
-        initiate_arv(AAuf.nargs[2].arg,tmp)
-      except
-        AAuf.Script.send_error('警告：mov_arv暂不支持非十六进制，赋值未成功。');
-      end;
-    '"':initiate_arv_str(AAuf.nargs[2].arg,tmp);
-    else begin AAuf.Script.send_error('警告：mov_arv的第二个参数有误，赋值未成功。');exit end;
-  end;
-}
-
 end;
 procedure mov(Sender:TObject);
 var AufScpt:TAufScript;
@@ -1908,26 +1923,29 @@ end;
 
 
 
-procedure _var(Sender:TObject);
+procedure _var(Sender:TObject);//var type name size
 var AufScpt:TAufScript;
     AAuf:TAuf;
     size,head:pRam;
     exp:Tnargs;
+    exp_type,var_name:string;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
-  case lowercase(AAuf.nargs[1].arg) of
-    'fixnum','int','$' :exp.pre:='$"';
-    'char','string','#':exp.pre:='#"';
-    'float','real','~' :exp.pre:='~"';
-    else begin AufScpt.send_error('警告：第一个参数需要是fixnum、float或char，该语句未执行。');exit end;
+  if not AAuf.TryArgToStrParam(1,['fixnum','int','char','string','float','real','object'],false,exp_type) then exit;
+  case lowercase(exp_type) of
+    'fixnum','int' :exp.pre:='$"';
+    'char','string':exp.pre:='#"';
+    'float','real' :exp.pre:='~"';
+    'object'       :exp.pre:='$"';
+    else exp.pre:='$"';
   end;
-  case AAuf.nargs[2].arg[1] of
-    'a'..'z','A'..'Z','_':;
-    else begin AufScpt.send_error('警告：第二个参数的第一个字符需要是字母或下划线，该语句未执行。');exit end;
+  if not AAuf.TryArgToString(2,var_name) then exit;
+  case var_name[1] of 'a'..'z','A'..'Z','_':;
+    else begin AufScpt.send_error('警告：第二个参数作为变量名需要以字母或下划线开头，该语句未执行。');exit end;
   end;
-  if AufScpt.Expression.Local.Find(AAuf.nargs[2].arg)<>nil then
+  if AufScpt.Expression.Local.Find(var_name)<>nil then
     begin
       AufScpt.send_error('警告：变量已存在，该语句未执行。');
       exit
@@ -1950,15 +1968,16 @@ var AufScpt:TAufScript;
     AAuf:TAuf;
     arv:TAufRamVar;
     tmp:TAufExpressionUnit;
+    var_name:string;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(2) then exit;
-  case AAuf.nargs[1].arg[1] of
-    'a'..'z','A'..'Z','_':;
+  if not AAuf.TryArgToString(1,var_name) then exit;
+  case var_name[1] of 'a'..'z','A'..'Z','_':;
     else begin AufScpt.send_error('警告：参数的第一个字符需要是字母或下划线，该语句未执行。');exit end;
   end;
-  tmp:=AufScpt.Expression.Local.Find(AAuf.nargs[1].arg);
+  tmp:=AufScpt.Expression.Local.Find(var_name);
   arv:=AufScpt.RamVar(tmp.value);
   if arv.size=0 then begin
     AufScpt.send_error('警告：'+AAuf.nargs[1].arg+'不是ARV变量，该语句未执行。');
@@ -1971,43 +1990,6 @@ begin
   end;
   AufScpt.RamOccupation[arv.head-AufScpt.var_stream.Memory,arv.size]:=false;
 end;
-
-{$ifdef TEST_MODE}
-procedure _test(Sender:TObject);
-var tmp:TAufRamVar;
-    t1,t2,add,sub,mul,divv,modd,divreal:TDecimalStr;
-    AufScpt:TAufScript;
-    AAuf:TAuf;
-begin
-  AufScpt:=Sender as TAufScript;
-  AAuf:=AufScpt.Auf as TAuf;
-
-  AufScpt.writeln('arv_to_dec_fraction:'+arv_to_dec_fraction(AufScpt.RamVar(AAuf.nargs[1])));
-
-  {
-  t1.data:=AAuf.args[1];
-  t2.data:=AAuf.args[2];
-  AufScpt.writeln('DecimalStr_Comp='+IntToStr(DecimalStr_Comp(t1,t2)));
-  AufScpt.writeln('DecimalStr_AADD='+DecimalStr_ABS_ADD(t1,t2).data);
-  AufScpt.writeln('DecimalStr_ASUB='+DecimalStr_ABS_SUB(t1,t2).data);
-  add:=t1+t2;
-  AufScpt.writeln('t1+t2='+add.data);
-  sub:=t1-t2;
-  AufScpt.writeln('t1-t2='+sub.data);
-  mul:=t1*t2;
-  AufScpt.writeln('t1*t2='+mul.data);
-  divv:=t1 div t2;
-  AufScpt.writeln('t1 div t2='+divv.data);
-  modd:=t1 mod t2;
-  AufScpt.writeln('t1 mod t2='+modd.data);
-  divreal:=t1 / t2;
-  AufScpt.writeln('t1 / t2='+divreal.data);
-
-  }
-
-  //AufScpt.writeln(IntToStr(numberic_check(AAuf.args[1])));
-end;
-{$endif}
 
 procedure math_pow(Sender:TObject);
 var AufScpt:TAufScript;
@@ -2803,43 +2785,6 @@ begin
   else AufScpt.jump_addr(addr);
 end;
 
-
-procedure file_getbytes(Sender:TObject);//getbytes @var,idx,len
-var AufScpt:TAufScript;
-    AAuf:TAuf;
-    arv:TAufRamVar;
-    idx,len:pRam;
-begin
-  AufScpt:=Sender as TAufScript;
-  AAuf:=AufScpt.Auf as TAuf;
-  if not AAuf.CheckArgs(4) then exit;
-  if not AAuf.TryArgToARV(1,0,High(longint),[ARV_Char,ARV_FixNum],arv) then exit;
-  if not AAuf.TryArgToPRam(2,idx) then exit;
-  if not AAuf.TryArgToPRam(3,len) then exit;
-
-  AufScpt.Expression.Local.TryAddExp('prev_res',AufScpt.RamVarClipToNargs(arv,idx,len));
-
-
-end;
-procedure file_setbytes(Sender:TObject);//setbytes @var,idx,@src
-var AufScpt:TAufScript;
-    AAuf:TAuf;
-    arv,src:TAufRamVar;
-    idx:pRam;
-    len:longint;
-begin
-  AufScpt:=Sender as TAufScript;
-  AAuf:=AufScpt.Auf as TAuf;
-  if not AAuf.CheckArgs(4) then exit;
-  if not AAuf.TryArgToARV(1,0,High(longint),[ARV_Char,ARV_FixNum],arv) then exit;
-  if not AAuf.TryArgToPRam(2,idx) then exit;
-  if not AAuf.TryArgToARV(3,0,High(longint),[ARV_Char,ARV_FixNum],src) then exit;
-
-  if arv.size<src.size+idx then len:=arv.size-idx+1 else len:=src.size;
-  Move(src.Head^,arv.Head^,len);
-
-end;
-
 procedure ptr_shift_or_offset(Sender:TObject);//pshl|pshr|pofl|pofr|pexl|pexr|pcpl|pcpr var,byte
 label ErrOver_L,ErrOver_R,ErrOver_O;
 var AufScpt:TAufScript;
@@ -3007,7 +2952,7 @@ procedure array_Insert(Sender:TObject);//array.insert @arr,12[,0]
 var AAuf:TAuf;
     AufScpt:TAufScript;
     obj:TObject;
-    value,index:integer;
+    index:integer;
     element:TAufBase;
     arv:TAufRamVar;
 begin
@@ -3015,13 +2960,16 @@ begin
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
   if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
-  //if not AAuf.TryArgToLong(2,value) then exit;
-  if not AAuf.TryArgToARV(2,1,High(dword),[ARV_FixNum, ARV_Float, ARV_Char],arv) then exit;
-  if AAuf.ArgsCount<4 then index:=TAufArray(obj).Count else begin
+  element:=CreateAufTypeByText(AAuf.args[2]);
+  if element=nil then begin
+    if not AAuf.TryArgToARV(2,1,High(dword),[ARV_FixNum, ARV_Float, ARV_Char],arv) then exit;
+    element:=TAufBase.CreateAsARV(arv);
+  end;
+  if AAuf.ArgsCount<4 then begin
+    index:=TAufArray(obj).Count;
+  end else begin
     if not AAuf.TryArgToLong(3,index) then exit;
   end;
-  //element:=TAufBase.CreateAsFixnum(value);
-  element:=TAufBase.CreateAsARV(arv);
   TAufArray(obj).Insert(index,element);
 end;
 
@@ -3071,22 +3019,31 @@ var AAuf:TAuf;
     obj:TObject;
     afn:TAufBase;
     idx,len:Integer;
-    stmp:string;
+    stmp,split:string;
+    ln_mode:boolean;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(2) then exit;
   if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
-  stmp:='[';
+  ln_mode:=lowercase(AAuf.args[0])='array.println';
+  if not ln_mode then begin
+    stmp:='[';
+    split:=',';
+  end else begin
+    stmp:='';
+    split:={$ifdef WINDOWS}#13#10{$else}#10{$endif};
+  end;
   with TAufArray(obj) do begin
     for idx:=0 to Count-1 do begin
       afn:=Items[idx];
-      stmp:=stmp+arv_to_s(afn.ARV)+',';
+      stmp:=stmp+arv_to_s(afn.ARV);
+      stmp:=stmp+split;
     end;
   end;
   len:=length(stmp);
-  if len>2 then System.Delete(stmp,len,1);
-  stmp:=stmp+']';
+  if len>2 then System.Delete(stmp,len,length(split));
+  if not ln_mode then stmp:=stmp+']';
   AufScpt.writeln(stmp);
 end;
 
@@ -3998,7 +3955,6 @@ end;
 procedure TAufScript.SetLine(l:dword);
 begin
   Self.PSW.stack[Self.PSW.stack_ptr].line:=l;
-  {$ifdef TEST_MODE}SysWriteln(IntToStr(l));{$endif}
 end;
 function TAufScript.GetByte(Index:pRam):byte;inline;
 begin
@@ -4461,88 +4417,7 @@ begin
       end;
   end;
 end;
-{
-function TAufScript.to_double(Iden,Index:string):double;deprecated;//将nargs[].pre和nargs[].arg表示的变量转换成double类型
-var dbl:double;
-    value:pRam;
-    codee:byte;
-    tmp_narg:Tnargs;//不得已而为之，以后重构整个to_double
-begin
-  tmp_narg.arg:=index;
-  tmp_narg.pre:=iden;
-  case tmp_narg.pre of
-    '$"','$&"','~"','~&"','#"','#&"': tmp_narg.post:='"';
-    else
-      begin
-        val(Index,value,codee);
-        if (codee<>0)and(Iden<>'') then begin Self.send_error('警告：变量序号有误，返回0！');result:=0;exit end;
-      end;
-  end;
-  case Iden of
-    '$':result:=vByte[value];
-    '@':result:=vLong[value];
-    '~':result:=vDouble[value];
-    '##':begin
-           val(vStr[value],dbl,codee);
-           if codee=0 then result:=dbl
-           else begin
-             Self.send_error('警告：字符变量转换浮点型失败，返回0！');result:=0;
-             result:=0
-           end
-         end;
-    '#':begin
-          val(vSubStr[value],dbl,codee);
-          if codee=0 then result:=dbl
-          else begin
-            Self.send_error('警告：字符变量转换浮点型失败，返回0！');result:=0;
-            result:=0
-          end
-        end;
-    '':begin
-         result:=Usf.to_f(Index);
-       end;
-    '$"','$&"':
-      begin
-        result:=arv_to_dword(Self.RamVar(tmp_narg));
-      end;
- {   '~"','~&"':
-      begin
-        //
-      end;
-    '#"','#&"':
-      begin
-        //
-      end;           }
-    else begin Self.send_error('警告：无效的指针类型，返回0！');result:=0;exit end;
-  end;
-end;
-function TAufScript.to_string(Iden,Index:string):string;deprecated;//将nargs[].pre和nargs[].arg表示的变量转换成string类型
-var str:string;
-    value:pRam;
-    codee:byte;
-begin
-  val(Index,value,codee);
-  if (codee<>0)and(iden<>'') and (iden<>'"') then begin Self.send_error('警告：变量序号有误，返回0！');result:='';exit end;
-  case Iden of
-    '$':result:=Usf.i_to_s(vByte[value]);
-    '@':result:=Usf.i_to_s(vLong[value]);
-    '~':result:=Usf.to_s(vDouble[value]);
-    '##':begin
-           result:=vStr[value];
-         end;
-    '#':begin
-          result:=vSubStr[value];
-        end;
-    '':begin
-          result:=Index;
-       end;
-    '"':begin
-          result:=Index;
-       end;
-    else begin Self.send_error('警告：无效的指针类型，返回0！');result:='';exit end;
-  end;
-end;
-}
+
 procedure TAufScript.ram_export(filename:string);
 begin
   if filename='' then filename:='ram.var';
@@ -4649,14 +4524,6 @@ begin
     inc(i);
   until (i=func_range);
   Self.send_error('警告：未找到函数'+func_name+'！');
-  {
-  for i:=0 to func_range-1 do
-    begin
-      if Self.func[i].name=func_name then break;
-    end;
-  if (i=func_range-1) and (Self.func[i].name<>func_name) then begin Self.send_error('警告：未找到函数'+func_name+'！');exit end;
-  Self.func[i].func_ptr(Self);
-  }
 end;
 function TAufScript.have_func(func_name:ansistring):boolean;
 var i:word;
@@ -4985,7 +4852,6 @@ end;
 {$ifdef MsgTimerMode}
 procedure TAufScript.send(msg:UINT);
 begin
-  {$ifdef TEST_MODE}SysWriteln('AufScript.send '+IntToHex(Self.Control.Handle,8)+' '+IntToStr(int64(Self)));{$endif}
   Postmessage(Self.Control.Handle,msg,int64(@Self),0);
   //Self.Control.Perform(msg,int64(@Self),0);//这个是等同于sendmessage的同步消息，不可用
 end;
@@ -5039,12 +4905,17 @@ begin
   {$endif}
 end;
 procedure TAufScript.RunFirst;//代码执行初始化
+var idx:pRam;
 begin
   //Self.writeln('RunFirst');
   randomize;
   Self.Expression.Local.TryAddExp('prev_res',narg('','~uninitalized prev_res',''));
 
-  PSW.run_parameter.current_strings:=ScriptLines;
+  with PSW.run_parameter do begin
+    current_strings:=ScriptLines;
+    SetLength(time_consuming,current_strings.Count);
+    for idx:=0 to current_strings.Count-1 do time_consuming[idx]:=0;
+  end;
   if PSW.print_mode.resume_when_run_close then
     begin
       PSW.print_mode.is_screen:=true;
@@ -5073,6 +4944,8 @@ end;
 procedure TAufScript.RunNext;//代码执行的循环体
 var cmd:string;
     AAuf:TAuf;
+    t0,t1:TDateTime;
+    tc:double;
   procedure DoRunClose;
   begin
     IF Self.Time.Synthesis_Mode = SynMoTimer THEN BEGIN
@@ -5101,8 +4974,6 @@ var cmd:string;
   end;
 
 begin
-  {$ifdef TEST_MODE}SysWriteln('AufScript.RunNext.Auf='+IntToHex(int64(Self.Auf),8));{$endif}
-  {$ifdef TEST_MODE}SysWriteln('AufScript.RunNext.AufScpt='+IntToHex(int64(Self),8));{$endif}
   AAuf:=Self.Auf as TAuf;
   if Self.PSW.haltoff or Self.PSW.pause then exit;
   if Self.currentline < ScriptLines.count then begin
@@ -5113,7 +4984,6 @@ begin
     Self.PSW.run_parameter.next_line_number:=Self.PSW.run_parameter.current_line_number+1;
     if Self.Func_process.pre<>nil then Self.Func_process.pre(Self);//预设的前置过程
     Self.PSW.inRunNext:=true;//过程保护，阻挡新的RunNext消息
-    {$ifdef TEST_MODE}SysWriteln('                                 AufScript.RunNext-IN  -> Line '+IntToStr(currentline));{$endif}
 
     //自定义函数执行部分
     AAuf.ReadArgs(cmd);
@@ -5121,30 +4991,35 @@ begin
     if ((AAuf.args[0][1]<>'/') or (AAuf.args[0][2]<>'/')) and (AAuf.nargs[0].arg<>'') and (AAuf.nargs[0].post<>':') then
       begin
         Self.line_transfer;//转化为标准形态
+        t0:=Now();
         Self.run_func(AAuf.args[0]);
+        t1:=Now();
+        if (PSW.stack_ptr=0)or(PSW.stack[PSW.stack_ptr].script=PSW.stack[0].script) then begin
+          //只统计最外层脚本文件，没有考虑两个脚本文件之间来回load的情况
+          with PSW.run_parameter do if not PSW.haltoff then begin
+            tc:=time_consuming[current_line_number];
+            time_consuming[current_line_number]:=tc+double(t1)-double(t0);
+          end;
+        end;
       end;
     end;
     if Self.PSW.haltoff then begin DoRunClose;exit end;
 
     //安排下一个地址
     Self.next_addr;
-
     Self.PSW.inRunNext:=false;//取消过程保护，允许新的RunNext消息
-    {$ifdef TEST_MODE}SysWriteln('                                 AufScript.RunNext-OUT -> Line '+IntToStr(currentline));{$endif}
     if Self.Func_process.post<>nil then Self.Func_process.post(Self);//预设的后置过程
-
     if (not Self.PSW.Pause){$ifdef MsgTimerMode} and (not Self.Time.TimerPause){$endif} and (not Self.PSW.haltoff) then DoRunNext;
-
-  end
-  else begin
+  end else begin
     DoRunClose;
   end;
 end;
 procedure TAufScript.RunClose;//代码执行中止化
 begin
-  //Self.writeln('RunClose');
   Self.PSW.haltoff:=true;
   Self.PSW.pause:=false;
+  SetLength(PSW.run_parameter.time_consuming,0);
+
   {$ifdef MsgTimerMode}
   IF Self.Time.Synthesis_Mode=SynMoTimer THEN BEGIN
     Self.Time.TimerPause:=false;
@@ -5318,7 +5193,6 @@ procedure TAufTimer.OnTimerResume(Sender:TObject);
 var auf:TAufScript;
 begin
   auf:=(Sender as TAufTimer).AufScript as TAufScript;
-  {$ifdef TEST_MODE}SysWriteln('##AufTimer.OnTimerResume -> Line '+IntToStr(auf.currentline));{$endif}
   auf.Time.TimerPause:=false;
   Self.Enabled:=false;
   auf.send(AufProcessControl_RunNext);
@@ -5349,14 +5223,12 @@ end;
 procedure TAufControl.RunFirst(var Msg:TMessage);
 begin
   with {$ifdef ptr_flag}PAufScript(int64(Msg.wParam))^{$else}Self.FAufScpt as TAufScript{$endif} do begin
-    {$ifdef TEST_MODE}SysWriteln('Control.RunFirst -> Line '+IntToStr(currentline));{$endif}
     RunFirst;
   end;
 end;
 procedure TAufControl.RunNext(var Msg:TMessage);
 begin
   with {$ifdef ptr_flag}PAufScript(int64(Msg.wParam))^{$else}Self.FAufScpt as TAufScript{$endif} do begin
-    {$ifdef TEST_MODE}SysWriteln('Control.RunNext -> Line '+IntToStr(currentline)+' bool:'+IntToStr(byte(PSW.inRunNext)));{$endif}
     if PSW.inRunNext then begin
       //PostMessage(Self.Handle,Msg.msg,Msg.wParam,Msg.lParam);
       //Self.Perform(Msg.msg,Msg.wParam,Msg.lParam);
@@ -5366,7 +5238,6 @@ end;
 procedure TAufControl.RunClose(var Msg:TMessage);
 begin
   with {$ifdef ptr_flag}PAufScript(int64(Msg.wParam))^{$else}Self.FAufScpt as TAufScript{$endif} do begin
-    {$ifdef TEST_MODE}SysWriteln('Control.RunClose -> Line '+IntToStr(currentline));{$endif}
     RunClose;
   end;
 end;
@@ -5453,6 +5324,7 @@ begin
   Self.add_func('deflist',@_define_helper,'','显示定义列表');
   Self.add_func('ramex',@ramex,'-option/arv,filename','将内存导出到ram.var');
   Self.add_func('ramim',@ramim,'filename [,var [,-f]]','从文件中载入数据到内存');
+  Self.add_func('tmcsm',@time_consuming_log,'','耗时分析报告（需跟随代码执行，单独执行无效）');
   Self.add_func('sleep',@_sleep,'n','等待n毫秒');
   Self.add_func('pause',@_pause,'','暂停');
   Self.add_func('beep',@_beep,'freq,dura','以freq的频率蜂鸣dura毫秒');
@@ -5475,6 +5347,10 @@ begin
   Self.add_func('rand',@rand,'v1,v2','将不大于v2的随机整数返回给v1');
   Self.add_func('swap',@_swap,'v1','将v1字节倒序');
   Self.add_func('fill',@_fillbyte,'var,byte','用byte填充var');
+  Self.add_func('getbytes',@_getbytes,'mem,seg,idx','从mem中读取值片段');
+  Self.add_func('setbytes',@_setbytes,'mem,seg,idx','向mem中覆盖值片段');
+
+
 
   Self.add_func('loop',@_loop,':label/ofs,times[,st]','简易循环times次');
   Self.add_func('jmp',@jmp,':label/ofs','跳转到相对地址');
@@ -5509,13 +5385,6 @@ begin
   Self.add_func('pexr,',@ptr_shift_or_offset,'byte','指针向右拓展byte个字节');
   Self.add_func('pcpl,',@ptr_shift_or_offset,'byte','指针向左压缩byte个字节');
   Self.add_func('pcpr,',@ptr_shift_or_offset,'byte','指针向右压缩byte个字节');
-
-
-  {$ifdef TEST_MODE}
-  Self.add_func('debugln',@_debugln,'var','调试函数');
-  Self.add_func('pause_resume',@_pause_resume,'','暂停后立刻继续');
-  Self.add_func('test',@_test,'var','临时的函数');
-  {$endif}
 
   AdditionFuncDefine_Text;
   AdditionFuncDefine_Time;
@@ -5575,12 +5444,6 @@ begin
 
   }
 
-
-
-
-  Self.add_func('getbytes',@file_getbytes,'var,idx,len','截取变量var中从idx起的len个字节到@prev_res');
-  Self.add_func('setbytes',@file_setbytes,'var,idx,src','将变量src保存到变量var的第idx个字节，超出部分不保存');
-
 end;
 procedure TAufScript.AdditionFuncDefine_Math;
 begin
@@ -5632,7 +5495,7 @@ begin
   Self.add_func('array.count',@array_Count,'arr,out','返回arr数组的元素数量');
   Self.add_func('array.has_element?',@array_HasElement,'arr, :label','如果arr数组中有元素则跳转');
 
-  Self.add_func('array.print',@array_Print,'arr','在屏幕中打印arr数组');
+  Self.add_func('array.print,array.println',@array_Print,'arr','在屏幕中打印arr数组');
 
 
 

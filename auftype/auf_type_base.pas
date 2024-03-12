@@ -25,6 +25,7 @@ type
     constructor Create;
     constructor CreateAsARV(value:TAufRamVar);
     constructor CreateAsFixnum(value:integer);
+    constructor CreateAsDouble(value:double);
     constructor CreateAsString(value:string);
     destructor Destroy;override;
   protected
@@ -44,8 +45,50 @@ type
     property AsString:string read GetString write SetString;
   end;
 
+  function CreateAufTypeByText(syntax:string):TAufBase;
 
 implementation
+uses auf_type_array;
+
+function CreateAufTypeByText(syntax:string):TAufBase;
+var itmp:int64;
+    idx,codee:integer;
+    ftmp:double;
+    stmp:string;
+    he,hd:boolean;
+begin
+  //type priority: integer float string
+  //临时的方法，之后用语法树来实现，数组之类的先不实现
+  result:=nil;
+  if syntax='' then exit;
+  if syntax[1]+syntax[length(syntax)]='""' then begin
+    stmp:=syntax;
+    if length(stmp)<2 then exit;
+    delete(stmp,length(stmp),1);
+    delete(stmp,1,1);
+    result:=TAufBase.CreateAsString(stmp);
+    exit;
+  end;
+  he:=false;
+  hd:=false;
+  for idx:=1 to length(syntax) do begin
+    if syntax[idx] in ['e','E'] then he:=true;
+    if syntax[idx]='.' then hd:=true;
+  end;
+  if he or hd then begin
+    try
+      ftmp:=StrToFloat(syntax);
+      result:=TAufBase.CreateAsDouble(ftmp);
+    except
+      //
+    end;
+  end else begin
+    val(syntax,itmp,codee);
+    if codee<=0 then begin
+      result:=TAufBase.CreateAsFixnum(itmp);
+    end;
+  end;
+end;
 
 { TAufBase }
 
@@ -78,6 +121,19 @@ begin
     GetMem(Head,size);
     if value=0 then FillByte(head,size,0)
     else dword_to_arv(value,FARV);
+  end;
+end;
+
+constructor TAufBase.CreateAsDouble(value:double);
+begin
+  Create;
+  with FARV do begin
+    size:=8;//默认int64，可变长度
+    VarType:=ARV_Float;
+    Is_Temporary:=false;
+    GetMem(Head,size);
+    if value=0 then FillByte(head,size,0)
+    else double_to_arv(value,FARV);
   end;
 end;
 

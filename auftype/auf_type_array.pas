@@ -158,12 +158,16 @@ constructor TAufArray.Create;
 begin
   inherited Create;
   List_AufArray.Add(Self);
+  FARV.Head:=@Self;
+  FARV.size:={$ifdef cpu64}8{$else}4{$endif};
 end;
 
 destructor TAufArray.Destroy;
 begin
   Clear;
   List_AufArray.Remove(Self);
+  FARV.Head:=nil;
+  FARV.size:=0;
   inherited Destroy;
 end;
 
@@ -177,7 +181,7 @@ begin
   result:=false;
   while List_AufArray.Count>0 do begin
     TAufArray(List_AufArray[0]).Free;
-    List_AufArray.Delete(0);
+    //List_AufArray.Delete(0);//不需要Delete，在Destroy方法中Remove
   end;
   result:=true;
 end;
