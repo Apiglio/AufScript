@@ -1,114 +1,19 @@
-define target,"F:\temp\网盘暂存\国图长图\济南府志\济南府志.png"
+define path,"F:\temp\网盘暂存\国图长图\济南府志（道光）\"
+define output,"济南府志（道光）"
+define extent,".png"
 define filename,#128[128]
+define stmp,#4[512]
+define target,#128[256]
 define img,$8[00]
 
+fmt @target,@path,@output,@extent
 
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志01.png"
+loo:
+enum @stmp,"3469abc"
+println @filename
+fmt @filename,@path,@output,@stmp,@extent
 call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志02.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志03.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志04.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志05.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志06.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志07.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志08.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志09.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志10.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志11.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志12.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志13.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志14.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志15.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志16.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志17.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志18.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志19.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志20.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志21.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志22.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志23.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志24.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志25.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志26.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志27.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志28.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志29.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志30.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志31.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志32.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志33.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志34.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志35.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志36.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志37.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志38.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志39.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志40.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志41.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志42.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志43.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志44.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志45.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志46.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志47.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志48.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志49.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志50.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志51.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志52.png"
-call :func
-mov,@filename,"F:\temp\网盘暂存\国图长图\济南府志\济南府志53.png"
-call :func
+loop :loo,8
 end
 
 
