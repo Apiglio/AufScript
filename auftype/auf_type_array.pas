@@ -93,8 +93,10 @@ end;
 function TAufArray.Delete(index:Integer):TAufBase;
 var len,pi:Integer;
 begin
-  index:=getValidReadIndex(index);
+  result:=nil;
   len:=Length(FArray);
+  if len<=0 then exit;
+  index:=getValidReadIndex(index);
   result:=FArray[index];
   for pi:=index to len-1 do begin
     FArray[pi]:=FArray[pi+1];
