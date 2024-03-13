@@ -4,11 +4,11 @@
     <PathDelim Value="\"/>
     <Version Value="10"/>
     <BuildModes Active="Default"/>
-    <Units Count="78">
+    <Units Count="79">
       <Unit0>
         <Filename Value="fpcunitproject1.lpr"/>
         <IsPartOfProject Value="True"/>
-        <EditorIndex Value="12"/>
+        <EditorIndex Value="13"/>
         <TopLine Value="170"/>
         <CursorPos Y="188"/>
         <UsageCount Value="200"/>
@@ -38,7 +38,7 @@
         <ComponentName Value="Frame_AufScript"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Frame"/>
-        <EditorIndex Value="10"/>
+        <EditorIndex Value="11"/>
         <TopLine Value="364"/>
         <CursorPos Y="382"/>
         <UsageCount Value="202"/>
@@ -48,7 +48,7 @@
       <Unit4>
         <Filename Value="aufscript_command.pas"/>
         <IsPartOfProject Value="True"/>
-        <EditorIndex Value="11"/>
+        <EditorIndex Value="12"/>
         <CursorPos X="11" Y="9"/>
         <UsageCount Value="200"/>
         <Loaded Value="True"/>
@@ -57,7 +57,7 @@
         <Filename Value="synhighlighterauf.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="SynHighlighterAuf"/>
-        <EditorIndex Value="8"/>
+        <EditorIndex Value="9"/>
         <CursorPos X="24" Y="2"/>
         <UsageCount Value="200"/>
         <Loaded Value="True"/>
@@ -65,7 +65,7 @@
       <Unit6>
         <Filename Value="auf_ram_syntax.pas"/>
         <IsPartOfProject Value="True"/>
-        <EditorIndex Value="9"/>
+        <EditorIndex Value="10"/>
         <TopLine Value="6"/>
         <UsageCount Value="201"/>
         <Loaded Value="True"/>
@@ -73,7 +73,7 @@
       <Unit7>
         <Filename Value="auf_ram_image.pas"/>
         <IsPartOfProject Value="True"/>
-        <EditorIndex Value="7"/>
+        <EditorIndex Value="8"/>
         <TopLine Value="300"/>
         <CursorPos X="3" Y="302"/>
         <UsageCount Value="166"/>
@@ -97,12 +97,6 @@
         <Loaded Value="True"/>
       </Unit9>
       <Unit10>
-        <Filename Value="svo_tree.pas"/>
-        <EditorIndex Value="-1"/>
-        <CursorPos X="32" Y="50"/>
-        <UsageCount Value="91"/>
-      </Unit10>
-      <Unit11>
         <Filename Value="auftype\auf_type_array.pas"/>
         <IsPartOfProject Value="True"/>
         <EditorIndex Value="4"/>
@@ -110,8 +104,8 @@
         <CursorPos X="23" Y="32"/>
         <UsageCount Value="79"/>
         <Loaded Value="True"/>
-      </Unit11>
-      <Unit12>
+      </Unit10>
+      <Unit11>
         <Filename Value="auftype\auf_type_base.pas"/>
         <IsPartOfProject Value="True"/>
         <EditorIndex Value="5"/>
@@ -119,15 +113,20 @@
         <CursorPos X="40" Y="63"/>
         <UsageCount Value="78"/>
         <Loaded Value="True"/>
-      </Unit12>
-      <Unit13>
+      </Unit11>
+      <Unit12>
         <Filename Value="aufkernel\word_tree.pas"/>
         <IsPartOfProject Value="True"/>
-        <IsVisibleTab Value="True"/>
         <EditorIndex Value="6"/>
         <CursorPos X="28" Y="11"/>
         <UsageCount Value="20"/>
         <Loaded Value="True"/>
+      </Unit12>
+      <Unit13>
+        <Filename Value="svo_tree.pas"/>
+        <EditorIndex Value="-1"/>
+        <CursorPos X="32" Y="50"/>
+        <UsageCount Value="91"/>
       </Unit13>
       <Unit14>
         <Filename Value="auf.pas"/>
@@ -590,6 +589,15 @@
         <CursorPos Y="5398"/>
         <UsageCount Value="8"/>
       </Unit77>
+      <Unit78>
+        <Filename Value="aufkernel\svo_tree.pas"/>
+        <IsPartOfProject Value="True"/>
+        <IsVisibleTab Value="True"/>
+        <EditorIndex Value="7"/>
+        <CursorPos X="18" Y="13"/>
+        <UsageCount Value="20"/>
+        <Loaded Value="True"/>
+      </Unit78>
     </Units>
     <JumpHistory Count="26" HistoryIndex="25">
       <Position1>
