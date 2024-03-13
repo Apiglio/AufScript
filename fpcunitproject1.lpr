@@ -20,7 +20,7 @@ uses
   Classes, StdCtrls, ExtCtrls, Sysutils, Forms, consoletestrunner, Interfaces,
   Controls, Dialogs, LazUTF8, Apiglio_Useful, auf_ram_var, aufscript_frame,
   aufscript_command, auf_ram_syntax, auf_ram_image, aufscript_thread, svo_tree,
-  auf_type_array, auf_type_base;
+  auf_type_array, auf_type_base, word_tree;
 
 type
 

@@ -35,7 +35,7 @@
         <PackageName Value="FCL"/>
       </Item3>
     </RequiredPackages>
-    <Units Count="13">
+    <Units Count="14">
       <Unit0>
         <Filename Value="fpcunitproject1.lpr"/>
         <IsPartOfProject Value="True"/>
@@ -93,6 +93,10 @@
         <Filename Value="auftype\auf_type_base.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit12>
+      <Unit13>
+        <Filename Value="aufkernel\word_tree.pas"/>
+        <IsPartOfProject Value="True"/>
+      </Unit13>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
@@ -100,7 +104,7 @@
     <PathDelim Value="\"/>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="auftype"/>
+      <OtherUnitFiles Value="auftype;aufkernel"/>
     </SearchPaths>
   </CompilerOptions>
   <Debugging>

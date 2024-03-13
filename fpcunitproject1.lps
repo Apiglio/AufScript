@@ -4,11 +4,11 @@
     <PathDelim Value="\"/>
     <Version Value="10"/>
     <BuildModes Active="Default"/>
-    <Units Count="77">
+    <Units Count="78">
       <Unit0>
         <Filename Value="fpcunitproject1.lpr"/>
         <IsPartOfProject Value="True"/>
-        <EditorIndex Value="12"/>
+        <EditorIndex Value="13"/>
         <TopLine Value="170"/>
         <CursorPos Y="188"/>
         <UsageCount Value="200"/>
@@ -27,9 +27,8 @@
         <Filename Value="apiglio_useful.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="Apiglio_Useful"/>
-        <IsVisibleTab Value="True"/>
         <TopLine Value="2676"/>
-        <CursorPos X="71" Y="2685"/>
+        <CursorPos X="61" Y="2686"/>
         <UsageCount Value="201"/>
         <Loaded Value="True"/>
       </Unit2>
@@ -39,7 +38,7 @@
         <ComponentName Value="Frame_AufScript"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Frame"/>
-        <EditorIndex Value="10"/>
+        <EditorIndex Value="11"/>
         <TopLine Value="364"/>
         <CursorPos Y="382"/>
         <UsageCount Value="202"/>
@@ -49,7 +48,7 @@
       <Unit4>
         <Filename Value="aufscript_command.pas"/>
         <IsPartOfProject Value="True"/>
-        <EditorIndex Value="11"/>
+        <EditorIndex Value="12"/>
         <CursorPos X="11" Y="9"/>
         <UsageCount Value="200"/>
         <Loaded Value="True"/>
@@ -58,7 +57,7 @@
         <Filename Value="synhighlighterauf.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="SynHighlighterAuf"/>
-        <EditorIndex Value="8"/>
+        <EditorIndex Value="9"/>
         <CursorPos X="24" Y="2"/>
         <UsageCount Value="200"/>
         <Loaded Value="True"/>
@@ -66,7 +65,7 @@
       <Unit6>
         <Filename Value="auf_ram_syntax.pas"/>
         <IsPartOfProject Value="True"/>
-        <EditorIndex Value="9"/>
+        <EditorIndex Value="10"/>
         <TopLine Value="6"/>
         <UsageCount Value="201"/>
         <Loaded Value="True"/>
@@ -74,7 +73,7 @@
       <Unit7>
         <Filename Value="auf_ram_image.pas"/>
         <IsPartOfProject Value="True"/>
-        <EditorIndex Value="7"/>
+        <EditorIndex Value="8"/>
         <TopLine Value="300"/>
         <CursorPos X="3" Y="302"/>
         <UsageCount Value="166"/>
@@ -101,8 +100,7 @@
         <Filename Value="svo_tree.pas"/>
         <IsPartOfProject Value="True"/>
         <EditorIndex Value="6"/>
-        <TopLine Value="4"/>
-        <CursorPos X="39" Y="32"/>
+        <CursorPos X="32" Y="50"/>
         <UsageCount Value="91"/>
         <Loaded Value="True"/>
       </Unit10>
@@ -379,7 +377,7 @@
         <EditorIndex Value="-1"/>
         <TopLine Value="162"/>
         <CursorPos X="3" Y="164"/>
-        <UsageCount Value="0"/>
+        <UsageCount Value="10"/>
       </Unit48>
       <Unit49>
         <Filename Value="C:\lazarus\components\synedit\synedittypes.pp"/>
@@ -400,7 +398,7 @@
         <EditorIndex Value="-1"/>
         <TopLine Value="637"/>
         <CursorPos X="10" Y="634"/>
-        <UsageCount Value="0"/>
+        <UsageCount Value="10"/>
       </Unit51>
       <Unit52>
         <Filename Value="C:\lazarus\fpc\3.0.4\source\rtl\objpas\sysutils\sysinth.inc"/>
@@ -585,6 +583,15 @@
         <CursorPos Y="5398"/>
         <UsageCount Value="8"/>
       </Unit76>
+      <Unit77>
+        <Filename Value="aufkernel\word_tree.pas"/>
+        <IsPartOfProject Value="True"/>
+        <IsVisibleTab Value="True"/>
+        <EditorIndex Value="7"/>
+        <CursorPos X="26" Y="8"/>
+        <UsageCount Value="20"/>
+        <Loaded Value="True"/>
+      </Unit77>
     </Units>
     <JumpHistory Count="26" HistoryIndex="25">
       <Position1>
