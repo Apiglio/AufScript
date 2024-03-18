@@ -44,7 +44,8 @@ uses
   {$endif}
   LazUTF8, RegExpr, Variants,
   Auf_Ram_Var, Auf_Ram_Image,
-  auf_type_base, auf_type_array;
+  auf_type_base, auf_type_array,
+  kernel;
 
 const
 
@@ -321,6 +322,8 @@ type
         Setting:pFuncAuf;//用于set语句的继承，set的定义分别在frame和command中
       end;
 
+      FSVOKernel:TAufKernel;
+
     private
       procedure BeginOF(filename:string);
       procedure EndOF;
@@ -398,6 +401,7 @@ type
 
     published
       constructor Create(AOwner:TComponent);
+      destructor Destroy; override;
       procedure InternalFuncDefine;//默认函数定义
       procedure AdditionFuncDefine_Text;//字串模块函数定义
       procedure AdditionFuncDefine_Time;//时间模块函数定义
@@ -405,6 +409,7 @@ type
       procedure AdditionFuncDefine_Math;//数学模块函数定义
       procedure AdditionFuncDefine_AufBase;//内建类型模块定义
       procedure AdditionFuncDefine_Image;//图像模块函数定义
+      procedure AdditionFuncDefine_SVO;//SVO新语法调用模块，暂时的运行方式
 
   end;
 
@@ -3500,9 +3505,17 @@ begin
   until img_out=nil;
 end;
 
+procedure svo_load(Sender:TObject); //svo_load script
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    script:string;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(2) then exit;
+  if not AAuf.TryArgToString(1,script) then exit;
 
-
-
+end;
 
 
 
@@ -5360,7 +5373,18 @@ begin
   Expression.Global:=GlobalExpressionList;
   Expression.Local:=TAufExpressionList.Create;
 
+  FSVOKernel:=TAufKernel.Create;
+
   for i:=0 to func_range-1 do Self.func[i].name:='';
+end;
+
+destructor TAufScript.Destroy;
+begin
+  var_stream.Free;
+  var_occupied.Free;
+  Expression.Local.Free;
+  FSVOKernel.Free;
+  inherited Destroy;
 end;
 
 procedure TAufScript.InternalFuncDefine;
@@ -5438,7 +5462,7 @@ begin
   AdditionFuncDefine_Math;
   AdditionFuncDefine_AufBase;
   AdditionFuncDefine_Image;
-
+  AdditionFuncDefine_SVO;
 
 end;
 
@@ -5578,6 +5602,10 @@ begin
 
 end;
 
+procedure TAufScript.AdditionFuncDefine_SVO;
+begin
+  Self.add_func('svo',@svo_load,'svo_script','运行svo指令');
+end;
 
 //////Class Methods end
 
