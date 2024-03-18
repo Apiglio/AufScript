@@ -1,16 +1,16 @@
 object Frame_AufScript: TFrame_AufScript
   Left = 0
-  Height = 422
+  Height = 573
   Top = 0
-  Width = 728
-  ClientHeight = 422
-  ClientWidth = 728
+  Width = 379
+  ClientHeight = 573
+  ClientWidth = 379
   Constraints.MinWidth = 200
   DesignTimePPI = 144
   ParentFont = False
   TabOrder = 0
-  DesignLeft = 1057
-  DesignTop = 403
+  DesignLeft = 1387
+  DesignTop = 434
   object ProgressBar: TProgressBar
     AnchorSideLeft.Control = Owner
     AnchorSideRight.Control = Owner
@@ -19,8 +19,8 @@ object Frame_AufScript: TFrame_AufScript
     AnchorSideBottom.Side = asrBottom
     Left = 4
     Height = 10
-    Top = 408
-    Width = 720
+    Top = 559
+    Width = 371
     Anchors = [akLeft, akRight, akBottom]
     BorderSpacing.Left = 4
     BorderSpacing.Right = 4
@@ -39,10 +39,10 @@ object Frame_AufScript: TFrame_AufScript
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
     AnchorSideBottom.Control = Button_ScriptLoad
-    Left = 376
-    Height = 368
+    Left = 159
+    Height = 519
     Top = 4
-    Width = 348
+    Width = 216
     Anchors = [akTop, akLeft, akRight, akBottom]
     BorderSpacing.Top = 4
     BorderSpacing.Right = 4
@@ -63,12 +63,14 @@ object Frame_AufScript: TFrame_AufScript
   object Button_run: TButton
     AnchorSideLeft.Control = Memo_out
     AnchorSideTop.Control = Button_ScriptLoad
+    AnchorSideRight.Control = Button_pause
     AnchorSideBottom.Control = ProgressBar
-    Left = 376
+    Left = 196
     Height = 28
-    Top = 376
+    Top = 527
     Width = 57
-    Anchors = [akTop, akLeft, akBottom]
+    Anchors = [akTop, akRight, akBottom]
+    BorderSpacing.Right = 4
     BorderSpacing.Bottom = 4
     Caption = '运行'
     OnClick = Button_runClick
@@ -81,12 +83,14 @@ object Frame_AufScript: TFrame_AufScript
     AnchorSideLeft.Control = Memo_out
     AnchorSideLeft.Side = asrCenter
     AnchorSideTop.Control = Button_ScriptLoad
+    AnchorSideRight.Control = Button_stop
     AnchorSideBottom.Control = ProgressBar
-    Left = 522
+    Left = 257
     Height = 28
-    Top = 376
+    Top = 527
     Width = 57
-    Anchors = [akTop, akLeft, akBottom]
+    Anchors = [akTop, akRight, akBottom]
+    BorderSpacing.Right = 4
     BorderSpacing.Bottom = 4
     Caption = '暂停'
     OnClick = Button_pauseClick
@@ -100,9 +104,9 @@ object Frame_AufScript: TFrame_AufScript
     AnchorSideRight.Control = Memo_out
     AnchorSideRight.Side = asrBottom
     AnchorSideBottom.Control = ProgressBar
-    Left = 667
+    Left = 318
     Height = 28
-    Top = 376
+    Top = 527
     Width = 57
     Anchors = [akTop, akRight, akBottom]
     BorderSpacing.Bottom = 4
@@ -118,7 +122,7 @@ object Frame_AufScript: TFrame_AufScript
     AnchorSideBottom.Control = ProgressBar
     Left = 4
     Height = 28
-    Top = 376
+    Top = 527
     Width = 57
     Anchors = [akLeft, akBottom]
     BorderSpacing.Bottom = 4
@@ -130,15 +134,18 @@ object Frame_AufScript: TFrame_AufScript
     TabOrder = 4
   end
   object Button_ScriptSave: TButton
+    AnchorSideLeft.Control = Button_ScriptLoad
+    AnchorSideLeft.Side = asrBottom
     AnchorSideTop.Control = Button_ScriptLoad
     AnchorSideRight.Control = Memo_cmd
     AnchorSideRight.Side = asrBottom
     AnchorSideBottom.Control = ProgressBar
-    Left = 313
+    Left = 65
     Height = 28
-    Top = 376
+    Top = 527
     Width = 57
-    Anchors = [akTop, akRight, akBottom]
+    Anchors = [akTop, akLeft, akBottom]
+    BorderSpacing.Left = 4
     BorderSpacing.Bottom = 4
     Caption = '保存...'
     OnClick = Button_ScriptSaveClick
@@ -153,9 +160,9 @@ object Frame_AufScript: TFrame_AufScript
     AnchorSideRight.Control = Splitter_Vert
     AnchorSideBottom.Control = Button_ScriptLoad
     Left = 4
-    Height = 368
+    Height = 519
     Top = 4
-    Width = 366
+    Width = 151
     BorderSpacing.Left = 4
     BorderSpacing.Top = 4
     BorderSpacing.Bottom = 4
@@ -661,13 +668,27 @@ object Frame_AufScript: TFrame_AufScript
     AnchorSideTop.Control = Owner
     AnchorSideBottom.Control = Memo_cmd
     AnchorSideBottom.Side = asrBottom
-    Left = 370
-    Height = 372
+    Left = 155
+    Height = 523
     Top = 0
-    Width = 6
+    Width = 4
     Align = alNone
     Anchors = [akTop, akBottom]
     OnMoved = Splitter_VertMoved
+    ResizeStyle = rsLine
+  end
+  object Splitter_Horiz: TSplitter
+    AnchorSideLeft.Control = Owner
+    AnchorSideRight.Control = Owner
+    AnchorSideRight.Side = asrBottom
+    Cursor = crVSplit
+    Left = 0
+    Height = 4
+    Top = 248
+    Width = 379
+    Align = alNone
+    Anchors = [akTop, akLeft, akRight]
+    ResizeAnchor = akTop
     ResizeStyle = rsLine
   end
   object OpenDialog: TOpenDialog

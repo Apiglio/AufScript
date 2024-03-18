@@ -37,6 +37,7 @@ type
     OpenDialog: TOpenDialog;
     ProgressBar: TProgressBar;
     SaveDialog: TSaveDialog;
+    Splitter_Horiz: TSplitter;
     Splitter_Vert: TSplitter;
     procedure Button_pauseClick(Sender: TObject);
     procedure Button_pauseMouseEnter(Sender: TObject);
@@ -67,6 +68,7 @@ type
     FOnChangeTitle:TNotifyStringEvent;
     FOnHelper:ptrFuncStr;
     FOnRunEnding,FOnRunBeginning:pFuncAuf;
+    procedure SetPortrait(value:boolean);
   public
     property OnChangeTitle:TNotifyStringEvent read FOnChangeTitle write FOnChangeTitle;
     property OnHelper:ptrFuncStr read FOnHelper write FOnHelper;
@@ -81,10 +83,12 @@ type
     TrackBarHeight:word;
     ButtonHeight:word;
     ProcessBarH:word;
+    FPortrait:boolean;//是否为竖屏
   public
     Auf:TAuf;
     //onHelper:ptrFuncStr;
     //SynAufSyn:TSynAufSyn;
+    property Portrait:boolean read FPortrait write SetPortrait;
   public
     procedure FrameResize(Sender: TObject);
     procedure AufGenerator;
@@ -276,17 +280,27 @@ end;
 
 procedure TFrame_AufScript.FrameResize(Sender: TObject);
 var Memo_Left,Memo_Right:word;
-    L2,R3:word;
+    L2,R3,T5:word;
 begin
-  Memo_Left:=Memo_cmd.Width;
-  Memo_Right:=Memo_out.Width;
-  L2:=(Memo_Left - CommonGap) div 2;
-  R3:=(Memo_Right - 2*CommonGap) div 3;
-  Button_Run.Width:=R3;
-  Button_Stop.Width:=R3;
-  Button_Pause.Width:=R3;
-  Button_ScriptLoad.Width:=L2;
-  Button_ScriptSave.Width:=L2;
+  if FPortrait then begin
+    T5:=(Width-6*CommonGap) div 5;
+    Splitter_Vert.Left:=2*(T5+CommonGap) + CommonGap;
+    Button_Run.Width:=T5;
+    Button_Stop.Width:=T5;
+    Button_Pause.Width:=T5;
+    Button_ScriptLoad.Width:=T5;
+    Button_ScriptSave.Width:=T5;
+  end else begin
+    Memo_Left:=Memo_cmd.Width;
+    Memo_Right:=Memo_out.Width;
+    L2:=(Memo_Left - CommonGap) div 2;
+    R3:=(Memo_Right - 2*CommonGap) div 3;
+    Button_Run.Width:=R3;
+    Button_Stop.Width:=R3;
+    Button_Pause.Width:=R3;
+    Button_ScriptLoad.Width:=L2;
+    Button_ScriptSave.Width:=L2;
+  end;
 end;
 
 procedure TFrame_AufScript.Button_ScriptLoadClick(Sender: TObject);
@@ -457,6 +471,33 @@ begin
   FrameResize(Self);
 end;
 
+procedure TFrame_AufScript.SetPortrait(value:boolean);
+begin
+  FPortrait:=value;
+  //Splitter_Vert.Visible:=not value;
+  //Splitter_Horiz.Visible:=value;
+  if value then begin
+    Memo_cmd.AnchorSideRight.Control:=Self;
+    Memo_cmd.AnchorSideRight.Side:=asrRight;
+    Memo_out.AnchorSideLeft.Control:=Self;
+    Memo_out.AnchorSideLeft.Side:=asrLeft;
+    Memo_cmd.AnchorSideBottom.Control:=Splitter_Horiz;
+    Memo_cmd.AnchorSideBottom.Side:=asrTop;
+    Memo_out.AnchorSideTop.Control:=Splitter_Horiz;
+    Memo_out.AnchorSideTop.Side:=asrBottom;
+  end else begin
+    Memo_cmd.AnchorSideRight.Control:=Splitter_Vert;
+    Memo_cmd.AnchorSideRight.Side:=asrLeft;
+    Memo_out.AnchorSideLeft.Control:=Splitter_Vert;
+    Memo_out.AnchorSideLeft.Side:=asrLeft;
+    Memo_cmd.AnchorSideBottom.Control:=Button_ScriptLoad;
+    Memo_cmd.AnchorSideBottom.Side:=asrTop;
+    Memo_out.AnchorSideTop.Control:=Self;
+    Memo_out.AnchorSideTop.Side:=asrTop;
+  end;
+  FrameResize(Self);
+end;
+
 procedure TFrame_AufScript.HighLighterReNew;
 var pi:word;
 begin
@@ -503,6 +544,8 @@ begin
 
   Button_Stop.Enabled:=false;
   Button_Pause.Enabled:=false;
+  Splitter_Vert.SendToBack;
+  Splitter_Horiz.SendToBack;
 
   //Self.HighLighterReNew;
 
