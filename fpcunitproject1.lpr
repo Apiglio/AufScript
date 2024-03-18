@@ -20,7 +20,7 @@ uses
   Classes, StdCtrls, ExtCtrls, Sysutils, Forms, consoletestrunner, Interfaces,
   Controls, Dialogs, LazUTF8, Apiglio_Useful, auf_ram_var, aufscript_frame,
   aufscript_command, auf_ram_syntax, auf_ram_image, aufscript_thread,
-  auf_type_array, auf_type_base, word_tree;
+  auf_type_array, auf_type_base, word_tree, svo_tree;
 
 type
 
@@ -72,34 +72,27 @@ procedure project_test(Sender:TObject);
 var tmp:TAufRamVar;
     AufScpt:TAufScript;
     AAuf:TAuf;
-    re1,re2,res:TRealStr;
-    integ,fract:TDecimalStr;
-    sgn:char;
+    tmpNode:TWordTreeNode;
+    tmpP:Pointer;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
 
-  AufScpt.writeln('arv_to_dec_fraction:'+arv_to_dec_fraction(AufScpt.RamVar(AAuf.nargs[1])));
-  {
-  try
-    re1.data:=AufScpt.TryToString(AAuf.nargs[1]);
-  except
-    AufScpt.send_error('Cannot convert to string');
-  end;
-  try
-    re2.data:=AufScpt.TryToString(AAuf.nargs[2]);
-  except
-    AufScpt.send_error('Cannot convert to string');
-  end;
-  }
-  //AufScpt.writeln(IntToStr(RealStr_Comp(re1,re2)));
-  //res:=RealStr_Abs_Add(re1,re2);
-  //res:=RealStr_Abs_Sub(re1,re2);
-  //res:=RealStr_Abs_Mul(re1,re2);
-  //res:=RealStr_Abs_Div(re1,re2,32);
-  //AufScpt.writeln(res.data);
+  //AufScpt.writeln('arv_to_dec_fraction:'+arv_to_dec_fraction(AufScpt.RamVar(AAuf.nargs[1])));
 
-  //AufScpt.writeln(IntToStr(numberic_check(AAuf.args[1])));
+  tmpNode:=TWordTreeNode.Create;
+  try
+    tmpNode['BB']:=pchar('BB');
+    tmpNode['ASS']:=pchar('ASS');
+    tmpNode['func_o']:=pchar('func_o');
+    tmpNode['func_new']:=pchar('func_new');
+    tmpNode['test']:=pchar('test');
+    tmpNode['test2']:=pchar('test2');
+    for tmpP in tmpNode do AufScpt.writeln(PChar(tmpP))
+  finally
+    tmpNode.Free;
+  end;
+
 end;
 
 
@@ -128,6 +121,7 @@ begin
   {$else}
   AufFrame:=TFrame_AufScript.Create(Self);
   AufFrame.Parent:=Self;
+  //AufFrame.Portrait:=true;
   AufFrame.FrameResize(nil);
   AufFrame.AufGenerator;
   AufFrame.Auf.Script.add_func('ptest',@project_test,'','测试');
