@@ -15,7 +15,6 @@ UNIT Apiglio_Useful;
   {$define SynEditMode}
 {$endif}
 
-
 //{$define TEST_MODE}//开启这个模式会导致没有命令行的GUI报错
 
 INTERFACE

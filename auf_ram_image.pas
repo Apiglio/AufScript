@@ -31,6 +31,9 @@ type
     function FindVoid(min_height,tolerance:integer):integer;
     function VoidSegmentByLine(out ImgRest:TARImage;min,tor:integer):TARImage;
 
+    //AutoCombine
+    function SubImageRect(Img:TARImage):TRect;unimplemented;//返回Img在Self中的坐标
+    procedure CombineWith(Img:TARImage;ARect:TRect);unimplemented;//将Img根据ARect的位置插入到Self中
 
   public
     procedure Clear;
@@ -290,6 +293,16 @@ begin
   if split_line<min then exit;
   ImgRest:=Clip(Classes.Rect(0,split_line,FPicture.Width,FPicture.Height));
   result:=Clip(Classes.Rect(0,0,FPicture.Width,split_line-1));
+end;
+
+function TARImage.SubImageRect(Img:TARImage):TRect;
+begin
+
+end;
+
+procedure TARImage.CombineWith(Img:TARImage;ARect:TRect);
+begin
+
 end;
 
 class function TARImage.ImageCount:Integer;
