@@ -28,8 +28,8 @@
         <IsPartOfProject Value="True"/>
         <UnitName Value="Apiglio_Useful"/>
         <IsVisibleTab Value="True"/>
-        <TopLine Value="4131"/>
-        <CursorPos Y="4149"/>
+        <TopLine Value="31"/>
+        <CursorPos X="32" Y="51"/>
         <UsageCount Value="201"/>
         <Loaded Value="True"/>
       </Unit2>
@@ -75,8 +75,8 @@
         <Filename Value="auf_ram_image.pas"/>
         <IsPartOfProject Value="True"/>
         <EditorIndex Value="9"/>
-        <TopLine Value="14"/>
-        <CursorPos X="28" Y="35"/>
+        <TopLine Value="6"/>
+        <CursorPos X="28" Y="26"/>
         <UsageCount Value="190"/>
         <Loaded Value="True"/>
       </Unit7>
@@ -604,123 +604,123 @@
     <JumpHistory Count="30" HistoryIndex="29">
       <Position1>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="185" Column="14" TopLine="167"/>
+        <Caret Line="718" Column="19" TopLine="688"/>
       </Position1>
       <Position2>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="718" Column="19" TopLine="688"/>
+        <Caret Line="724" Column="37" TopLine="694"/>
       </Position2>
       <Position3>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="724" Column="37" TopLine="694"/>
+        <Caret Line="725" Column="34" TopLine="695"/>
       </Position3>
       <Position4>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="725" Column="34" TopLine="695"/>
+        <Caret Line="5312" Column="15" TopLine="5282"/>
       </Position4>
       <Position5>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="5312" Column="15" TopLine="5282"/>
+        <Caret Line="52" Column="20"/>
       </Position5>
       <Position6>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="52" Column="20"/>
-      </Position6>
-      <Position7>
         <Filename Value="aufkernel\kernel.pas"/>
         <Caret Line="42" Column="33" TopLine="13"/>
+      </Position6>
+      <Position7>
+        <Filename Value="aufscript_frame.pas"/>
+        <Caret Line="288" Column="36" TopLine="262"/>
       </Position7>
       <Position8>
         <Filename Value="aufscript_frame.pas"/>
-        <Caret Line="288" Column="36" TopLine="262"/>
+        <Caret Line="66" Column="26" TopLine="50"/>
       </Position8>
       <Position9>
         <Filename Value="aufscript_frame.pas"/>
-        <Caret Line="66" Column="26" TopLine="50"/>
+        <Caret Line="464" Column="28" TopLine="450"/>
       </Position9>
       <Position10>
         <Filename Value="aufscript_frame.pas"/>
-        <Caret Line="464" Column="28" TopLine="450"/>
+        <Caret Line="466" Column="19" TopLine="442"/>
       </Position10>
       <Position11>
         <Filename Value="aufscript_frame.pas"/>
-        <Caret Line="466" Column="19" TopLine="442"/>
+        <Caret Line="477" Column="53" TopLine="450"/>
       </Position11>
       <Position12>
         <Filename Value="aufscript_frame.pas"/>
-        <Caret Line="477" Column="53" TopLine="450"/>
+        <Caret Line="93" Column="15" TopLine="76"/>
       </Position12>
       <Position13>
         <Filename Value="aufscript_frame.pas"/>
-        <Caret Line="93" Column="15" TopLine="76"/>
+        <Caret Line="287" Column="28" TopLine="275"/>
       </Position13>
       <Position14>
         <Filename Value="aufscript_frame.pas"/>
-        <Caret Line="287" Column="28" TopLine="275"/>
+        <Caret Line="81" Column="14" TopLine="64"/>
       </Position14>
       <Position15>
         <Filename Value="aufscript_frame.pas"/>
-        <Caret Line="81" Column="14" TopLine="64"/>
+        <Caret Line="286" Column="27" TopLine="256"/>
       </Position15>
       <Position16>
         <Filename Value="aufscript_frame.pas"/>
-        <Caret Line="286" Column="27" TopLine="256"/>
+        <Caret Line="294" Column="29" TopLine="264"/>
       </Position16>
       <Position17>
         <Filename Value="aufscript_frame.pas"/>
-        <Caret Line="294" Column="29" TopLine="264"/>
+        <Caret Line="295" Column="32" TopLine="265"/>
       </Position17>
       <Position18>
         <Filename Value="aufscript_frame.pas"/>
-        <Caret Line="295" Column="32" TopLine="265"/>
+        <Caret Line="301" Column="24" TopLine="280"/>
       </Position18>
       <Position19>
         <Filename Value="aufscript_frame.pas"/>
-        <Caret Line="301" Column="24" TopLine="280"/>
+        <Caret Line="285" TopLine="278"/>
       </Position19>
       <Position20>
         <Filename Value="aufscript_frame.pas"/>
-        <Caret Line="285" TopLine="278"/>
+        <Caret Line="288" Column="11" TopLine="278"/>
       </Position20>
       <Position21>
         <Filename Value="aufscript_frame.pas"/>
-        <Caret Line="288" Column="11" TopLine="278"/>
+        <Caret Line="488" Column="34" TopLine="470"/>
       </Position21>
       <Position22>
         <Filename Value="aufscript_frame.pas"/>
-        <Caret Line="488" Column="34" TopLine="470"/>
+        <Caret Line="334" Column="35" TopLine="306"/>
       </Position22>
       <Position23>
         <Filename Value="aufscript_frame.pas"/>
-        <Caret Line="334" Column="35" TopLine="306"/>
+        <Caret Line="478" Column="33" TopLine="456"/>
       </Position23>
       <Position24>
         <Filename Value="aufscript_frame.pas"/>
-        <Caret Line="478" Column="33" TopLine="456"/>
+        <Caret Line="491" Column="43" TopLine="413"/>
       </Position24>
       <Position25>
         <Filename Value="aufscript_frame.pas"/>
-        <Caret Line="491" Column="43" TopLine="413"/>
+        <Caret Line="21" Column="49"/>
       </Position25>
       <Position26>
-        <Filename Value="aufscript_frame.pas"/>
-        <Caret Line="21" Column="49"/>
-      </Position26>
-      <Position27>
         <Filename Value="auf_ram_image.pas"/>
         <Caret Line="32" Column="22" TopLine="10"/>
+      </Position26>
+      <Position27>
+        <Filename Value="auftype\auf_type_array.pas"/>
+        <Caret Line="41" Column="19" TopLine="11"/>
       </Position27>
       <Position28>
         <Filename Value="auftype\auf_type_array.pas"/>
-        <Caret Line="41" Column="19" TopLine="11"/>
+        <Caret Line="36" Column="18" TopLine="10"/>
       </Position28>
       <Position29>
         <Filename Value="auftype\auf_type_array.pas"/>
-        <Caret Line="36" Column="18" TopLine="10"/>
+        <Caret Line="182" Column="49" TopLine="163"/>
       </Position29>
       <Position30>
-        <Filename Value="auftype\auf_type_array.pas"/>
-        <Caret Line="182" Column="49" TopLine="163"/>
+        <Filename Value="apiglio_useful.pas"/>
+        <Caret Line="4152" Column="28" TopLine="4134"/>
       </Position30>
     </JumpHistory>
   </ProjectSession>

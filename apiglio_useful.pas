@@ -48,7 +48,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.5.1';
+  AufScript_Version='beta 2.5.1.1';
   {$if defined(cpu32)}
   AufScript_CPU='32bits';
   {$elseif defined(cpu64)}
@@ -1982,6 +1982,10 @@ begin
     else begin AufScpt.send_error('警告：参数的第一个字符需要是字母或下划线，该语句未执行。');exit end;
   end;
   tmp:=AufScpt.Expression.Local.Find(var_name);
+  if tmp=nil then begin
+    AufScpt.send_error('警告：找不到'+AAuf.nargs[1].arg+'的定义，该语句未执行。');
+    exit;
+  end;
   arv:=AufScpt.RamVar(tmp.value);
   if arv.size=0 then begin
     AufScpt.send_error('警告：'+AAuf.nargs[1].arg+'不是ARV变量，该语句未执行。');
