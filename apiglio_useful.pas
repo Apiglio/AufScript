@@ -48,7 +48,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.5.1.1';
+  AufScript_Version='beta 2.5.2';
   {$if defined(cpu32)}
   AufScript_CPU='32bits';
   {$elseif defined(cpu64)}
@@ -1621,18 +1621,9 @@ begin
   AAuf:=AufScpt.Auf as TAuf;
   ofs:=0;
   if not AAuf.CheckArgs(2) then exit;
-  //if AAuf.ArgsCount<2 then begin AufScpt.send_error('警告：jmp需要一个变量，该语句未执行。');exit end;
-  case AAuf.nargs[1].pre of
-    '&"':ofs:=RawStrToPRam(AAuf.nargs[1].arg) - AufScpt.PSW.run_parameter.current_line_number;
-    //else ofs:=Round(AAuf.Script.to_double(AAuf.nargs[1].pre,AAuf.nargs[1].arg));
-    else
-      if not AAuf.TryArgToPRam(1,ofs) then begin
-        AufScpt.send_error('警告：地址偏移量解析错误，该语句未执行。');
-        exit;
-      end;
-  end;
-  if ofs=0 then begin AufScpt.send_error('警告：jmp需要非零的地址偏移量，该语句未执行。');exit end;
-  AufScpt.jump_addr(AufScpt.currentLine+ofs);
+  if not AAuf.TryArgToAddr(1,ofs) then exit;
+  if ofs=AufScpt.currentLine then begin AufScpt.send_error('警告：jmp需要非零的地址偏移量，该语句未执行。');exit end;
+  AufScpt.jump_addr(ofs);
 end;
 
 procedure call(Sender:TObject);//满足条件执行下一句，使用ret返回至该位置的下一行，不满足条件跳过下一句  call ofs|:label
@@ -1644,19 +1635,53 @@ begin
   AAuf:=AufScpt.Auf as TAuf;
   ofs:=0;
   if not AAuf.CheckArgs(2) then exit;
-  //if AAuf.ArgsCount<2 then begin AAuf.Script.send_error('警告：call需要一个变量，该语句未执行。');exit end;
-  case AAuf.nargs[1].pre of
-    '&"':ofs:=RawStrToPRam(AAuf.nargs[1].arg) - AufScpt.PSW.run_parameter.current_line_number;
-    //else ofs:=Round(AufScpt.to_double(AAuf.nargs[1].pre,AAuf.nargs[1].arg));
-    else
-      if not AAuf.TryArgToPRam(1,ofs) then begin
-        AufScpt.send_error('警告：地址偏移量解析错误，该语句未执行。');
-        exit;
-      end;
+  if not AAuf.TryArgToAddr(1,ofs) then exit;
+  if ofs=AufScpt.currentLine then begin AufScpt.send_error('警告：call需要非零的地址偏移量，该语句未执行。');exit end;
+  AufScpt.push_addr(ofs);
+end;
+
+procedure taichi_call(Sender:TObject);//根据给定的整型数判断每一位的正负性，组合结果后压栈跳转至不同的行  taichi value chaos_width chaos_addr [addrs, ...]
+//由于参数数量（16）的限制，最多判断三个字节，由于判断的整型数不定长，使用Small Endian。
+//字节的正负性判断结果与chaos_width有关x^2 * y^2 * z^2 < chaos_width^-2
+//chaos_width表示正值与负值之间混沌部分的宽度的倒数，值域为 [2, +Inf)
+//这个跳转可以用于九色判断：taichi @color 16, :grey :black :blue :green :cyan :red :violet :yellow :white
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    value:TAufRamVar;
+    chaos_width,bytenum,idx,res:integer;
+    list_ofs:array[0..8] of pRam;
+    factors:array[0..2] of double;
+    xyz_sqr, width_reverse:double;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  for idx:=0 to 8 do list_ofs[idx]:=0;
+  if not AAuf.CheckArgs(4) then exit;//至少要有四个参数：指令名、测试值、混沌区宽度、混沌区跳转地址
+  if not AAuf.TryArgToARV(1,1,High(pRam),[ARV_FixNum],value) then exit;
+  if not AAuf.TryArgToLong(2,chaos_width) then exit;
+  for idx:=AAuf.ArgsCount-1 downto 3 do begin
+    if not AAuf.TryArgToAddr(idx,list_ofs[idx-3]) then exit;
   end;
-  if ofs=0 then begin AufScpt.send_error('警告：call需要非零的地址偏移量，该语句未执行。');exit end;
-  //AufScpt.push_addr(AufScpt.ScriptLines,AufScpt.ScriptName,AufScpt.currentLine+ofs);
-  AufScpt.push_addr(AufScpt.currentLine+ofs);
+  width_reverse:=1.0/chaos_width/chaos_width;
+  xyz_sqr:=1.0;
+  bytenum:=value.size;
+  if bytenum>3 then bytenum:=3;
+  for idx:=0 to bytenum-1 do begin
+    factors[idx]:=(2.0*pbyte(value.Head+idx)^/255)-1.0;
+    xyz_sqr:=xyz_sqr*sqr(factors[idx]);
+  end;
+  if xyz_sqr<width_reverse then begin
+    res:=-1;
+  end else begin
+    res:=0;
+    for idx:=0 to bytenum-1 do begin
+      res:=res shl 1;
+      if factors[idx]>0 then res:=res or $1;
+    end;
+  end;
+  inc(res);
+  if list_ofs[res]=0 then exit;
+  AufScpt.push_addr(list_ofs[res]);
 end;
 
 procedure _loop(Sender:TObject);
@@ -1674,7 +1699,6 @@ begin
   if not AAuf.CheckArgs(3) then exit;
   case AAuf.nargs[1].pre of
     '&"':ofs:=RawStrToPRam(AAuf.nargs[1].arg) - AufScpt.PSW.run_parameter.current_line_number;
-    //else ofs:=Round(AAuf.Script.to_double(AAuf.nargs[1].pre,AAuf.nargs[1].arg));
     else
       if not AAuf.TryArgToPRam(1,ofs) then begin
         AufScpt.send_error('警告：地址偏移量解析错误，该语句未执行。');
@@ -5442,6 +5466,8 @@ begin
   Self.add_func('cjsub,cjsubc,ncjsub,ncjsubc',@cj,'sub,str,:label/ofs','如果str包含sub则跳转,前加"n"表示否定,后加"c"表示压栈调用');
   Self.add_func('cjsreg,cjsregc,ncjsreg,ncjsregc',@cj,'reg,str,:label/ofs','如果str符合reg则跳转,前加"n"表示否定,后加"c"表示压栈调用');
 
+  Self.add_func('taichi',@taichi_call,'value,chaos_width,chaos_addr[,addr ...]','根据value的值跳转到相应的地址，并将当前地址压栈，可用于RGB九色划分');
+
   Self.add_func('define',@_define,'name,expr','定义一个以@开头的局部宏定义');
   Self.add_func('rendef',@_rendef,'old,new','修改一个局部宏定义的名称');
   Self.add_func('deldef',@_deldef,'name       ','删除一个局部宏定义的名称');
@@ -5592,7 +5618,7 @@ begin
 
   Self.add_func('img.width',@img_getImageValue,'img,result','返回img图像的宽到result');
   Self.add_func('img.height',@img_getImageValue,'img,result','返回img图像的高到result');
-  Self.add_func('img.color',@img_getImageAverageColor,'img,result','返回img图像的平均颜色');
+  Self.add_func('img.color',@img_getImageAverageColor,'img,result','返回img图像的平均颜色(BGRa)');
   Self.add_func('img.pixelformat',@img_getImagePixelFormat,'img,result','返回img图像的像素类型');
 
   Self.add_func('img.cje,img.cjec,img.ncje,img.ncjec',@img_cj,'img1,img2,:label/ofs','如果两个图像相同则跳转,前加"n"表示否定,后加"c"表示压栈调用');
