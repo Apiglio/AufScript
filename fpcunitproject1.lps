@@ -27,9 +27,8 @@
         <Filename Value="apiglio_useful.pas"/>
         <IsPartOfProject Value="True"/>
         <UnitName Value="Apiglio_Useful"/>
-        <IsVisibleTab Value="True"/>
         <TopLine Value="1612"/>
-        <CursorPos X="21" Y="1626"/>
+        <CursorPos X="82" Y="1617"/>
         <UsageCount Value="201"/>
         <Loaded Value="True"/>
       </Unit2>
@@ -39,9 +38,10 @@
         <ComponentName Value="Frame_AufScript"/>
         <HasResources Value="True"/>
         <ResourceBaseClass Value="Frame"/>
+        <IsVisibleTab Value="True"/>
         <EditorIndex Value="12"/>
-        <TopLine Value="456"/>
-        <CursorPos X="5" Y="478"/>
+        <TopLine Value="275"/>
+        <CursorPos X="31" Y="289"/>
         <UsageCount Value="202"/>
         <Loaded Value="True"/>
         <LoadedDesigner Value="True"/>
@@ -576,123 +576,123 @@
     <JumpHistory Count="30" HistoryIndex="29">
       <Position1>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1685" TopLine="1658"/>
+        <Caret Line="1686" TopLine="1658"/>
       </Position1>
       <Position2>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1686" TopLine="1658"/>
+        <Caret Line="1684" TopLine="1658"/>
       </Position2>
       <Position3>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1684" TopLine="1658"/>
+        <Caret Line="1688" TopLine="1658"/>
       </Position3>
       <Position4>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1688" TopLine="1658"/>
+        <Caret Line="1686" Column="31" TopLine="1665"/>
       </Position4>
       <Position5>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1686" Column="31" TopLine="1665"/>
+        <Caret Line="1691" TopLine="1665"/>
       </Position5>
       <Position6>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1691" TopLine="1665"/>
+        <Caret Line="1692" TopLine="1665"/>
       </Position6>
       <Position7>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1692" TopLine="1665"/>
+        <Caret Line="1693" TopLine="1665"/>
       </Position7>
       <Position8>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1693" TopLine="1665"/>
+        <Caret Line="1694" TopLine="1665"/>
       </Position8>
       <Position9>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1694" TopLine="1665"/>
+        <Caret Line="1692" TopLine="1665"/>
       </Position9>
       <Position10>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1692" TopLine="1665"/>
+        <Caret Line="1693" TopLine="1665"/>
       </Position10>
       <Position11>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1693" TopLine="1665"/>
+        <Caret Line="1694" TopLine="1665"/>
       </Position11>
       <Position12>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1694" TopLine="1665"/>
+        <Caret Line="1692" TopLine="1665"/>
       </Position12>
       <Position13>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1692" TopLine="1665"/>
+        <Caret Line="1693" TopLine="1665"/>
       </Position13>
       <Position14>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1693" TopLine="1665"/>
+        <Caret Line="1694" TopLine="1665"/>
       </Position14>
       <Position15>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1694" TopLine="1665"/>
+        <Caret Line="1692" TopLine="1665"/>
       </Position15>
       <Position16>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1692" TopLine="1665"/>
+        <Caret Line="1697" TopLine="1674"/>
       </Position16>
       <Position17>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1697" TopLine="1674"/>
+        <Caret Line="1698" TopLine="1674"/>
       </Position17>
       <Position18>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1698" TopLine="1674"/>
+        <Caret Line="1691" Column="48" TopLine="1674"/>
       </Position18>
       <Position19>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1691" Column="48" TopLine="1674"/>
+        <Caret Line="1698" TopLine="1652"/>
       </Position19>
       <Position20>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1698" TopLine="1652"/>
+        <Caret Line="1692" Column="19" TopLine="1672"/>
       </Position20>
       <Position21>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1692" Column="19" TopLine="1672"/>
+        <Caret Line="1697" TopLine="1672"/>
       </Position21>
       <Position22>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1697" TopLine="1672"/>
+        <Caret Line="1691" TopLine="1672"/>
       </Position22>
       <Position23>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1691" TopLine="1672"/>
+        <Caret Line="1697" Column="32" TopLine="1672"/>
       </Position23>
       <Position24>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1697" Column="32" TopLine="1672"/>
+        <Caret Line="1693" TopLine="1672"/>
       </Position24>
       <Position25>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1693" TopLine="1672"/>
+        <Caret Line="1694" TopLine="1672"/>
       </Position25>
       <Position26>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1694" TopLine="1672"/>
+        <Caret Line="1692" TopLine="1672"/>
       </Position26>
       <Position27>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1692" TopLine="1672"/>
+        <Caret Line="1693" TopLine="1672"/>
       </Position27>
       <Position28>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1693" TopLine="1672"/>
+        <Caret Line="1696" TopLine="1672"/>
       </Position28>
       <Position29>
         <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1696" TopLine="1672"/>
+        <Caret Line="1627" TopLine="1611"/>
       </Position29>
       <Position30>
-        <Filename Value="apiglio_useful.pas"/>
-        <Caret Line="1627" TopLine="1611"/>
+        <Filename Value="aufscript_frame.pas"/>
+        <Caret Line="171" Column="74" TopLine="153"/>
       </Position30>
     </JumpHistory>
   </ProjectSession>

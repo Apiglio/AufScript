@@ -48,7 +48,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.5.2';
+  AufScript_Version='beta 2.5.2.1';
   {$if defined(cpu32)}
   AufScript_CPU='32bits';
   {$elseif defined(cpu64)}

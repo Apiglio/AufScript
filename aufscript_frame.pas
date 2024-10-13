@@ -285,6 +285,8 @@ begin
   if FPortrait then begin
     T5:=(Width-6*CommonGap) div 5;
     Splitter_Vert.Left:=2*(T5+CommonGap) + CommonGap;
+    Splitter_Horiz.Top:=Height * 2 div 3;
+    Splitter_Horiz.BringToFront;
     Button_Run.Width:=T5;
     Button_Stop.Width:=T5;
     Button_Pause.Width:=T5;
@@ -293,6 +295,8 @@ begin
   end else begin
     Memo_Left:=Memo_cmd.Width;
     Memo_Right:=Memo_out.Width;
+    Splitter_Horiz.Top:=0;
+    Splitter_Horiz.SendToBack;
     L2:=(Memo_Left - CommonGap) div 2;
     R3:=(Memo_Right - 2*CommonGap) div 3;
     Button_Run.Width:=R3;

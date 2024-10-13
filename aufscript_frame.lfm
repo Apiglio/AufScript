@@ -684,7 +684,7 @@ object Frame_AufScript: TFrame_AufScript
     Cursor = crVSplit
     Left = 0
     Height = 4
-    Top = 248
+    Top = 376
     Width = 379
     Align = alNone
     Anchors = [akTop, akLeft, akRight]
