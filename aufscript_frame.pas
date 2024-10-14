@@ -84,6 +84,7 @@ type
     ButtonHeight:word;
     ProcessBarH:word;
     FPortrait:boolean;//是否为竖屏
+    FLandscape_portprotion:single;//调整成竖屏之前VertSpliter的位置；
   public
     Auf:TAuf;
     //onHelper:ptrFuncStr;
@@ -283,10 +284,9 @@ var Memo_Left,Memo_Right:word;
     L2,R3,T5:word;
 begin
   if FPortrait then begin
-    T5:=(Width-6*CommonGap) div 5;
+    T5:=(Width-6*CommonGap) div 5 - 1;
     Splitter_Vert.Left:=2*(T5+CommonGap) + CommonGap;
     Splitter_Horiz.Top:=Height * 2 div 3;
-    Splitter_Horiz.BringToFront;
     Button_Run.Width:=T5;
     Button_Stop.Width:=T5;
     Button_Pause.Width:=T5;
@@ -295,10 +295,13 @@ begin
   end else begin
     Memo_Left:=Memo_cmd.Width;
     Memo_Right:=Memo_out.Width;
+    if (FLandscape_portprotion<0.1) or (FLandscape_portprotion>0.9) then
+      Splitter_Vert.Left:=round(Width*0.4)
+    else
+      Splitter_Vert.Left:=round(Width * FLandscape_portprotion);
     Splitter_Horiz.Top:=0;
-    Splitter_Horiz.SendToBack;
-    L2:=(Memo_Left - CommonGap) div 2;
-    R3:=(Memo_Right - 2*CommonGap) div 3;
+    L2:=(Memo_Left - CommonGap) div 2 - 1;
+    R3:=(Memo_Right - 2*CommonGap) div 3 - 1;
     Button_Run.Width:=R3;
     Button_Stop.Width:=R3;
     Button_Pause.Width:=R3;
@@ -472,15 +475,18 @@ end;
 
 procedure TFrame_AufScript.Splitter_VertMoved(Sender: TObject);
 begin
+  FLandscape_portprotion := Splitter_Vert.Left / Width;
   FrameResize(Self);
 end;
 
 procedure TFrame_AufScript.SetPortrait(value:boolean);
 begin
+  if value=FPortrait then exit;
   FPortrait:=value;
   //Splitter_Vert.Visible:=not value;
   //Splitter_Horiz.Visible:=value;
   if value then begin
+    Self.FLandscape_portprotion:=Self.Splitter_Vert.Left / Self.Width;
     Memo_cmd.AnchorSideRight.Control:=Self;
     Memo_cmd.AnchorSideRight.Side:=asrRight;
     Memo_out.AnchorSideLeft.Control:=Self;
@@ -489,6 +495,10 @@ begin
     Memo_cmd.AnchorSideBottom.Side:=asrTop;
     Memo_out.AnchorSideTop.Control:=Splitter_Horiz;
     Memo_out.AnchorSideTop.Side:=asrBottom;
+    Self.Splitter_Vert.SendToBack;
+    Self.Splitter_Horiz.BringToFront;
+    Self.Splitter_Vert.Visible:=false;
+    Self.Splitter_Horiz.Visible:=true;
   end else begin
     Memo_cmd.AnchorSideRight.Control:=Splitter_Vert;
     Memo_cmd.AnchorSideRight.Side:=asrLeft;
@@ -498,8 +508,14 @@ begin
     Memo_cmd.AnchorSideBottom.Side:=asrTop;
     Memo_out.AnchorSideTop.Control:=Self;
     Memo_out.AnchorSideTop.Side:=asrTop;
+    Self.Splitter_Vert.Left:=round(Self.FLandscape_portprotion * Self.Width);
+    Self.Splitter_Vert.BringToFront;
+    Self.Splitter_Horiz.SendToBack;
+    Self.Splitter_Vert.Visible:=true;
+    Self.Splitter_Horiz.Visible:=false;
   end;
   FrameResize(Self);
+
 end;
 
 procedure TFrame_AufScript.HighLighterReNew;
@@ -542,6 +558,7 @@ begin
   Self.TrackBarHeight:=ARF_TrackBarHeight;
   Self.ButtonHeight:=ARF_ButtonHeight;
   Self.ProcessBarH:=ARF_ProcessBarH;
+  Self.FLandscape_portprotion:=0.4;
 
   //Self.SynAufSyn:=TSynAufSyn.Create(Self);
   Self.Memo_cmd.Highlighter:=Self.Auf.Script.SynAufSyn;
