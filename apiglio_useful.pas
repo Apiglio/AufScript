@@ -48,7 +48,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.5.2.2';
+  AufScript_Version='beta 2.5.2.3';
   {$if defined(cpu32)}
   AufScript_CPU='32bits';
   {$elseif defined(cpu64)}
@@ -1385,7 +1385,15 @@ begin
     AufScpt.send_error('警告：div_arv的第2个参数不能为0，语句未执行。');
     exit;
   end;
-  ARV_div(tmp1,tmp2);
+  if tmp1.VarType=ARV_Float then begin
+    case tmp1.size of
+      4:psingle(tmp1.Head)^:=arv_to_double(tmp1) / arv_to_double(tmp2);
+      8:pdouble(tmp1.Head)^:=arv_to_double(tmp1) / arv_to_double(tmp2);
+      else AufScpt.send_error('警告：暂不支持4位和8位以外的浮点型除法，语句未执行。');
+    end;
+  end else begin
+    ARV_div(tmp1,tmp2);
+  end;
 end;
 procedure div_(Sender:TObject);//这一段写的tm和屎一样。好多了。
 var a,b:double;
