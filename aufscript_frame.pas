@@ -12,7 +12,8 @@ uses
   Windows,
   {$endif}
   Classes, SysUtils, FileUtil, Forms, Controls, StdCtrls, Buttons, ComCtrls,
-  Dialogs, ExtCtrls, LazUTF8, SynEdit, Apiglio_Useful, SynHighlighterAuf;
+  Dialogs, ExtCtrls, LazUTF8, SynEdit, LResources, Graphics,
+  Apiglio_Useful, SynHighlighterAuf;
 
 const
   ARF_CommonGap      = 4;
@@ -27,11 +28,11 @@ type
   TNotifyStringEvent = procedure(sender:TObject;str:string) of Object;
   ptrFuncStr         = procedure(str:string) of Object;
   TFrame_AufScript   = class(TFrame)
-    Button_run: TButton;
-    Button_pause: TButton;
-    Button_stop: TButton;
-    Button_ScriptLoad: TButton;
-    Button_ScriptSave: TButton;
+    Button_pause: TBitBtn;
+    Button_run: TBitBtn;
+    Button_ScriptLoad: TBitBtn;
+    Button_ScriptSave: TBitBtn;
+    Button_stop: TBitBtn;
     Memo_cmd: TSynEdit;
     Memo_out: TMemo;
     OpenDialog: TOpenDialog;
@@ -49,6 +50,7 @@ type
     procedure Button_ScriptSaveMouseLeave(Sender: TObject);
     procedure Button_stopMouseEnter(Sender: TObject);
     procedure Button_stopMouseLeave(Sender: TObject);
+    procedure FrameResize(Sender: TObject);
     procedure InstantHelper(str:string);inline;
     procedure Button_runMouseEnter(Sender: TObject);
     procedure Button_runMouseLeave(Sender: TObject);
@@ -91,13 +93,21 @@ type
     //SynAufSyn:TSynAufSyn;
     property Portrait:boolean read FPortrait write SetPortrait;
   public
-    procedure FrameResize(Sender: TObject);
     procedure AufGenerator;
     procedure HighLighterReNew;
   end;
 
 implementation
 {$R *.lfm}
+{$R icons.rc}
+
+procedure SetResourceBitmapToButton(AButton:TBitbtn;AResName:string;create_new:boolean=false);
+begin
+  if create_new then AButton.Glyph:=TBitmap.Create;
+  AButton.Glyph.LoadFromResourceName(HINSTANCE,AResName);
+  AButton.Glyph.Transparent:=true;
+  AButton.Glyph.TransparentMode:=tmAuto;
+end;
 
 { default GUI Func }
 procedure frm_command_decoder(var str:string);
@@ -150,7 +160,8 @@ begin
   Frame.Button_stop.Enabled:=false;
   Frame.Button_pause.Enabled:=false;
   Frame.Memo_cmd.ReadOnly:=false;
-  Frame.Button_pause.Caption:='暂停';
+  //Frame.Button_pause.Caption:='暂停';
+  SetResourceBitmapToButton(Frame.Button_pause,'BUTTON_PAUSE');
   Application.ProcessMessages;
   if Frame.FOnRunEnding<>nil then Frame.FOnRunEnding(Frame);
 end;
@@ -158,14 +169,16 @@ procedure frm_renew_onPause(Sender:TObject);
 var Frame:TFrame_AufScript;
 begin
   Frame:=(Sender as TAufScript).Owner as TFrame_AufScript;
-  Frame.Button_pause.Caption:='继续';
+  //Frame.Button_pause.Caption:='继续';
+  SetResourceBitmapToButton(Frame.Button_pause,'BUTTON_RESUME');
   Application.ProcessMessages;
 end;
 procedure frm_renew_onResume(Sender:TObject);
 var Frame:TFrame_AufScript;
 begin
   Frame:=(Sender as TAufScript).Owner as TFrame_AufScript;
-  Frame.Button_pause.Caption:='暂停';
+  //Frame.Button_pause.Caption:='暂停';
+  SetResourceBitmapToButton(Frame.Button_pause,'BUTTON_PAUSE');
   Application.ProcessMessages;
 end;
 procedure frm_renew_writeln(Sender:TObject;str:string);
@@ -276,22 +289,16 @@ begin
   end;
 end;
 
-
 { TFrame_AufScript }
 
 procedure TFrame_AufScript.FrameResize(Sender: TObject);
 var Memo_Left,Memo_Right:word;
-    L2,R3,T5:word;
+    T5:word;
 begin
   if FPortrait then begin
     T5:=(Width-6*CommonGap) div 5 - 1;
     Splitter_Vert.Left:=2*(T5+CommonGap) + CommonGap;
     Splitter_Horiz.Top:=Height * 2 div 3;
-    Button_Run.Width:=T5;
-    Button_Stop.Width:=T5;
-    Button_Pause.Width:=T5;
-    Button_ScriptLoad.Width:=T5;
-    Button_ScriptSave.Width:=T5;
   end else begin
     Memo_Left:=Memo_cmd.Width;
     Memo_Right:=Memo_out.Width;
@@ -300,13 +307,6 @@ begin
     else
       Splitter_Vert.Left:=round(Width * FLandscape_portprotion);
     Splitter_Horiz.Top:=0;
-    L2:=(Memo_Left - CommonGap) div 2 - 1;
-    R3:=(Memo_Right - 2*CommonGap) div 3 - 1;
-    Button_Run.Width:=R3;
-    Button_Stop.Width:=R3;
-    Button_Pause.Width:=R3;
-    Button_ScriptLoad.Width:=L2;
-    Button_ScriptSave.Width:=L2;
   end;
 end;
 
@@ -377,21 +377,17 @@ begin
 end;
 
 procedure TFrame_AufScript.Button_pauseClick(Sender: TObject);
-var btn:TButton;
+var btn:TBitBtn;
 begin
-  btn:=Sender as TButton;
-  if btn.Caption='暂停' then begin
-    Self.Auf.Script.Pause;
-  end else begin
-    Self.Auf.Script.Resume;
-  end;
+  btn:=Sender as TBitBtn;
+  if Self.Auf.Script.PSW.pause then Self.Auf.Script.Resume else Self.Auf.Script.Pause;
 end;
 
 procedure TFrame_AufScript.Button_pauseMouseEnter(Sender: TObject);
-var Butt:TButton;
+var Butt:TBitBtn;
 begin
-  Butt:=Sender as TButton;
-  if butt.Caption='暂停' then InstantHelper('单击以暂停正在执行的脚本。')
+  Butt:=Sender as TBitBtn;
+  if not Self.Auf.Script.PSW.pause then InstantHelper('单击以暂停正在执行的脚本。')
   else InstantHelper('单击以恢复已暂停的脚本运行。');
 end;
 
@@ -503,7 +499,7 @@ begin
     Memo_cmd.AnchorSideRight.Control:=Splitter_Vert;
     Memo_cmd.AnchorSideRight.Side:=asrLeft;
     Memo_out.AnchorSideLeft.Control:=Splitter_Vert;
-    Memo_out.AnchorSideLeft.Side:=asrLeft;
+    Memo_out.AnchorSideLeft.Side:=asrRight;
     Memo_cmd.AnchorSideBottom.Control:=Button_ScriptLoad;
     Memo_cmd.AnchorSideBottom.Side:=asrTop;
     Memo_out.AnchorSideTop.Control:=Self;
@@ -562,6 +558,12 @@ begin
 
   //Self.SynAufSyn:=TSynAufSyn.Create(Self);
   Self.Memo_cmd.Highlighter:=Self.Auf.Script.SynAufSyn;
+
+  SetResourceBitmapToButton(Self.Button_pause, 'BUTTON_PAUSE');
+  SetResourceBitmapToButton(Self.Button_run, 'BUTTON_START');
+  SetResourceBitmapToButton(Self.Button_stop, 'BUTTON_STOP');
+  SetResourceBitmapToButton(Self.Button_ScriptLoad, 'BUTTON_LOAD');
+  SetResourceBitmapToButton(Self.Button_ScriptSave, 'BUTTON_SAVE');
 
   Button_Stop.Enabled:=false;
   Button_Pause.Enabled:=false;

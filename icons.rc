@@ -1,0 +1,8 @@
+BUTTON_START    BITMAP   "resource/icon/button_start.bmp"
+BUTTON_STOP     BITMAP   "resource/icon/button_stop.bmp"
+BUTTON_PAUSE    BITMAP   "resource/icon/button_pause.bmp"
+BUTTON_RESUME   BITMAP   "resource/icon/button_resume.bmp"
+BUTTON_LOAD     BITMAP   "resource/icon/button_load.bmp"
+BUTTON_SAVE     BITMAP   "resource/icon/button_save.bmp"
+
+
