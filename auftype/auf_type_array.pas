@@ -5,7 +5,7 @@ unit auf_type_array;
 interface
 
 uses
-  Classes, SysUtils, auf_type_base;
+  Classes, SysUtils, auf_type_base, auf_ram_var;
 
 type
 
@@ -13,6 +13,8 @@ type
 
   end;
 
+  PAufBaseBoolFunc = function(item:TAufBase):boolean;
+  PAufBaseBaseFunc = function(item:TAufBase):TAufBase;
   TAufArray = class(TAufBase)
   private
     FArray:array of TAufBase;
@@ -23,7 +25,10 @@ type
     procedure SetItem(Index:Integer;element:TAufBase);
   public
     procedure Insert(index:Integer;element:TAufBase); //在第index个元素前插入element
+    procedure Append(element:TAufBase);               //在数组末尾追加element
     function Delete(index:Integer):TAufBase;          //删除第index个元素，并返回删除的元素
+    procedure Delete(key:PAufBaseBoolFunc);           //根据key的返回结果批量删除元素
+    procedure Replace(key:PAufBaseBaseFunc);          //根据key的返回结果批量替换元素
     function Find(element:TAufBase):Integer;          //查找element，并返回所在位置下标，找不到则返回元素总数
     function Count:Integer;                           //返回元素个数
     property Items[Index:Integer]:TAufBase read GetItem write SetItem; default;
@@ -33,6 +38,9 @@ type
     procedure Shuffle;                                //洗牌：随机打乱数组顺序
     procedure Clear;                                  //清空：清除所有元素
 
+  public
+    procedure Assign(ASource:TAufBase);override;
+    function Copy:TAufBase;override;
   public
     constructor Create;                               //创建不定长数组
     destructor Destroy; override;                     //释放不定长数组
@@ -90,6 +98,15 @@ begin
   FArray[index].Assign(element);
 end;
 
+procedure TAufArray.Append(element:TAufBase);
+var len:Integer;
+begin
+  len:=Length(FArray);
+  SetLength(FArray,len+1);
+  FArray[len]:=TAufBase.Create;
+  FArray[len].Assign(element);
+end;
+
 function TAufArray.Delete(index:Integer):TAufBase;
 var len,pi:Integer;
 begin
@@ -102,6 +119,64 @@ begin
     FArray[pi]:=FArray[pi+1];
   end;
   SetLength(FArray,len-1);
+end;
+
+procedure TAufArray.Delete(key:PAufBaseBoolFunc);
+var len,idx,ofs:Integer;
+begin
+  ofs:=0;
+  idx:=0;
+  len:=Length(FArray);
+  while idx+ofs<len do begin
+    FArray[idx]:=FArray[idx+ofs];
+    if key(FArray[idx]) then begin
+      FArray[idx].Free;
+      inc(ofs);
+    end else begin
+      inc(idx);
+    end;
+  end;
+  if ofs>0 then SetLength(FArray,len-ofs);
+end;
+
+procedure TAufArray.Replace(key:PAufBaseBaseFunc);
+var len,idx:Integer;
+    tmpElement:TAufBase;
+begin
+  idx:=0;
+  len:=Length(FArray);
+  for idx:=0 to len-1 do begin
+    tmpElement:=key(FArray[idx]);
+    if tmpElement<>nil then begin
+      FArray[idx].Free;
+      FArray[idx]:=tmpElement;
+    end;
+  end;
+end;
+
+procedure TAufArray.Assign(ASource:TAufBase);
+var len,idx:Integer;
+    SourceElement:TAufBase;
+begin
+  if not (ASource is TAufArray) then TAufArrayError.Create('AufArray must assigned by another AufArray.');
+  len:=(ASource as TAufArray).Count;
+  SetLength(FArray, len);
+  for idx:=0 to len-1 do begin
+    SourceElement:=(ASource as TAufArray).Items[idx];
+    if SourceElement.ARV.VarType=ARV_Raw then begin
+      //非基本类型传指针
+      FArray[idx]:=(ASource as TAufArray).Items[idx];
+    end else begin
+      //基本类型复制
+      FArray[idx]:=(ASource as TAufArray).Items[idx].Copy;
+    end;
+  end;
+end;
+
+function TAufArray.Copy:TAufBase;
+begin
+  result:=TAufArray.Create;
+  (result as TAufArray).Assign(Self);
 end;
 
 function TAufArray.Find(element:TAufBase):Integer;
@@ -149,10 +224,19 @@ begin
 end;
 
 procedure TAufArray.Clear;
-var len,pi:Integer;
+var len,idx:Integer;
+    elem:TAufBase;
 begin
   len:=Length(FArray);
-  for pi:=1 to len-1 do FArray[pi].Free;
+  for idx:=1 to len-1 do begin
+    elem:=FArray[idx];
+    if elem.ARV.VarType=ARV_Raw then begin
+      //非基本类型不析构
+    end else begin
+      //基本类型析构
+      elem.Free;
+    end;
+  end;
   SetLength(FArray,0);
 end;
 

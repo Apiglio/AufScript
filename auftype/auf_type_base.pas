@@ -19,8 +19,9 @@ type
   public
     property ARV:TAufRamVar read FARV;
   public
-    procedure Assign(ASource:TAufBase);
-    function Equal(ACompare:TAufBase):boolean;
+    procedure Assign(ASource:TAufBase);virtual;
+    function Equal(ACompare:TAufBase):boolean;virtual;
+    function Copy:TAufBase;virtual;
   public
     constructor Create;
     constructor CreateAsARV(value:TAufRamVar);
@@ -119,8 +120,7 @@ begin
     VarType:=ARV_FixNum;
     Is_Temporary:=false;
     GetMem(Head,size);
-    if value=0 then FillByte(head,size,0)
-    else dword_to_arv(value,FARV);
+    dword_to_arv(value,FARV);
   end;
 end;
 
@@ -132,8 +132,7 @@ begin
     VarType:=ARV_Float;
     Is_Temporary:=false;
     GetMem(Head,size);
-    if value=0 then FillByte(head,size,0)
-    else double_to_arv(value,FARV);
+    double_to_arv(value,FARV);
   end;
 end;
 
@@ -177,6 +176,12 @@ begin
   result:=ARV_comp(FARV,ACompare.FARV)=0;
 end;
 
+function TAufBase.Copy:TAufBase;
+begin
+  result:=TAufBase.Create;
+  result.Assign(Self);
+end;
+
 function TAufBase.GetLargeInt:int64;
 begin
   case FARV.VarType of
@@ -197,7 +202,7 @@ function TAufBase.GetInteger:integer;
 begin
   case FARV.VarType of
     ARV_FixNum:result:=arv_to_dword(FARV);
-    else raise TAufBaseError.Create('TAufBase.GetLargeInt: FARV.VarType <> ARV_FixNum.');
+    else raise TAufBaseError.Create('TAufBase.GetInteger: FARV.VarType <> ARV_FixNum.');
   end;
 end;
 
@@ -205,7 +210,7 @@ procedure TAufBase.SetInteger(value:integer);
 begin
   case FARV.VarType of
     ARV_FixNum:dword_to_arv(value,FARV);
-    else raise TAufBaseError.Create('TAufBase.GetLargeInt: FARV.VarType <> ARV_FixNum.');
+    else raise TAufBaseError.Create('TAufBase.GetInteger: FARV.VarType <> ARV_FixNum.');
   end;
 end;
 
@@ -213,7 +218,7 @@ function TAufBase.GetFloat:double;
 begin
   case FARV.VarType of
     ARV_Float:result:=arv_to_double(FARV);
-    else raise TAufBaseError.Create('TAufBase.GetLargeInt: FARV.VarType <> ARV_Float.');
+    else raise TAufBaseError.Create('TAufBase.GetFloat: FARV.VarType <> ARV_Float.');
   end;
 end;
 
@@ -221,7 +226,7 @@ procedure TAufBase.SetFloat(value:double);
 begin
   case FARV.VarType of
     ARV_Float:double_to_arv(value,FARV);
-    else raise TAufBaseError.Create('TAufBase.GetLargeInt: FARV.VarType <> ARV_Float.');
+    else raise TAufBaseError.Create('TAufBase.GetFloat: FARV.VarType <> ARV_Float.');
   end;
 end;
 
@@ -229,7 +234,7 @@ function TAufBase.GetString:string;
 begin
   case FARV.VarType of
     ARV_Char:result:=arv_to_s(FARV);
-    else raise TAufBaseError.Create('TAufBase.GetLargeInt: FARV.VarType <> ARV_Char.');
+    else raise TAufBaseError.Create('TAufBase.GetString: FARV.VarType <> ARV_Char.');
   end;
 end;
 
@@ -237,7 +242,7 @@ procedure TAufBase.SetString(value:string);
 begin
   case FARV.VarType of
     ARV_Char:initiate_arv_str(value,FARV);
-    else raise TAufBaseError.Create('TAufBase.GetLargeInt: FARV.VarType <> ARV_Char.');
+    else raise TAufBaseError.Create('TAufBase.GetString: FARV.VarType <> ARV_Char.');
   end;
 end;
 

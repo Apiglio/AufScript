@@ -65,6 +65,7 @@ type
     procedure Memo_outMouseLeave(Sender: TObject);
     procedure ProgressBarMouseEnter(Sender: TObject);
     procedure ProgressBarMouseLeave(Sender: TObject);
+    procedure Splitter_HorizMoved(Sender: TObject);
     procedure Splitter_VertMoved(Sender: TObject);
   protected
     FOnChangeTitle:TNotifyStringEvent;
@@ -86,7 +87,8 @@ type
     ButtonHeight:word;
     ProcessBarH:word;
     FPortrait:boolean;//是否为竖屏
-    FLandscape_portprotion:single;//调整成竖屏之前VertSpliter的位置；
+    FLandscape_portprotion:single;//调整成竖屏之前VertSpliter的位置
+    FPortrait_portprotion:single;//调整成横屏之前HorizSpliter的位置
   public
     Auf:TAuf;
     //onHelper:ptrFuncStr;
@@ -226,6 +228,8 @@ procedure FRM_FUNC_SETTING(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
     AFrame:TFrame_AufScript;
+    s1,s2,s3:string;
+    ltmp:LongInt;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
@@ -235,55 +239,69 @@ begin
       exit
     end
   else AFrame:=AufScpt.Owner as TFrame_AufScript;
-  if AAuf.ArgsCount<3 then
-    begin
-      AufScpt.send_error('命令行设置需要至少两个参数，未成功设置！');
-      exit
-    end;
 
-  case lowercase(AAuf.args[1]) of
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToString(1,s1) then exit;
+  case lowercase(s1) of
     'procbar':
-      begin
-        if AAuf.ArgsCount<4 then
+    begin
+      if not AAuf.CheckArgs(4) then exit;
+      if not AAuf.TryArgToStrParam(2,['mode','pos','max'],false,s2) then exit;
+      try
+        case lowercase(s2) of
+          'mode':
           begin
-            AufScpt.send_error('ProcBar需要三个参数，未成功设置！');
-            exit
-          end;
-        try
-          case lowercase(AAuf.args[2]) of
-            'mode':
+            if not AAuf.TryArgToStrParam(3,['auto','manual'],false,s3) then exit;
+            case lowercase(s3) of
+              'auto':
               begin
-                case lowercase(AAuf.args[3]) of
-                  'auto':begin AFrame.ProgressBarEnabled:=true;AufScpt.writeln('进度条显示与代码位置绑定。');end;
-                  'manual':begin AFrame.ProgressBarEnabled:=false;AufScpt.writeln('进度条显示与代码位置解绑。');end;
-                  else AufScpt.writeln('ProcBar Mode之后需要使用auto或manual进行设置。');
-                end;
-              end;
-            'pos':
-              begin
-                AFrame.ProgressBar.Position:=AufScpt.TryToDWord(AAuf.nargs[3]);
-              end;
-            'max':
-              begin
-                AFrame.ProgressBar.Max:=AufScpt.TryToDWord(AAuf.nargs[3]);
+                AFrame.ProgressBarEnabled:=true;
+                AFrame.ProgressBar.Max:=AufScpt.PSW.run_parameter.current_strings.Count;
                 AFrame.ProgressBarMaxString:=IntToStr(AFrame.ProgressBar.Max);
+                AufScpt.writeln('进度条显示与代码位置绑定。');
               end;
-            else AufScpt.writeln('ProcBar之后需要使用mode, pos或max进行设置。');
+              'manual':
+              begin
+                AFrame.ProgressBarEnabled:=false;
+                AufScpt.writeln('进度条显示与代码位置解绑。');
+              end;
+            end;
           end;
-        finally
-          AFrame.ProgressBar.Hint:=IntToStr(AFrame.ProgressBar.Position)+'/'+AFrame.ProgressBarMaxString;
+          'pos':
+          begin
+            if not AAuf.TryArgToLong(3,ltmp) then exit;
+            AFrame.ProgressBar.Position:=ltmp;
+          end;
+          'max':
+          begin
+            if not AAuf.TryArgToLong(3,ltmp) then exit;
+            AFrame.ProgressBar.Max:=ltmp;
+            AFrame.ProgressBarMaxString:=IntToStr(ltmp);
+          end;
+          else AufScpt.writeln('ProcBar之后需要使用mode, pos或max进行设置。');
         end;
+      finally
+        AFrame.ProgressBar.Hint:=IntToStr(AFrame.ProgressBar.Position)+'/'+AFrame.ProgressBarMaxString;
       end;
+    end;
     'wrap':
-      begin
-        case lowercase(AAuf.args[2]) of
-          'on':begin AFrame.Memo_out.WordWrap:=true;AufScpt.writeln('输出窗口自动换行开启。');end;
-          'off':begin AFrame.Memo_out.WordWrap:=false;AufScpt.writeln('输出窗口自动换行关闭。');end;
-          else AufScpt.writeln('Wrap之后需要使用on或off进行设置。');
+    begin
+      if not AAuf.TryArgToStrParam(2,['on','off'],false,s2) then exit;
+      case lowercase(s2) of
+        'on':
+        begin
+          AFrame.Memo_out.WordWrap:=true;
+          AufScpt.writeln('输出窗口自动换行开启。');
         end;
+        'off':
+        begin
+          AFrame.Memo_out.WordWrap:=false;
+          AufScpt.writeln('输出窗口自动换行关闭。');
+        end;
+        else AufScpt.writeln('Wrap之后需要使用on或off进行设置。');
       end;
+    end;
     else begin
-      //AufScpt.send_error('未知的命令行设置项，未成功设置！')
       if AufScpt.Func_process.Setting<>nil then AufScpt.Func_process.Setting(AufScpt);
     end;
   end;
@@ -292,16 +310,14 @@ end;
 { TFrame_AufScript }
 
 procedure TFrame_AufScript.FrameResize(Sender: TObject);
-var Memo_Left,Memo_Right:word;
-    T5:word;
 begin
   if FPortrait then begin
-    T5:=(Width-6*CommonGap) div 5 - 1;
-    Splitter_Vert.Left:=2*(T5+CommonGap) + CommonGap;
-    Splitter_Horiz.Top:=Height * 2 div 3;
+    if (FPortrait_portprotion<0.1) or (FPortrait_portprotion>0.9) then
+      Splitter_Horiz.Top:=round(Height*0.7)
+    else
+      Splitter_Horiz.Top:=round(Height * FPortrait_portprotion);
+    Splitter_Vert.Left:=0;
   end else begin
-    Memo_Left:=Memo_cmd.Width;
-    Memo_Right:=Memo_out.Width;
     if (FLandscape_portprotion<0.1) or (FLandscape_portprotion>0.9) then
       Splitter_Vert.Left:=round(Width*0.4)
     else
@@ -321,7 +337,6 @@ begin
       Memo_cmd.Lines.LoadFromFile(OpenDialog.FileName);
       if FOnChangeTitle<>nil then FOnChangeTitle(Self,ExtractFilename(OpenDialog.FileName));
     except
-      //MessageBox(0,Usf.ExPChar(utf8towincp('载入文件失败')),'Error',MB_OK);
       ShowMessage('载入文件失败');
     end;
 end;
@@ -412,7 +427,6 @@ begin
       Memo_cmd.Lines.SaveToFile(SaveDialog.FileName);
       if FOnChangeTitle<>nil then FOnChangeTitle(Self,ExtractFilename(SaveDialog.FileName));
     except
-      //MessageBox(0,Usf.ExPChar(utf8towincp('保存文件失败')),'Error',MB_OK);
       ShowMessage('保存文件失败');
     end;
 end;
@@ -420,7 +434,6 @@ end;
 procedure TFrame_AufScript.Memo_cmdKeyUp(Sender: TObject; var Key: Word;
   Shift: TShiftState);
 begin
-  //if (Key<>120) or (Shift<>[]) then exit;
   if Shift=[] then
     begin
       case Key of
@@ -469,6 +482,12 @@ begin
   InstantHelper('');
 end;
 
+procedure TFrame_AufScript.Splitter_HorizMoved(Sender: TObject);
+begin
+  FPortrait_portprotion := Splitter_Horiz.Top / Height;
+  FrameResize(Self);
+end;
+
 procedure TFrame_AufScript.Splitter_VertMoved(Sender: TObject);
 begin
   FLandscape_portprotion := Splitter_Vert.Left / Width;
@@ -479,8 +498,6 @@ procedure TFrame_AufScript.SetPortrait(value:boolean);
 begin
   if value=FPortrait then exit;
   FPortrait:=value;
-  //Splitter_Vert.Visible:=not value;
-  //Splitter_Horiz.Visible:=value;
   if value then begin
     Self.FLandscape_portprotion:=Self.Splitter_Vert.Left / Self.Width;
     Memo_cmd.AnchorSideRight.Control:=Self;
@@ -491,11 +508,13 @@ begin
     Memo_cmd.AnchorSideBottom.Side:=asrTop;
     Memo_out.AnchorSideTop.Control:=Splitter_Horiz;
     Memo_out.AnchorSideTop.Side:=asrBottom;
+    Self.Splitter_Horiz.Top:=round(Self.FPortrait_portprotion * Self.Height);
     Self.Splitter_Vert.SendToBack;
     Self.Splitter_Horiz.BringToFront;
     Self.Splitter_Vert.Visible:=false;
     Self.Splitter_Horiz.Visible:=true;
   end else begin
+    Self.FPortrait_portprotion:=Self.Splitter_Horiz.Top / Self.Height;
     Memo_cmd.AnchorSideRight.Control:=Splitter_Vert;
     Memo_cmd.AnchorSideRight.Side:=asrLeft;
     Memo_out.AnchorSideLeft.Control:=Splitter_Vert;
@@ -555,6 +574,7 @@ begin
   Self.ButtonHeight:=ARF_ButtonHeight;
   Self.ProcessBarH:=ARF_ProcessBarH;
   Self.FLandscape_portprotion:=0.4;
+  Self.FPortrait_portprotion:=0.7;
 
   //Self.SynAufSyn:=TSynAufSyn.Create(Self);
   Self.Memo_cmd.Highlighter:=Self.Auf.Script.SynAufSyn;

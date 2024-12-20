@@ -592,6 +592,7 @@ object Frame_AufScript: TFrame_AufScript
     Width = 392
     Align = alNone
     Anchors = [akTop, akLeft, akRight]
+    OnMoved = Splitter_HorizMoved
     ResizeAnchor = akTop
     ResizeStyle = rsLine
   end

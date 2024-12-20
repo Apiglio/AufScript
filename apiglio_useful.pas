@@ -48,7 +48,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.5.2.4';
+  AufScript_Version='beta 2.5.3';
   {$if defined(cpu32)}
   AufScript_CPU='32bits';
   {$elseif defined(cpu64)}
@@ -95,7 +95,6 @@ type
     private
       str_buffer:string;//ExPChar使用的全局变量
     published
-      function ExPChar(str:string):Pchar;deprecated 'APIGLIO: Only used in Ucrawler and can be exactly replaced by pchar()';
       function zeroplus(num:word;bit:byte):ansistring;inline;
       function blankplus(len:byte):ansistring;inline;
       function fullblankplus(len:byte):ansistring;inline;
@@ -263,38 +262,36 @@ type
     public
       PSW:record
         stack:array[0..stack_range-1]of record
-          line:dword;
-          //当前行数，在读指令阶段是当前指令，指令结束阶段就是下一个要读的行
+          line:dword;           //当前行数，在读指令阶段是当前指令，指令结束阶段就是下一个要读的行
           script:TStrings;
           scriptname:string;
         end;
-        stack_ptr:byte;
-        //PSW.stack[stack_ptr].line就是next_line,就是属性中的CurrentLine
+        stack_ptr:byte;         //PSW.stack[stack_ptr].line就是next_line,就是属性中的CurrentLine
 
         haltoff,pause:boolean;
-        inRunNext:boolean;//仅在SynMoTimer模式下使用，表示是否正在执行RunNext
+        inRunNext:boolean;      //仅在SynMoTimer模式下使用，表示是否正在执行RunNext
         run_parameter:record
-          current_line_number:word;//当前行号
-          next_line_number:word;//下一行
-          prev_line_number:word;//上一行
-          current_strings:TStrings;//当前代码所在TStrings
-          ram_zero:pbyte;//内存零点
-          ram_size:pRam;//内存大小
-          error_raise:boolean;//报错是否直接退出
-          time_consuming:array of double;//记录每一行的累计时间开销
+          current_line_number:word; //当前行号
+          next_line_number:word;    //下一行
+          prev_line_number:word;    //上一行
+          current_strings:TStrings; //当前代码所在TStrings
+          ram_zero:pbyte;           //内存零点
+          ram_size:pRam;            //内存大小
+          error_raise:boolean;      //报错是否直接退出
+          time_consuming:array of double;  //记录每一行的累计时间开销
         end;
         calc:record
-          YC:boolean;//位溢出标识
+          YC:boolean;               //位溢出标识
         end;
         extra_variable:record
-          timer:longint;//用于Time模块的settimer和gettimer
+          timer:longint;            //用于Time模块的settimer和gettimer
         end;
         print_mode:record
           target_file:string;
           is_screen:boolean;
           str_list:TStringList;
-          resume_when_run_close:boolean;//对于AufScptFrame来说为true其余为false
-        end;//输出方式，默认为屏幕。使用os/of切换，of后可以跟文件名。切换os时保存至文件
+          resume_when_run_close:boolean;   //对于AufScptFrame来说为true其余为false
+        end;                               //输出方式，默认为屏幕。使用os/of切换，of后可以跟文件名。切换os时保存至文件
       end;
       Func:array[0..func_range-1]of record
         name:ansistring;
@@ -306,19 +303,19 @@ type
         Local,Global:TAufExpressionList;
       end;
       IO_fptr:record
-        echo:pFuncAufStr;//相当于writeln(nil,str:string);
-        print:pFuncAufStr;//相当于write(nil,str:string);
-        error:pFuncAufStr;//相当于writeln(nil,str:string);
-        pause:pFuncAuf;//相当于readln;
-        clear:pFuncAuf;//清屏
-        command_decode:pFuncVarStr;//在GUI模式中使用utf8编码时需要设置转码函数
+        echo:pFuncAufStr;                  //相当于writeln(nil,str:string);
+        print:pFuncAufStr;                 //相当于write(nil,str:string);
+        error:pFuncAufStr;                 //相当于writeln(nil,str:string);
+        pause:pFuncAuf;                    //相当于readln;
+        clear:pFuncAuf;                    //清屏
+        command_decode:pFuncVarStr;        //在GUI模式中使用utf8编码时需要设置转码函数
       end;
       Func_process:record
-        pre,post,mid:pFuncAuf;//执行单条指令前后的额外过程和中途防假死预留
-        beginning,ending:pFuncAuf;//执行整段代码前后的额外过程
-        OnPause,OnResume:pFuncAuf;//暂停和继续时的额外过程
-        OnRaise:pFuncAuf;//在error_raise=true时报错退出前执行
-        Setting:pFuncAuf;//用于set语句的继承，set的定义分别在frame和command中
+        pre,post,mid:pFuncAuf;             //执行单条指令前后的额外过程和中途防假死预留
+        beginning,ending:pFuncAuf;         //执行整段代码前后的额外过程
+        OnPause,OnResume:pFuncAuf;         //暂停和继续时的额外过程
+        OnRaise:pFuncAuf;                  //在error_raise=true时报错退出前执行
+        Setting:pFuncAuf;                  //用于set语句的继承，set的定义分别在frame和command中
       end;
 
       FSVOKernel:TAufKernel;
@@ -339,15 +336,13 @@ type
       function RamVar(arg:Tnargs):TAufRamVar;//将标准变量形式转化成ARV
       function RamVarToNargs(arv:TAufRamVar;not_offset:boolean=false):Tnargs;
       function RamVarClipToNargs(arv:TAufRamVar;idx,len:pRam;not_offset:boolean=false):Tnargs;
-      //function to_double(Iden,Index:string):double;deprecated;//将nargs[].pre和nargs[].arg表示的变量转换成double类型
-      //function to_string(Iden,Index:string):string;deprecated;//将nargs[].pre和nargs[].arg表示的变量转换成string类型
 
-    published
+    protected
       //将Tnargs参数转换成需要的格式，不符合要求的情况下raise，使用时需要解决异常。
-      function TryToDouble(arg:Tnargs):double; deprecated 'Use Auf.TryArgToDouble out of AufScript project.';
-      function TryToDWord(arg:Tnargs):dword;   deprecated 'Use Auf.TryArgToDWord out of AufScript project.';
-      function TryToLong(arg:Tnargs):longint;  deprecated 'Use Auf.TryArgToLong out of AufScript project.';
-      function TryToString(arg:Tnargs):string; deprecated 'Use Auf.TryArgToString out of AufScript project.';
+      function TryToDouble(arg:Tnargs):double;
+      function TryToDWord(arg:Tnargs):dword;
+      function TryToLong(arg:Tnargs):longint;
+      function TryToString(arg:Tnargs):string;
 
       function SharpToDouble(sharp:Tnargs):double;
       function SharpToDword(sharp:Tnargs):dword;
@@ -3814,11 +3809,6 @@ begin
 end;
 
 //Usf Methods
-function TUsf.ExPChar(str:string):Pchar;//string转PChar的新方法
-begin
-  str_buffer:=str+#0;
-  result:=@str_buffer[1];
-end;
 function TUsf.zeroplus(num:word;bit:byte):ansistring;inline;//将数字转成bit位字符串，前补零
 var tmp:ansistring;
 begin
@@ -5374,22 +5364,22 @@ begin
     end;
   Self.Owner:=AOwner;
 
-  IO_fptr.echo:=@de_writeln;//默认的输出函数
-  IO_fptr.print:=@de_write;//默认的不换行输出函数
-  IO_fptr.error:=@de_writeln;//默认的错误报告函数
-  IO_fptr.pause:=@de_readln;//默认的确认函数
-  IO_fptr.clear:=@de_clearscreen;//默认的清屏函数
-  IO_fptr.command_decode:=@de_decoder;//默认的转码函数
+  IO_fptr.echo           := @de_writeln;     //默认的输出函数
+  IO_fptr.print          := @de_write;       //默认的不换行输出函数
+  IO_fptr.error          := @de_writeln;     //默认的错误报告函数
+  IO_fptr.pause          := @de_readln;      //默认的确认函数
+  IO_fptr.clear          := @de_clearscreen; //默认的清屏函数
+  IO_fptr.command_decode := @de_decoder;     //默认的转码函数
 
-  Func_process.pre:=nil{@de_nil};//默认的前驱过程
-  Func_process.post:=nil{@de_nil};//默认的后驱过程
-  Func_process.mid:=nil{@de_nil};//默认的防假死过程
-  Func_process.beginning:=nil{@de_nil};//默认的开始过程
-  Func_process.ending:=nil{@de_nil};//默认的结束过程
-  Func_process.OnPause:=nil{@de_nil};//默认的挂起过程
-  Func_process.OnResume:=nil{@de_nil};//默认的恢复过程
-  Func_process.OnRaise:=nil{@de_nil};//默认的报错退出过程
-  Func_process.Setting:=nil{@de_nil};//默认的set语句
+  Func_process.pre       := nil;             //默认的前驱过程
+  Func_process.post      := nil;             //默认的后驱过程
+  Func_process.mid       := nil;             //默认的防假死过程
+  Func_process.beginning := nil;             //默认的开始过程
+  Func_process.ending    := nil;             //默认的结束过程
+  Func_process.OnPause   := nil;             //默认的挂起过程
+  Func_process.OnResume  := nil;             //默认的恢复过程
+  Func_process.OnRaise   := nil;             //默认的报错退出过程
+  Func_process.Setting   := nil;             //默认的set语句
 
 
   var_stream:=TMemoryStream.Create;
@@ -5401,7 +5391,7 @@ begin
   PSW.run_parameter.ram_zero:=var_stream.Memory;
   PSW.run_parameter.ram_size:=RAM_RANGE*256;
   PSW.run_parameter.error_raise:=false;
-  PSW.haltoff:=true;//20210106
+  PSW.haltoff:=true;
   PSW.print_mode.resume_when_run_close:=false;
   PSW.print_mode.is_screen:=true;
 
@@ -5424,74 +5414,74 @@ end;
 
 procedure TAufScript.InternalFuncDefine;
 begin
-  Self.add_func('version',@_version,'','显示解释器版本号');
-  Self.add_func('help',@_helper,'','显示帮助');
-  Self.add_func('deflist',@_define_helper,'','显示定义列表');
-  Self.add_func('ramex',@ramex,'-option/arv,filename','将内存导出到ram.var');
-  Self.add_func('ramim',@ramim,'filename [,var [,-f]]','从文件中载入数据到内存');
-  Self.add_func('tmcsm',@time_consuming_log,'','耗时分析报告（需跟随代码执行，单独执行无效）');
-  Self.add_func('sleep',@_sleep,'n','等待n毫秒');
-  Self.add_func('pause',@_pause,'','暂停');
-  Self.add_func('beep',@_beep,'freq,dura','以freq的频率蜂鸣dura毫秒');
-  Self.add_func('cmd,shell',@_cmd,'command','调用命令提示行');
+  Self.add_func('version',   @_version,   '',               '显示解释器版本号');
+  Self.add_func('help',      @_helper,    '',               '显示帮助');
+  Self.add_func('deflist',   @_define_helper,       '',     '显示定义列表');
+  Self.add_func('ramex',     @ramex,      '-option/arv,filename',     '将内存导出到ram.var');
+  Self.add_func('ramim',     @ramim,      'filename [,var [,-f]]',    '从文件中载入数据到内存');
+  Self.add_func('tmcsm',     @time_consuming_log,   '',     '耗时分析报告（需跟随代码执行，单独执行无效）');
+  Self.add_func('sleep',     @_sleep,     'n',              '等待n毫秒');
+  Self.add_func('pause',     @_pause,     '',               '暂停');
+  Self.add_func('beep',      @_beep,      'freq,dura',      '以freq的频率蜂鸣dura毫秒');
+  Self.add_func('cmd,shell', @_cmd,       'command',        '调用命令提示行');
 
-  Self.add_func('hex,hexln',@hex,'var','输出标准变量形式的十六进制,后加"ln"则换行');
-  Self.add_func('print,println',@print,'var','输出变量var,后加"ln"则换行');
-  Self.add_func('echo,echoln',@echo,'expr','解析表达式,后加"ln"则换行');
-  Self.add_func('cwln',@cwln,'','换行');
-  Self.add_func('clear',@_clear,'','清屏');
-  Self.add_func('of',@_of,'[filename]','改为输出到文件');
-  Self.add_func('os',@_os,'','改为输出到屏幕，同时保存已经输出到文件的内容');
+  Self.add_func('hex,hexln', @hex,        'var',            '输出标准变量形式的十六进制,后加"ln"则换行');
+  Self.add_func('print,println',  @print, 'var',            '输出变量var,后加"ln"则换行');
+  Self.add_func('echo,echoln',    @echo,  'expr',           '解析表达式,后加"ln"则换行');
+  Self.add_func('cwln',      @cwln,       '',               '换行');
+  Self.add_func('clear',     @_clear,     '',               '清屏');
+  Self.add_func('of',        @_of,        '[filename]',     '改为输出到文件');
+  Self.add_func('os',        @_os,        '',               '改为输出到屏幕，同时保存已经输出到文件的内容');
 
-  Self.add_func('mov',@mov,'v1,v2','将v2值赋值给v1');
-  Self.add_func('add',@add,'v1,v2','将v1和v2的值相加并返回给v1');
-  Self.add_func('sub',@sub,'v1,v2','将v1和v2的值相减并返回给v1');
-  Self.add_func('mul',@mul,'v1,v2','将v1和v2的值相乘并返回给v1');
-  Self.add_func('div',@div_,'v1,v2','将v1和v2的值相除并返回给v1');
-  Self.add_func('mod',@mod_,'v1,v2','将v1和v2的值求余并返回给v1');
-  Self.add_func('rand',@rand,'v1,v2','将不大于v2的随机整数返回给v1');
-  Self.add_func('swap',@_swap,'v1','将v1字节倒序');
-  Self.add_func('fill',@_fillbyte,'var,byte','用byte填充var');
-  Self.add_func('getbytes',@_getbytes,'mem,seg,idx','从mem中读取值片段');
-  Self.add_func('setbytes',@_setbytes,'mem,seg,idx','向mem中覆盖值片段');
+  Self.add_func('mov',       @mov,        'v1,v2',          '将v2值赋值给v1');
+  Self.add_func('add',       @add,        'v1,v2',          '将v1和v2的值相加并返回给v1');
+  Self.add_func('sub',       @sub,        'v1,v2',          '将v1和v2的值相减并返回给v1');
+  Self.add_func('mul',       @mul,        'v1,v2',          '将v1和v2的值相乘并返回给v1');
+  Self.add_func('div',       @div_,       'v1,v2',          '将v1和v2的值相除并返回给v1');
+  Self.add_func('mod',       @mod_,       'v1,v2',          '将v1和v2的值求余并返回给v1');
+  Self.add_func('rand',      @rand,       'v1,v2',          '将不大于v2的随机整数返回给v1');
+  Self.add_func('swap',      @_swap,      'v1',             '将v1字节倒序');
+  Self.add_func('fill',      @_fillbyte,  'var,byte',       '用byte填充var');
+  Self.add_func('getbytes',  @_getbytes,  'mem,seg,idx',    '从mem中读取值片段');
+  Self.add_func('setbytes',  @_setbytes,  'mem,seg,idx',    '向mem中覆盖值片段');
 
 
 
-  Self.add_func('loop',@_loop,':label/ofs,times[,st]','简易循环times次');
-  Self.add_func('jmp',@jmp,':label/ofs','跳转到相对地址');
-  Self.add_func('call',@call,':lable/ofs','跳转到相对地址，并将当前地址压栈');
-  Self.add_func('ret',@_ret,'','从栈中取出一个地址，并跳转至该地址');
-  Self.add_func('load',@_load,'filename','加载运行指定脚本文件');
-  Self.add_func('fend',@_fend,'','从加载的脚本文件中跳出');
-  Self.add_func('halt',@_halt,'','无条件结束');
-  Self.add_func('end',@_end,'','有条件结束，根据运行状态转译为ret, fend或halt');
+  Self.add_func('loop',      @_loop,      ':label/ofs,times[,st]',  '简易循环times次');
+  Self.add_func('jmp',       @jmp,        ':label/ofs',             '跳转到相对地址');
+  Self.add_func('call',      @call,       ':lable/ofs',             '跳转到相对地址，并将当前地址压栈');
+  Self.add_func('ret',       @_ret,       '',                       '从栈中取出一个地址，并跳转至该地址');
+  Self.add_func('load',      @_load,      'filename',               '加载运行指定脚本文件');
+  Self.add_func('fend',      @_fend,      '',                       '从加载的脚本文件中跳出');
+  Self.add_func('halt',      @_halt,      '',                       '无条件结束');
+  Self.add_func('end',       @_end,       '',                       '有条件结束，根据运行状态转译为ret, fend或halt');
 
-  Self.add_func('cje,cjec,ncje,ncjec',@cj,'v1,v2,:label/ofs','如果v1等于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
-  Self.add_func('cjm,cjmc,ncjm,ncjmc',@cj,'v1,v2,:label/ofs','如果v1大于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
-  Self.add_func('cjl,cjlc,ncjl,ncjlc',@cj,'v1,v2,:label/ofs','如果v1小于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
+  Self.add_func('cje,cjec,ncje,ncjec',@cj,'v1,v2,:label/ofs',       '如果v1等于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
+  Self.add_func('cjm,cjmc,ncjm,ncjmc',@cj,'v1,v2,:label/ofs',       '如果v1大于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
+  Self.add_func('cjl,cjlc,ncjl,ncjlc',@cj,'v1,v2,:label/ofs',       '如果v1小于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
 
-  Self.add_func('cjs,cjsc,ncjs,ncjsc',@cj,'s1,s2,:label/ofs','如果s1相等s2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
-  Self.add_func('cjsub,cjsubc,ncjsub,ncjsubc',@cj,'sub,str,:label/ofs','如果str包含sub则跳转,前加"n"表示否定,后加"c"表示压栈调用');
-  Self.add_func('cjsreg,cjsregc,ncjsreg,ncjsregc',@cj,'reg,str,:label/ofs','如果str符合reg则跳转,前加"n"表示否定,后加"c"表示压栈调用');
+  Self.add_func('cjs,cjsc,ncjs,ncjsc',@cj,'s1,s2,:label/ofs',       '如果s1相等s2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
+  Self.add_func('cjsub,cjsubc,ncjsub,ncjsubc',     @cj,'sub,str,:label/ofs',         '如果str包含sub则跳转,前加"n"表示否定,后加"c"表示压栈调用');
+  Self.add_func('cjsreg,cjsregc,ncjsreg,ncjsregc', @cj,'reg,str,:label/ofs',         '如果str符合reg则跳转,前加"n"表示否定,后加"c"表示压栈调用');
 
-  Self.add_func('taichi',@taichi_call,'value,chaos_width,chaos_addr[,addr ...]','根据value的值跳转到相应的地址，并将当前地址压栈，可用于RGB九色划分');
+  Self.add_func('taichi',    @taichi_call,'value,chaos_width,chaos_addr[,addr ...]', '根据value的值跳转到相应的地址，并将当前地址压栈，可用于RGB九色划分');
 
-  Self.add_func('define',@_define,'name,expr','定义一个以@开头的局部宏定义');
-  Self.add_func('rendef',@_rendef,'old,new','修改一个局部宏定义的名称');
-  Self.add_func('deldef',@_deldef,'name       ','删除一个局部宏定义的名称');
-  Self.add_func('ifdef',@_ifdef,'name       ','如果有定义则跳转');
-  Self.add_func('ifndef',@_ifndef,'name       ','如果没有定义则跳转');
-  Self.add_func('var',@_var,'type,name,size','创建一个ARV变量');
-  Self.add_func('unvar',@_unvar,'name        ','释放一个ARV变量');
+  Self.add_func('define',    @_define,    'name,expr',              '定义一个以@开头的局部宏定义');
+  Self.add_func('rendef',    @_rendef,    'old,new',                '修改一个局部宏定义的名称');
+  Self.add_func('deldef',    @_deldef,    'name',                   '删除一个局部宏定义的名称');
+  Self.add_func('ifdef',     @_ifdef,     'name',                   '如果有定义则跳转');
+  Self.add_func('ifndef',    @_ifndef,    'name',                   '如果没有定义则跳转');
+  Self.add_func('var',       @_var,       'type,name,size',         '创建一个ARV变量');
+  Self.add_func('unvar',     @_unvar,     'name',                   '释放一个ARV变量');
 
-  Self.add_func('pshl,',@ptr_shift_or_offset,'byte','指针左位移byte个字节');
-  Self.add_func('pshr,',@ptr_shift_or_offset,'byte','指针右位移byte个字节');
-  Self.add_func('pofl,',@ptr_shift_or_offset,'n','以指针宽度为基准向左偏移n个单位');
-  Self.add_func('pofr,',@ptr_shift_or_offset,'n','以指针宽度为基准向右偏移n个单位');
-  Self.add_func('pexl,',@ptr_shift_or_offset,'byte','指针向左拓展byte个字节');
-  Self.add_func('pexr,',@ptr_shift_or_offset,'byte','指针向右拓展byte个字节');
-  Self.add_func('pcpl,',@ptr_shift_or_offset,'byte','指针向左压缩byte个字节');
-  Self.add_func('pcpr,',@ptr_shift_or_offset,'byte','指针向右压缩byte个字节');
+  Self.add_func('pshl,',     @ptr_shift_or_offset,   '@var, byte',  '定义指针左位移byte个字节');
+  Self.add_func('pshr,',     @ptr_shift_or_offset,   '@var, byte',  '定义指针右位移byte个字节');
+  Self.add_func('pofl,',     @ptr_shift_or_offset,   '@var, n',     '以定义指针宽度为基准向左偏移n个单位');
+  Self.add_func('pofr,',     @ptr_shift_or_offset,   '@var, n',     '以定义指针宽度为基准向右偏移n个单位');
+  Self.add_func('pexl,',     @ptr_shift_or_offset,   '@var, byte',  '定义指针向左拓展byte个字节');
+  Self.add_func('pexr,',     @ptr_shift_or_offset,   '@var, byte',  '定义指针向右拓展byte个字节');
+  Self.add_func('pcpl,',     @ptr_shift_or_offset,   '@var, byte',  '定义指针向左压缩byte个字节');
+  Self.add_func('pcpr,',     @ptr_shift_or_offset,   '@var, byte',  '定义指针向右压缩byte个字节');
 
   AdditionFuncDefine_Text;
   AdditionFuncDefine_Time;
@@ -5505,50 +5495,43 @@ end;
 
 procedure TAufScript.AdditionFuncDefine_Text;
 begin
-  Self.add_func('str',@text_str,'#[],var','将var转化成字符串存入#[]');
-  Self.add_func('val',@text_val,'$[],str','将str转化成数值存入$[]');
-  Self.add_func('srp',@text_strReplace,'#[],old,new','将#[]中的old替换成new');
-  Self.add_func('mid',@text_strMid,'#[],pos,len','将#[]从pos处截取len位字符');
-  Self.add_func('cat',@text_strCat,'#[],str[,-r]','将str加在#[]的末尾或开头(-r)');
-  Self.add_func('enum',@text_strEnumerate,'#[],str[,st]','将str的其中一位按执行次数依次赋值给#[]');
-  Self.add_func('fmt',@text_strFormat,'#[],s1[, ...]','从第2个参数起，连接成字符串赋值给#[]');
+  Self.add_func('str',       @text_str,              '#[],var',       '将var转化成字符串存入#[]');
+  Self.add_func('val',       @text_val,              '$[],str',       '将str转化成数值存入$[]');
+  Self.add_func('srp',       @text_strReplace,       '#[],old,new',   '将#[]中的old替换成new');
+  Self.add_func('mid',       @text_strMid,           '#[],pos,len',   '将#[]从pos处截取len位字符');
+  Self.add_func('cat',       @text_strCat,           '#[],str[,-r]',  '将str加在#[]的末尾或开头(-r)');
+  Self.add_func('enum',      @text_strEnumerate,     '#[],str[,st]',  '将str的其中一位按执行次数依次赋值给#[]');
+  Self.add_func('fmt',       @text_strFormat,        '#[],s1[, ...]', '从第2个参数起，连接成字符串赋值给#[]');
 
 end;
 procedure TAufScript.AdditionFuncDefine_Time;
 begin
-  Self.add_func('gettimestr',@time_gettimestr,'var[,-d|-f]','显示当前时间字符串或存入字符变量var中，-d为默认显示格式，-f表示符合文件名规则，参数大写则同时输出日期');
-  Self.add_func('getdatestr',@time_getdatestr,'var[,-d|-f]','显示当前日期字符串或存入字符变量var中，-d为默认显示格式，-f表示符合文件名规则，参数大写则同时输出时间');
+  Self.add_func('gettimestr',@time_gettimestr,       'var[,-d|-f]',   '显示当前时间字符串或存入字符变量var中，-d为默认显示格式，-f表示符合文件名规则，参数大写则同时输出日期');
+  Self.add_func('getdatestr',@time_getdatestr,       'var[,-d|-f]',   '显示当前日期字符串或存入字符变量var中，-d为默认显示格式，-f表示符合文件名规则，参数大写则同时输出时间');
 
-  Self.add_func('settimer',@time_settimer,'','初始化计时器');
-  Self.add_func('gettimer',@time_gettimer,'var','获取计时器度数');
-  Self.add_func('waittimer',@time_waittimer,'var','等待计时器达到var');
+  Self.add_func('settimer',  @time_settimer,         '',              '初始化计时器');
+  Self.add_func('gettimer',  @time_gettimer,         'var',           '获取计时器度数');
+  Self.add_func('waittimer', @time_waittimer,        'var',           '等待计时器达到var');
 
 end;
 procedure TAufScript.AdditionFuncDefine_File;
 begin
-  Self.add_func('file.exist?',@file_exist,'addr,filename,mode','如果存在文件filename则跳转至addr，mode="[N][C]"');
-  Self.add_func('file.read',@file_read,'var,filename','读取文件并保存至var');
-  Self.add_func('file.write',@file_write,'var,filename','将var保存至文件');
-
-  Self.add_func('file.list',@file_list,'pathname,filter,@array','遍历路径中的每一个文件(filter为过滤器)，文件名赋值给数组@array');
-
-
-  Self.add_func('list.pop',@list_pop,'@list,@out','将文本列表的第一个转存给@out');
-  Self.add_func('list.has?',@list_has,'@list,addr','文本列表还有元素则跳转至addr');
+  Self.add_func('file.exist?', @file_exist,          'addr,filename,mode',      '如果存在文件filename则跳转至addr，mode="[N][C]"');
+  Self.add_func('file.read',   @file_read,           'var,filename',            '读取文件并保存至var');
+  Self.add_func('file.write',  @file_write,          'var,filename',            '将var保存至文件');
+  Self.add_func('file.list',   @file_list,           'pathname,filter,@array',  '遍历路径中的每一个文件(filter为过滤器)，文件名赋值给数组@array');
+  Self.add_func('list.pop',    @list_pop,            '@list,@out',              '将文本列表的第一个转存给@out');
+  Self.add_func('list.has?',   @list_has,            '@list,addr',              '文本列表还有元素则跳转至addr');
 
   {
-  这个是这么用的
-
-  define o,#256[0]
-
-  file.list "f:\temp\","*.*",s
-  loo:
-  list.pop s,@o
-  println @o
-  list.has? s,:loo
-
-  end
-
+  这个是这么用的：
+    define o,#256[0]
+    file.list "f:\temp\","*.*",s
+    loo:
+    list.pop s,@o
+    println @o
+    list.has? s,:loo
+    end
   }
 
 end;
@@ -5559,14 +5542,14 @@ begin
   //Self.add_func('sqrt',@math_sqrt,'var[,index=2]','开方');
   //Self.add_func('pow',@math_pow,'var[,index=2]','幂运算');
 
-  Self.add_func('cmp',@math_logic_cmp,'v1,v2,out','比较');
-  Self.add_func('shl',@math_logic_shl,'var,bit',  '左移');
-  Self.add_func('shr',@math_logic_shr,'var,bit',  '右移');
-  Self.add_func('not',@math_logic_not,'var',      '位非');
-  Self.add_func('and',@math_logic_and,'v1,v2','位与');
-  Self.add_func('or', @math_logic_or, 'v1,v2','位或');
-  Self.add_func('xor',@math_logic_xor,'v1,v2','异或');
-  Self.add_func('ofs',@math_logic_offset_count,'v1,v2,threshold,out','差值位计数');
+  Self.add_func('cmp',         @math_logic_cmp,      'v1,v2,out',               '比较');
+  Self.add_func('shl',         @math_logic_shl,      'var,bit',                 '左移');
+  Self.add_func('shr',         @math_logic_shr,      'var,bit',                 '右移');
+  Self.add_func('not',         @math_logic_not,      'var',                     '位非');
+  Self.add_func('and',         @math_logic_and,      'v1,v2',                   '位与');
+  Self.add_func('or',          @math_logic_or,       'v1,v2',                   '位或');
+  Self.add_func('xor',         @math_logic_xor,      'v1,v2',                   '异或');
+  Self.add_func('ofs',         @math_logic_offset_count, 'v1,v2,threshold,out', '差值位计数');
 
   {
   Self.add_func('h_add',@math_h_arithmetic,'#[],#[]','高精加');
@@ -5576,12 +5559,12 @@ begin
   Self.add_func('h_mod',@math_h_arithmetic,'#[],#[]','高精求余');
   Self.add_func('h_divreal',@math_h_arithmetic,'#[],#[]','高精实数除');
   }
-  Self.add_func('h_add',@math_hr_arithmetic,'#[],#[]      ','高精加');
-  Self.add_func('h_sub',@math_hr_arithmetic,'#[],#[]      ','高精减');
-  Self.add_func('h_mul',@math_hr_arithmetic,'#[],#[]      ','高精乘');
+  Self.add_func('h_add',       @math_hr_arithmetic,  '#[],#[]',                 '高精加');
+  Self.add_func('h_sub',       @math_hr_arithmetic,  '#[],#[]',                 '高精减');
+  Self.add_func('h_mul',       @math_hr_arithmetic,  '#[],#[]',                 '高精乘');
   //Self.add_func('h_div',@math_hr_arithmetic,'#[],#[]      ','高精整除');
   //Self.add_func('h_mod',@math_hr_arithmetic,'#[],#[]      ','高精求余');
-  Self.add_func('h_divreal',@math_hr_arithmetic,'#[],#[]','高精实数除');
+  Self.add_func('h_divreal',   @math_hr_arithmetic,  '#[],#[]',                 '高精实数除');
 
 
 
@@ -5591,20 +5574,20 @@ procedure TAufScript.AdditionFuncDefine_AufBase;
 begin
 
 
-  Self.add_func('array.new',@array_newArray,'arr','创建array');
-  Self.add_func('array.del',@array_delArray,'arr','删除array');
-  Self.add_func('array.copy',@array_copyArray,'dst,src','复制src数组到dst');
-  Self.add_func('array.freeall',@array_ClearArrayList,'','清除所有array');
+  Self.add_func('array.new',          @array_newArray,         'arr',           '创建array');
+  Self.add_func('array.del',          @array_delArray,         'arr',           '删除array');
+  Self.add_func('array.copy',         @array_copyArray,        'dst,src',       '复制src数组到dst');
+  Self.add_func('array.freeall',      @array_ClearArrayList,   '',              '清除所有array');
 
-  Self.add_func('array.insert',@array_Insert,'arr,element[,index]','在arr数组的index处插入element');
-  Self.add_func('array.delete',@array_Delete,'arr,index[,element]','返回arr数组在index处的元素并从数组中移除');
-  Self.add_func('array.reinsert',@array_Reinsert,'arr,element','在arr数组中随机插入element');
-  Self.add_func('array.draw',@array_Draw,'arr[,element]','从arr数组中随机抽取元素并从数组中移除');
-  Self.add_func('array.clear',@array_Clear,'arr','清空arr数组');
-  Self.add_func('array.count',@array_Count,'arr,out','返回arr数组的元素数量');
-  Self.add_func('array.has_element?',@array_HasElement,'arr, :label','如果arr数组中有元素则跳转');
+  Self.add_func('array.insert',       @array_Insert,           'arr,element[,index]',  '在arr数组的index处插入element');
+  Self.add_func('array.delete',       @array_Delete,           'arr,index[,element]',  '返回arr数组在index处的元素并从数组中移除');
+  Self.add_func('array.reinsert',     @array_Reinsert,         'arr,element',   '在arr数组中随机插入element');
+  Self.add_func('array.draw',         @array_Draw,             'arr[,element]', '从arr数组中随机抽取元素并从数组中移除');
+  Self.add_func('array.clear',        @array_Clear,            'arr',           '清空arr数组');
+  Self.add_func('array.count',        @array_Count,            'arr,out',       '返回arr数组的元素数量');
+  Self.add_func('array.has_element?', @array_HasElement,       'arr, :label',   '如果arr数组中有元素则跳转');
 
-  Self.add_func('array.print,array.println',@array_Print,'arr','在屏幕中打印arr数组');
+  Self.add_func('array.print,array.println',  @array_Print,    'arr',           '在屏幕中打印arr数组');
 
 
 
@@ -5612,30 +5595,30 @@ end;
 
 procedure TAufScript.AdditionFuncDefine_Image;
 begin
-  Self.add_func('img.new',@img_newImage,'img','创建image');
-  Self.add_func('img.del',@img_delImage,'img','删除image');
-  Self.add_func('img.copy',@img_copyImage,'dst,src','复制src图像到dst');
-  Self.add_func('img.save',@img_saveImage,'img,filename[,-e|-r|-f]','保存image到filename，-e表示重名报错，-f表示覆盖写入，-r表示修改命名写入');
-  Self.add_func('img.load',@img_loadImage,'img,filename','从filename导入image');
+  Self.add_func('img.new',            @img_newImage,           'img',           '创建image');
+  Self.add_func('img.del',            @img_delImage,           'img',           '删除image');
+  Self.add_func('img.copy',           @img_copyImage,          'dst,src',       '复制src图像到dst');
+  Self.add_func('img.save',           @img_saveImage,          'img,filename[,-e|-r|-f]',  '保存image到filename，-e表示重名报错，-f表示覆盖写入，-r表示修改命名写入');
+  Self.add_func('img.load',           @img_loadImage,          'img,filename',             '从filename导入image');
 
-  Self.add_func('img.clip',@img_clipImage,'img,x,y,w,h','裁切img图像');
-  Self.add_func('img.trml',@img_clipImage,'img,width[,-sub]','裁切image图像左侧使宽度为width，加-sub表示裁剪特定像素宽度');
-  Self.add_func('img.trmr',@img_clipImage,'img,width[,-sub]','裁切image图像右侧使宽度为width，加-sub表示裁剪特定像素宽度');
-  Self.add_func('img.trmt',@img_clipImage,'img,height[,-sub]','裁切image图像上部使宽度为height，加-sub表示裁剪特定像素宽度');
-  Self.add_func('img.trmb',@img_clipImage,'img,height[,-sub]','裁切image图像下部使宽度为height，加-sub表示裁剪特定像素宽度');
+  Self.add_func('img.clip',           @img_clipImage,          'img,x,y,w,h',              '裁切img图像');
+  Self.add_func('img.trml',           @img_clipImage,          'img,width[,-sub]',         '裁切image图像左侧使宽度为width，加-sub表示裁剪特定像素宽度');
+  Self.add_func('img.trmr',           @img_clipImage,          'img,width[,-sub]',         '裁切image图像右侧使宽度为width，加-sub表示裁剪特定像素宽度');
+  Self.add_func('img.trmt',           @img_clipImage,          'img,height[,-sub]',        '裁切image图像上部使宽度为height，加-sub表示裁剪特定像素宽度');
+  Self.add_func('img.trmb',           @img_clipImage,'         img,height[,-sub]',         '裁切image图像下部使宽度为height，加-sub表示裁剪特定像素宽度');
 
-  Self.add_func('img.width',@img_getImageValue,'img,result','返回img图像的宽到result');
-  Self.add_func('img.height',@img_getImageValue,'img,result','返回img图像的高到result');
-  Self.add_func('img.color',@img_getImageAverageColor,'img,result','返回img图像的平均颜色(BGRa)');
-  Self.add_func('img.pixelformat',@img_getImagePixelFormat,'img,result','返回img图像的像素类型');
+  Self.add_func('img.width',          @img_getImageValue,      'img,result',               '返回img图像的宽到result');
+  Self.add_func('img.height',         @img_getImageValue,      'img,result',               '返回img图像的高到result');
+  Self.add_func('img.color',          @img_getImageAverageColor,  'img,result',            '返回img图像的平均颜色(BGRa)');
+  Self.add_func('img.pixelformat',    @img_getImagePixelFormat,   'img,result',            '返回img图像的像素类型');
 
-  Self.add_func('img.cje,img.cjec,img.ncje,img.ncjec',@img_cj,'img1,img2,:label/ofs','如果两个图像相同则跳转,前加"n"表示否定,后加"c"表示压栈调用');
+  Self.add_func('img.cje,img.cjec,img.ncje,img.ncjec',  @img_cj,  'img1,img2,:label/ofs',  '如果两个图像相同则跳转,前加"n"表示否定,后加"c"表示压栈调用');
 
 
-  Self.add_func('img.freeall',@img_clearImageList,'','清除所有image');
+  Self.add_func('img.freeall',        @img_clearImageList,     '',                         '清除所有image');
 
-  Self.add_func('img.addln',@img_AddByLine,'img1,img2[,pw[,bm]]','两个图像按照行拼接，拼接需满足边缘pw行像素重合(pw默认值为10)，最大回溯查找bm段(bm默认值为0)');
-  Self.add_func('img.vsegln',@img_VoidSegmentByLine,'img,min,tor,basename','按行分割图像，min为最小像素高度，tor为最大行颜色差值，basename为原始存储文件名称');
+  Self.add_func('img.addln',          @img_AddByLine,          'img1,img2[,pw[,bm]]',      '两个图像按照行拼接，拼接需满足边缘pw行像素重合(pw默认值为10)，最大回溯查找bm段(bm默认值为0)');
+  Self.add_func('img.vsegln',         @img_VoidSegmentByLine,  'img,min,tor,basename',     '按行分割图像，min为最小像素高度，tor为最大行颜色差值，basename为原始存储文件名称');
 
 end;
 
