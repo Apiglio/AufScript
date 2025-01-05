@@ -499,7 +499,10 @@ begin
   if value=FPortrait then exit;
   FPortrait:=value;
   if value then begin
-    Self.FLandscape_portprotion:=Self.Splitter_Vert.Left / Self.Width;
+    if Self.Width<10 then
+      Self.FLandscape_portprotion:=0.4
+    else
+      Self.FLandscape_portprotion:=Self.Splitter_Vert.Left / Self.Width;
     Memo_cmd.AnchorSideRight.Control:=Self;
     Memo_cmd.AnchorSideRight.Side:=asrRight;
     Memo_out.AnchorSideLeft.Control:=Self;
@@ -514,7 +517,10 @@ begin
     Self.Splitter_Vert.Visible:=false;
     Self.Splitter_Horiz.Visible:=true;
   end else begin
-    Self.FPortrait_portprotion:=Self.Splitter_Horiz.Top / Self.Height;
+    if Self.Height<10 then
+      Self.FPortrait_portprotion:=0.7
+    else
+      Self.FPortrait_portprotion:=Self.Splitter_Horiz.Top / Self.Height;
     Memo_cmd.AnchorSideRight.Control:=Splitter_Vert;
     Memo_cmd.AnchorSideRight.Side:=asrLeft;
     Memo_out.AnchorSideLeft.Control:=Splitter_Vert;
