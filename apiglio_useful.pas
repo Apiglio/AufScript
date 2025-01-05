@@ -6,8 +6,6 @@ UNIT Apiglio_Useful;
 {$TypedAddress off}
 {$inline on}
 
-{$define command_detach}//这个模式太古老了，恐怕不能用了
-
 {$if defined(WINDOWS)}
   {$define MsgTimerMode}
   {$define SynEditMode}
@@ -92,8 +90,6 @@ type
   {Usf  工具库}
   pFuncFileByte= procedure(str:string);
   TUsf= class
-    private
-      str_buffer:string;//ExPChar使用的全局变量
     published
       function zeroplus(num:word;bit:byte):ansistring;inline;
       function blankplus(len:byte):ansistring;inline;
@@ -5135,7 +5131,6 @@ begin
     if Self.Func_process.ending<>nil then Self.Func_process.ending(Self);
     exit
   end;
-  {$ifdef command_detach}
   Self.PSW_reset;
   Self.PSW.run_parameter.error_raise:=_error_raise_;
   Self.ScriptLines:=TStringList.Create;
@@ -5146,15 +5141,6 @@ begin
       if IO_fptr.command_decode<>nil then IO_fptr.command_decode({tmp}cmd);
       Self.ScriptLines.Add({tmp}cmd);
     end;
-  {$else}
-  Self.ScriptLines:=str;
-  for line_tmp:=0 to str.Count-1 do
-    begin
-      {tmp}cmd:=str.Strings[line_tmp];
-      if IO_fptr.command_decode<>nil then IO_fptr.command_decode({tmp}cmd);
-      str.Strings[line_tmp]:={tmp}cmd;
-    end;
-  {$endif}
 
   {$ifdef MsgTimerMode}
   Self.RunFirst;
@@ -5162,9 +5148,7 @@ begin
   AufThread:=TAufScriptThread.Create(Self,false);
   {$endif}
 
-  {$ifdef command_detach}
   if Self.PSW.haltoff then Self.ScriptLines.Free;
-  {$endif}
 
 end;
 procedure TAufScript.command(str:string;_error_raise_:boolean=false);
