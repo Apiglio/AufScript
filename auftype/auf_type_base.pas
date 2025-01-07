@@ -29,6 +29,7 @@ type
     constructor CreateAsDouble(value:double);
     constructor CreateAsString(value:string);
     destructor Destroy;override;
+    function AufTypeName:string;virtual;
   protected
     function GetLargeInt:int64;
     procedure SetLargeInt(value:int64);
@@ -155,6 +156,11 @@ destructor TAufBase.Destroy;
 begin
   if FARV.Head<>nil then FreeMem(FARV.Head,FARV.size);
   inherited Destroy;
+end;
+
+function TAufBase.AufTypeName:string;
+begin
+  result:='base';
 end;
 
 procedure TAufBase.Assign(ASource:TAufBase);

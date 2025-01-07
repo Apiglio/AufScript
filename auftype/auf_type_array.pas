@@ -44,6 +44,7 @@ type
   public
     constructor Create;                               //创建不定长数组
     destructor Destroy; override;                     //释放不定长数组
+    function AufTypeName:string;override;
   public
     class function InstanceCount:Integer;             //返回总共多少个实例
     class function InstanceClear:boolean;             //释放所有实例
@@ -255,6 +256,11 @@ begin
   FARV.Head:=nil;
   FARV.size:=0;
   inherited Destroy;
+end;
+
+function TAufArray.AufTypeName:string;
+begin
+  result:='array';
 end;
 
 class function TAufArray.InstanceCount:Integer;

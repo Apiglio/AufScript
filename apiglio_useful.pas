@@ -66,6 +66,7 @@ const
   AufScript_OS='Unknown OS';
   {$endif}
 
+  CRLF = {$ifdef Windows} #13#10 {$else} #10 {$endif};
   c_divi=[' ',','];//隔断符号
   c_iden=['~','@','$','#','?',':','&'];//变量符号，前后缀符号
   c_toto=c_divi+c_iden;
@@ -294,6 +295,7 @@ type
         func_ptr:pFuncAuf;
         parameter:string;
         helper:string;
+        result_type:TClass;                //在使用"="和"."语法糖时表示需要新建的arv对象类型
       end;
       Expression:record
         Local,Global:TAufExpressionList;
@@ -352,9 +354,10 @@ type
 
 
     published
-      procedure add_func(func_name:ansistring;func_ptr:pFuncAuf;func_param,helper:string);
+      procedure add_func(func_name:ansistring;func_ptr:pFuncAuf;func_param,helper:string;arv_type:TClass=nil);
       procedure run_func(func_name:ansistring);
       function have_func(func_name:ansistring):boolean;
+      function type_func(func_name:ansistring):TClass;
       procedure HaltOff;
       procedure PSW_reset;
       procedure line_transfer;//将当前行代码转译成标准形式
@@ -366,6 +369,8 @@ type
       procedure push_addr(line:dword);
       procedure push_addr_inline(Ascript:TStrings;Ascriptname:string;line:dword);
       procedure push_addr_inline(line:dword);
+      function is_assign_syntax:boolean;inline;
+      function is_property_syntax:boolean;inline;
 
     published
       procedure ram_export(filename:string);//将整个内存区域打印到文件
@@ -952,6 +957,48 @@ begin
     'hexln':AufScpt.writeln(arv_to_hex(arv));
     else AufScpt.send_error('未知函数，需要hex或hexln。');
   end;
+end;
+procedure inspect(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    stmp:string;
+    qtmp:qword;
+    btmp:byte;
+    ltmp:longint;
+    ftmp:double;
+    dtmp:dword;
+    atmp:TAufRamVar;
+    otmp:TObject;
+    tmp_error_pfunc:pFuncAufStr;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(2) then exit;
+  AufScpt.writeln('Inspect "'+AAuf.args[1]+'":');
+  tmp_error_pfunc:=AufScpt.IO_fptr.echo;
+  AufScpt.IO_fptr.error:=nil;
+  if AAuf.TryArgToString(1,stmp) then AufScpt.writeln('  string = '+stmp);
+  if AAuf.TryArgToLong(1,ltmp) then AufScpt.writeln('  long = '+IntToStr(ltmp));
+  if AAuf.TryArgToByte(1,btmp) then AufScpt.writeln('  byte = '+IntToStr(btmp));
+  if AAuf.TryArgToDWord(1,dtmp) then AufScpt.writeln('  dword = '+IntToStr(dtmp));
+  if AAuf.TryArgToAddr(1,qtmp) then AufScpt.writeln('  addr = '+IntToStr(qtmp));
+  if AAuf.TryArgToPRam(1,qtmp) then AufScpt.writeln('  pram = '+IntToStr(qtmp));
+  if AAuf.TryArgToDouble(1,ftmp) then AufScpt.writeln('  double = '+FloatToStr(ftmp));
+  if AAuf.TryArgToARV(1,0,High(dword),ARV_AllType,atmp) then begin
+    qtmp:=dword(atmp.Head-AufScpt.PSW.run_parameter.ram_zero);
+    case atmp.VarType of
+      ARV_FixNum:AufScpt.writeln(Format('  arv = {type:fixnum, head:%d, size:%d}',[qtmp,atmp.size]));
+      ARV_Float:AufScpt.writeln(Format('  arv = {type:float, head:%d, size:%d}',[qtmp,atmp.size]));
+      ARV_Char:AufScpt.writeln(Format('  arv = {type:char, head:%d, size:%d}',[qtmp,atmp.size]));
+      else AufScpt.writeln(Format('  arv = {type:unknown, head:%d, size:%d}',[qtmp,atmp.size]));
+    end;
+  end;
+  if AAuf.TryArgToObject(1,TAufBase, otmp) then begin
+    if otmp<>nil then AufScpt.writeln('  obj = '+otmp.ClassName)
+    else AufScpt.writeln('  obj = nil');
+  end;
+  AufScpt.IO_fptr.error:=tmp_error_pfunc;
+
 end;
 procedure _of(Sender:TObject);
 var AufScpt:TAufScript;
@@ -1956,6 +2003,7 @@ var AufScpt:TAufScript;
     size,head:pRam;
     exp:Tnargs;
     exp_type,var_name:string;
+    arv:TAufRamVar;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
@@ -1989,6 +2037,18 @@ begin
     AufScpt.send_error('警告：var参数有误，未正确执行')
   end;
   AufScpt.RamOccupation[head,size]:=true;
+
+  //创建变量后默认初始化为0
+  arv.size:=size;
+  arv.Head:=pbyte(head+AufScpt.PSW.run_parameter.ram_zero);
+  arv.Is_Temporary:=false;
+  case exp.pre of
+    '$"':arv.VarType:=ARV_FixNum;
+    '~"':arv.VarType:=ARV_Float;
+    '@"':arv.VarType:=ARV_Char;
+    else arv.VarType:=ARV_Raw;
+  end;
+  fillARV(0,arv);
 end;
 procedure _unvar(Sender:TObject);
 var AufScpt:TAufScript;
@@ -2926,7 +2986,85 @@ ErrOver_R:
 
 end;
 
-procedure array_newArray(Sender:TObject);
+procedure _syntax_assign(Sender:TObject); // = method result ...
+var AAuf:TAuf;
+    AufScpt:TAufScript;
+    method_name,define_name:string;
+    head:pRam;
+    exp:Tnargs;
+    auftype:TClass;
+    obj:TObject;
+    arv:TAufRamVar;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToString(1, method_name) then exit;
+  if not AAuf.TryArgToString(2, define_name) then exit;
+
+  if (length(define_name)<1) or not (define_name[1] in ['a'..'z','A'..'Z','_']) then begin
+    AufScpt.send_error('警告：无效变量名。赋值语法需要以@开头，且变量名需要以字母或下划线开头');
+    exit;
+  end;
+  auftype:=AufScpt.type_func(method_name);
+  if auftype=nil then begin
+    AufScpt.send_error('警告：'+method_name+'指令不包含返回类型，未成功赋值');
+    exit;
+  end;
+  if AufScpt.Expression.Local.Find(define_name)=nil then begin
+    exp.pre:='$"';
+    head:=AufScpt.FindRamVacant(8);
+    exp.arg:=pRamToRawStr(head)+'|'+pRamToRawStr(8);
+    exp.post:='"';
+    arv.Head:=pbyte(head+AufScpt.PSW.run_parameter.ram_zero);
+    arv.size:=8;
+    arv.VarType:=ARV_FixNum;
+    arv.Is_Temporary:=false;
+    arv.Stream:=nil;
+    fillARV(0,arv);
+    try
+      AufScpt.Expression.Local.TryAddExp(define_name,exp);
+    except
+      AufScpt.send_error('警告：定义名创建错误，未正确执行');
+      exit;
+    end;
+    AufScpt.RamOccupation[head,8]:=true;
+
+    obj:=auftype.newinstance;
+    obj_to_arv(obj,arv);
+  end else begin
+    AufScpt.send_error('警告：变量名'+define_name+'已存在');
+    exit;
+  end;
+
+  AAuf.nargs[0]:=narg('',method_name,'');
+  AAuf.args[0]:=method_name;
+  AAuf.nargs[1]:=narg('','=','');
+  AAuf.args[1]:='=';
+  AufScpt.run_func(method_name);
+
+end;
+
+procedure _syntax_property(Sender:TObject); // . method subject ...
+var AAuf:TAuf;
+    AufScpt:TAufScript;
+    obj:TObject;
+    method_name:string;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToString(1, method_name) then exit;
+  if not AAuf.TryArgToObject(2, TAufBase, obj) then exit;
+  method_name:=(obj as TAufBase).AufTypeName+'.'+method_name;
+  AAuf.nargs[0]:=narg('',method_name,'');
+  AAuf.args[0]:=method_name;
+  AAuf.nargs[1]:=narg('','.','');
+  AAuf.args[1]:='.';
+  AufScpt.run_func(method_name);
+end;
+
+procedure array_newArray(Sender:TObject); //array.new @arr  ||  array.new = arr
 var AAuf:TAuf;
     AufScpt:TAufScript;
     obj:TAufArray;
@@ -2934,21 +3072,30 @@ var AAuf:TAuf;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
-  if not AAuf.CheckArgs(2) then exit;
-  if not AAuf.TryArgToARV(1,8,8,[ARV_FixNum],arv) then exit;
-  obj:=TAufArray.Create;
-  obj_to_arv(obj,arv);
+  if AufScpt.is_assign_syntax then begin
+    //什么都不要做，赋值语法包含创建
+  end else begin
+    if not AAuf.CheckArgs(2) then exit;
+    if not AAuf.TryArgToARV(1,8,8,[ARV_FixNum],arv) then exit;
+    obj:=TAufArray.Create;
+    obj_to_arv(obj,arv);
+  end;
 end;
 
-procedure array_delArray(Sender:TObject);
+procedure array_delArray(Sender:TObject); //array.del @arr  ||  array.del . arr
 var AAuf:TAuf;
     AufScpt:TAufScript;
     obj:TObject;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
-  if not AAuf.CheckArgs(2) then exit;
-  if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
+  if AufScpt.is_property_syntax then begin
+    if not AAuf.CheckArgs(3) then exit;
+    if not AAuf.TryArgToObject(2,TAufArray,obj) then exit;
+  end else begin
+    if not AAuf.CheckArgs(2) then exit;
+    if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
+  end;
   if obj is TAufArray then begin
     (obj as TAufArray).Free;
   end else begin
@@ -2956,16 +3103,22 @@ begin
   end;
 end;
 
-procedure array_copyArray(Sender:TObject);
+procedure array_copyArray(Sender:TObject); //array.copy dst,src  ||  array.copy = dst src
 var AAuf:TAuf;
     AufScpt:TAufScript;
     src,dst:TObject;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
-  if not AAuf.CheckArgs(3) then exit;
-  if not AAuf.TryArgToObject(1,TAufArray,dst) then exit;
-  if not AAuf.TryArgToObject(2,TAufArray,src) then exit;
+  if AufScpt.is_assign_syntax then begin
+    if not AAuf.CheckArgs(4) then exit;
+    if not AAuf.TryArgToObject(2,TAufArray,dst) then exit;
+    if not AAuf.TryArgToObject(3,TAufArray,src) then exit;
+  end else begin
+    if not AAuf.CheckArgs(3) then exit;
+    if not AAuf.TryArgToObject(1,TAufArray,dst) then exit;
+    if not AAuf.TryArgToObject(2,TAufArray,src) then exit;
+  end;
   TAufArray(dst).Assign(TAufArray(src));
 end;
 
@@ -3776,9 +3929,19 @@ begin
 end;
 function TAuf.TryArgToObject(ArgNumber:byte;ObjectClass:TClass;out obj:TObject):boolean;
 var arv:TAufRamVar;
+    tmpUnit:TAufExpressionUnit;
 begin
   result:=false;
-  if not TryArgToARV(ArgNumber,8,8,[ARV_FixNum],arv) then exit;
+  if nargs[ArgNumber].pre = '' then begin
+    //目前仅在TryArgToObject中增加动态的变量查找
+    tmpUnit:=Script.Expression.Local.Find(args[ArgNumber]);
+    if tmpUnit=nil then exit;
+    arv:=Script.RamVar(tmpUnit.value);
+    if arv.size=0 then exit;
+  end else begin
+    if not TryArgToARV(ArgNumber,8,8,[ARV_FixNum],arv) then exit;
+  end;
+
   obj:=arv_to_obj(arv);
   if not (obj is ObjectClass) then begin
     Script.send_error('警告：第'+IntToStr(ArgNumber)+'个参数无法对应'+ObjectClass.ClassName+'实例，代码未执行。');
@@ -4575,7 +4738,7 @@ begin
   fs.Free;
 end;
 
-procedure TAufScript.add_func(func_name:ansistring;func_ptr:pFuncAuf;func_param,helper:string);
+procedure TAufScript.add_func(func_name:ansistring;func_ptr:pFuncAuf;func_param,helper:string;arv_type:TClass=nil);
 var i:word;
 begin
   for i:=0 to func_range-1 do if Self.func[i].name='' then break;
@@ -4584,6 +4747,7 @@ begin
   Self.func[i].helper:=helper;
   Self.func[i].parameter:=func_param;
   Self.func[i].func_ptr:=func_ptr;
+  Self.func[i].result_type:=arv_type;
   {$ifdef SynEditMode}
   if Self.SynAufSyn<>nil then Self.SynAufSyn.InternalFunc:=Self.SynAufSyn.InternalFunc+func_name+',';
   {$endif}
@@ -4612,6 +4776,18 @@ begin
   for i:=0 to func_range-1 do if Self.func[i].name=func_name then break;
   if (i=func_range-1) and (Self.func[i].name<>func_name) then begin result:=false;exit end;
   result:=true;
+end;
+function TAufScript.type_func(func_name:ansistring):TClass;
+var idx:word;
+begin
+  result:=nil;
+  if func_name='' then exit;
+  for idx:=0 to func_range-1 do begin
+    if Self.func[idx].name=func_name then begin
+      result:=Self.func[idx].result_type;
+      break;
+    end;
+  end;
 end;
 procedure TAufScript.func_helper(func_name:string);
 var i:word;
@@ -4724,9 +4900,9 @@ end;
 procedure TAufScript.send_error(str:string);
 var ErrStr:string;
 begin
-  Self.writeln('');
-  ErrStr:='[In "'+Self.ScriptName+'" Line ' + IntToStr(Self.CurrentLine+1)+ '] '
-    +Self.ScriptLines[Self.currentline]+#13+#10+str;
+  //Self.writeln(''); 这个换行不受IO_fptr.error控制，换成换行符，不确定兼容性如何
+  ErrStr:=CRLF+'[In "'+Self.ScriptName+'" Line ' + IntToStr(Self.CurrentLine+1)+ '] '
+    +Self.ScriptLines[Self.currentline]+CRLF+str;
   if Self.IO_fptr.error<>nil then Self.IO_fptr.error(Self,ErrStr);
 
   if Self.PSW.run_parameter.error_raise then begin
@@ -4865,6 +5041,28 @@ begin
       end;
       AAuf.args[i]:=AAuf.nargs[i].pre+AAuf.nargs[i].arg+AAuf.nargs[i].post;
     end;
+  //新增 "=/." 语法糖
+  //  @rect = getrect @hwnd, @l, @t, @w, @h
+  //  = getrect @rect @hwnd, @l, @t, @w, @h
+  //  (根据getrect函数的result_type先创建对象)
+  //  @array . pop @elem
+  //  . array.pop @array @elem
+  //  (根据第一个对象修改指令result_type先创建对象)
+  if AAuf.ArgsCount>=3 then begin
+    case AAuf.args[1] of
+      '=','.':begin
+        ts1:=AAuf.args[0];
+        AAuf.args[0]:=AAuf.args[1];
+        AAuf.args[1]:=AAuf.args[2];
+        AAuf.args[2]:=ts1;
+        tmp_nargs:=AAuf.nargs[0];
+        AAuf.nargs[0]:=AAuf.nargs[1];
+        AAuf.nargs[1]:=AAuf.nargs[2];
+        AAuf.nargs[2]:=tmp_nargs;
+      end;
+    end;
+  end;
+
   Self.PSW.run_parameter.current_strings.Strings[Self.PSW.run_parameter.current_line_number]:=Self.ArgLine;
 
 end;
@@ -4929,6 +5127,19 @@ procedure TAufScript.push_addr_inline(line:dword);
 begin
   push_addr(Self.ScriptLines,Self.ScriptName,line);//why? 再怎么说也应该要和push_addr_inline一样吧
 end;
+function TAufScript.is_assign_syntax:boolean;
+begin
+  result:=false;
+  if (Auf as TAuf).ArgsCount<3 then exit;
+  result:=(Auf as TAuf).args[1]='=';
+end;
+function TAufScript.is_property_syntax:boolean;
+begin
+  result:=false;
+  if (Auf as TAuf).ArgsCount<3 then exit;
+  result:=(Auf as TAuf).args[1]='.';
+end;
+
 {$ifdef MsgTimerMode}
 procedure TAufScript.send(msg:UINT);
 begin
@@ -5412,6 +5623,7 @@ begin
   Self.add_func('hex,hexln', @hex,        'var',            '输出标准变量形式的十六进制,后加"ln"则换行');
   Self.add_func('print,println',  @print, 'var',            '输出变量var,后加"ln"则换行');
   Self.add_func('echo,echoln',    @echo,  'expr',           '解析表达式,后加"ln"则换行');
+  Self.add_func('inspect',   @inspect,    'expr',           '检视表达式的值');
   Self.add_func('cwln',      @cwln,       '',               '换行');
   Self.add_func('clear',     @_clear,     '',               '清屏');
   Self.add_func('of',        @_of,        '[filename]',     '改为输出到文件');
@@ -5458,14 +5670,19 @@ begin
   Self.add_func('var',       @_var,       'type,name,size',         '创建一个ARV变量');
   Self.add_func('unvar',     @_unvar,     'name',                   '释放一个ARV变量');
 
-  Self.add_func('pshl,',     @ptr_shift_or_offset,   '@var, byte',  '定义指针左位移byte个字节');
-  Self.add_func('pshr,',     @ptr_shift_or_offset,   '@var, byte',  '定义指针右位移byte个字节');
-  Self.add_func('pofl,',     @ptr_shift_or_offset,   '@var, n',     '以定义指针宽度为基准向左偏移n个单位');
-  Self.add_func('pofr,',     @ptr_shift_or_offset,   '@var, n',     '以定义指针宽度为基准向右偏移n个单位');
-  Self.add_func('pexl,',     @ptr_shift_or_offset,   '@var, byte',  '定义指针向左拓展byte个字节');
-  Self.add_func('pexr,',     @ptr_shift_or_offset,   '@var, byte',  '定义指针向右拓展byte个字节');
-  Self.add_func('pcpl,',     @ptr_shift_or_offset,   '@var, byte',  '定义指针向左压缩byte个字节');
-  Self.add_func('pcpr,',     @ptr_shift_or_offset,   '@var, byte',  '定义指针向右压缩byte个字节');
+  Self.add_func('pshl',     @ptr_shift_or_offset,   '@var, byte',  '定义指针左位移byte个字节');
+  Self.add_func('pshr',     @ptr_shift_or_offset,   '@var, byte',  '定义指针右位移byte个字节');
+  Self.add_func('pofl',     @ptr_shift_or_offset,   '@var, n',     '以定义指针宽度为基准向左偏移n个单位');
+  Self.add_func('pofr',     @ptr_shift_or_offset,   '@var, n',     '以定义指针宽度为基准向右偏移n个单位');
+  Self.add_func('pexl',     @ptr_shift_or_offset,   '@var, byte',  '定义指针向左拓展byte个字节');
+  Self.add_func('pexr',     @ptr_shift_or_offset,   '@var, byte',  '定义指针向右拓展byte个字节');
+  Self.add_func('pcpl',     @ptr_shift_or_offset,   '@var, byte',  '定义指针向左压缩byte个字节');
+  Self.add_func('pcpr',     @ptr_shift_or_offset,   '@var, byte',  '定义指针向右压缩byte个字节');
+
+  Self.add_func('=',        @_syntax_assign,        'method, result',   '赋值语法糖');
+  Self.add_func('.',        @_syntax_property,      'method, subject',  '成员语法糖');
+
+
 
   AdditionFuncDefine_Text;
   AdditionFuncDefine_Time;
@@ -5474,7 +5691,6 @@ begin
   AdditionFuncDefine_AufBase;
   AdditionFuncDefine_Image;
   AdditionFuncDefine_SVO;
-
 end;
 
 procedure TAufScript.AdditionFuncDefine_Text;
@@ -5558,9 +5774,9 @@ procedure TAufScript.AdditionFuncDefine_AufBase;
 begin
 
 
-  Self.add_func('array.new',          @array_newArray,         'arr',           '创建array');
+  Self.add_func('array.new',          @array_newArray,         'arr',           '创建array',        TAufArray);
   Self.add_func('array.del',          @array_delArray,         'arr',           '删除array');
-  Self.add_func('array.copy',         @array_copyArray,        'dst,src',       '复制src数组到dst');
+  Self.add_func('array.copy',         @array_copyArray,        'dst,src',       '复制src数组到dst', TAufArray);
   Self.add_func('array.freeall',      @array_ClearArrayList,   '',              '清除所有array');
 
   Self.add_func('array.insert',       @array_Insert,           'arr,element[,index]',  '在arr数组的index处插入element');

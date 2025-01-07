@@ -45,6 +45,7 @@ type
   public
     constructor Create;
     destructor Destroy; override;
+    function AufTypeName:string;{override;//这个还没改成继承自AufBase}
     class function ImageCount:Integer;
     class function ClearImageList:boolean;
   end;
@@ -68,6 +69,11 @@ begin
   FPicture.Free;
   ARImageList.Remove(Self);
   inherited Destroy;
+end;
+
+function TARImage.AufTypeName:string;
+begin
+  result:='img';
 end;
 
 function TARImage.Width:integer;
