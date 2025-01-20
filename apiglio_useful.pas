@@ -46,7 +46,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.5.3';
+  AufScript_Version='beta 2.6';
   {$if defined(cpu32)}
   AufScript_CPU='32bits';
   {$elseif defined(cpu64)}
@@ -369,8 +369,6 @@ type
       procedure push_addr(line:dword);
       procedure push_addr_inline(Ascript:TStrings;Ascriptname:string;line:dword);
       procedure push_addr_inline(line:dword);
-      function is_assign_syntax:boolean;inline;
-      function is_property_syntax:boolean;inline;
 
     published
       procedure ram_export(filename:string);//将整个内存区域打印到文件
@@ -425,18 +423,18 @@ type
       function CheckArgs(MinCount:byte):boolean;  //检验参数数量是否满足最小数量要求，数量包括函数名本身
 
       //尝试将第ArgNumber个参数转为某个类型，失败则返回false，并send_error
-      function TryArgToByte(ArgNumber:byte;out res:byte):boolean;inline;
-      function TryArgToDWord(ArgNumber:byte;out res:dword):boolean;inline;
-      function TryArgToLong(ArgNumber:byte;out res:longint):boolean;inline;
-      function TryArgToString(ArgNumber:byte;out res:string):boolean;inline;
+      function TryArgToByte(ArgNumber:byte;out res:byte):boolean;
+      function TryArgToDWord(ArgNumber:byte;out res:dword):boolean;
+      function TryArgToLong(ArgNumber:byte;out res:longint):boolean;
+      function TryArgToString(ArgNumber:byte;out res:string):boolean;
       function TryArgToStrParam(ArgNumber:byte;paramAllowance:array of string;
-        CaseSensitivity:boolean;out res:string):boolean;inline;
-      function TryArgToDouble(ArgNumber:byte;out res:double):boolean;inline;
-      function TryArgToPRam(ArgNumber:byte;out res:pRam):boolean;inline;
+        CaseSensitivity:boolean;out res:string):boolean;
+      function TryArgToDouble(ArgNumber:byte;out res:double):boolean;
+      function TryArgToPRam(ArgNumber:byte;out res:pRam):boolean;
       function TryArgToARV(ArgNumber:byte;minsize,maxsize:dword;
-        TypeAllowance:TAufRamVarTypeSet;out res:TAufRamVar):boolean;inline;
-      function TryArgToAddr(ArgNumber:byte;out res:pRam):boolean;inline;
-      function TryArgToObject(ArgNumber:byte;ObjectClass:TClass;out obj:TObject):boolean;inline;
+        TypeAllowance:TAufRamVarTypeSet;out res:TAufRamVar):boolean;
+      function TryArgToAddr(ArgNumber:byte;out res:pRam):boolean;
+      function TryArgToObject(ArgNumber:byte;ObjectClass:TClass;out obj:TObject):boolean;
 
       function RangeCheck(target,min,max:int64):boolean;inline;
       //min<=target<=max时返回true否则返回false，并send_error
@@ -2995,6 +2993,8 @@ var AAuf:TAuf;
     auftype:TClass;
     obj:TObject;
     arv:TAufRamVar;
+    exp_unit:TAufExpressionUnit;
+    idx,len:integer;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
@@ -3011,36 +3011,57 @@ begin
     AufScpt.send_error('警告：'+method_name+'指令不包含返回类型，未成功赋值');
     exit;
   end;
-  if AufScpt.Expression.Local.Find(define_name)=nil then begin
-    exp.pre:='$"';
-    head:=AufScpt.FindRamVacant(8);
-    exp.arg:=pRamToRawStr(head)+'|'+pRamToRawStr(8);
-    exp.post:='"';
-    arv.Head:=pbyte(head+AufScpt.PSW.run_parameter.ram_zero);
-    arv.size:=8;
-    arv.VarType:=ARV_FixNum;
-    arv.Is_Temporary:=false;
-    arv.Stream:=nil;
-    fillARV(0,arv);
-    try
-      AufScpt.Expression.Local.TryAddExp(define_name,exp);
-    except
-      AufScpt.send_error('警告：定义名创建错误，未正确执行');
+  exp_unit:=AufScpt.Expression.Local.Find(define_name);
+
+
+  if exp_unit<>nil then begin
+    arv:=AufScpt.RamVar(exp_unit.value);
+    if arv.size<>8 then begin
+      AufScpt.send_error('警告：变量名'+define_name+'已存在，且长度不为8，因而无法修改，未成功赋值');
       exit;
     end;
-    AufScpt.RamOccupation[head,8]:=true;
 
-    obj:=auftype.newinstance;
-    obj_to_arv(obj,arv);
-  end else begin
-    AufScpt.send_error('警告：变量名'+define_name+'已存在');
+    //变量覆盖不析构，析构全部交给AufBase的ClearTotalInstance
+    //obj:=arv_to_obj(arv);
+    //obj.Free;
+
+    if not AufScpt.Expression.Local.TryDeleteExp(define_name) then begin
+      AufScpt.send_error('警告：变量名'+define_name+'无法删除，未成功赋值');
+      exit;
+    end;
+  end;
+
+  exp.pre:='$"';
+  head:=AufScpt.FindRamVacant(8);
+  exp.arg:=pRamToRawStr(head)+'|'+pRamToRawStr(8);
+  exp.post:='"';
+  arv.Head:=pbyte(head+AufScpt.PSW.run_parameter.ram_zero);
+  arv.size:=8;
+  arv.VarType:=ARV_FixNum;
+  arv.Is_Temporary:=false;
+  arv.Stream:=nil;
+  fillARV(0,arv);
+  try
+    AufScpt.Expression.Local.TryAddExp(define_name,exp);
+  except
+    AufScpt.send_error('警告：定义名创建错误，未正确执行');
     exit;
   end;
+  AufScpt.RamOccupation[head,8]:=true;
+
+  obj:=auftype.Create;
+  obj_to_arv(obj,arv);
 
   AAuf.nargs[0]:=narg('',method_name,'');
   AAuf.args[0]:=method_name;
-  AAuf.nargs[1]:=narg('','=','');
-  AAuf.args[1]:='=';
+  len:=AAuf.ArgsCount;
+  for idx:=2 to len-1 do begin
+    AAuf.nargs[idx-1]:=AAuf.nargs[idx];
+    AAuf.args[idx-1]:=AAuf.args[idx];
+  end;
+  AAuf.nargs[len-1]:=narg('','','');
+  AAuf.args[len-1]:='';
+  dec(AAuf.ArgsCount);
   AufScpt.run_func(method_name);
 
 end;
@@ -3049,19 +3070,33 @@ procedure _syntax_property(Sender:TObject); // . method subject ...
 var AAuf:TAuf;
     AufScpt:TAufScript;
     obj:TObject;
-    method_name:string;
+    obj_class:TClass;
+    method_name,method_name_with_class:string;
+    idx,len:integer;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
   if not AAuf.TryArgToString(1, method_name) then exit;
   if not AAuf.TryArgToObject(2, TAufBase, obj) then exit;
-  method_name:=(obj as TAufBase).AufTypeName+'.'+method_name;
+  assert(not (obj is TAufBase),'_syntax_property中第二个参数obj必须是TAufBase及其子类');
+  obj_class:=obj.ClassType;
+  repeat
+    method_name_with_class:=TAufBaseClass(obj_class).AufTypeName+'.'+method_name;
+    if AufScpt.have_func(method_name_with_class) then break;
+    obj_class:=obj_class.ClassParent;
+  until obj_class=TAufBase;
   AAuf.nargs[0]:=narg('',method_name,'');
   AAuf.args[0]:=method_name;
-  AAuf.nargs[1]:=narg('','.','');
-  AAuf.args[1]:='.';
-  AufScpt.run_func(method_name);
+  len:=AAuf.ArgsCount;
+  for idx:=2 to len-1 do begin
+    AAuf.nargs[idx-1]:=AAuf.nargs[idx];
+    AAuf.args[idx-1]:=AAuf.args[idx];
+  end;
+  AAuf.nargs[len-1]:=narg('','','');
+  AAuf.args[len-1]:='';
+  dec(AAuf.ArgsCount);
+  AufScpt.run_func(method_name_with_class);
 end;
 
 procedure array_newArray(Sender:TObject); //array.new @arr  ||  array.new = arr
@@ -3072,14 +3107,10 @@ var AAuf:TAuf;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
-  if AufScpt.is_assign_syntax then begin
-    //什么都不要做，赋值语法包含创建
-  end else begin
-    if not AAuf.CheckArgs(2) then exit;
-    if not AAuf.TryArgToARV(1,8,8,[ARV_FixNum],arv) then exit;
-    obj:=TAufArray.Create;
-    obj_to_arv(obj,arv);
-  end;
+  if not AAuf.CheckArgs(2) then exit;
+  if not AAuf.TryArgToARV(1,8,8,[ARV_FixNum],arv) then exit;
+  obj:=TAufArray.Create;
+  obj_to_arv(obj,arv);
 end;
 
 procedure array_delArray(Sender:TObject); //array.del @arr  ||  array.del . arr
@@ -3089,13 +3120,8 @@ var AAuf:TAuf;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
-  if AufScpt.is_property_syntax then begin
-    if not AAuf.CheckArgs(3) then exit;
-    if not AAuf.TryArgToObject(2,TAufArray,obj) then exit;
-  end else begin
-    if not AAuf.CheckArgs(2) then exit;
-    if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
-  end;
+  if not AAuf.CheckArgs(2) then exit;
+  if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
   if obj is TAufArray then begin
     (obj as TAufArray).Free;
   end else begin
@@ -3110,15 +3136,9 @@ var AAuf:TAuf;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
-  if AufScpt.is_assign_syntax then begin
-    if not AAuf.CheckArgs(4) then exit;
-    if not AAuf.TryArgToObject(2,TAufArray,dst) then exit;
-    if not AAuf.TryArgToObject(3,TAufArray,src) then exit;
-  end else begin
-    if not AAuf.CheckArgs(3) then exit;
-    if not AAuf.TryArgToObject(1,TAufArray,dst) then exit;
-    if not AAuf.TryArgToObject(2,TAufArray,src) then exit;
-  end;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToObject(1,TAufArray,dst) then exit;
+  if not AAuf.TryArgToObject(2,TAufArray,src) then exit;
   TAufArray(dst).Assign(TAufArray(src));
 end;
 
@@ -3127,8 +3147,8 @@ var AufScpt:TAufScript;
     count:integer;
 begin
   AufScpt:=Sender as TAufScript;
-  count:=TAufArray.InstanceCount;
-  TAufArray.InstanceClear;
+  count:=TAufArray.ClassInstancesCount;
+  TAufArray.ClearClassInstances;
   AufScpt.writeln('共删除'+IntToStr(count)+'个TAufArray数组。');
 end;
 
@@ -3884,10 +3904,23 @@ begin
   result:=true;
 end;
 function TAuf.TryArgToARV(ArgNumber:byte;minsize,maxsize:dword;TypeAllowance:TAufRamVarTypeSet;out res:TAufRamVar):boolean;
+var tmpUnit:TAufExpressionUnit;
 begin
   Assert(ArgNumber in [1..args_range],'ArgNumber必须在[1..args_range]范围内。');
   result:=false;
-  res:=Script.RamVar(nargs[ArgNumber]);
+
+  IF nargs[ArgNumber].pre = '' THEN BEGIN
+    //增加动态的变量查找
+    tmpUnit:=Script.Expression.Local.Find(args[ArgNumber]);
+    if tmpUnit=nil then begin
+      Script.send_error('警告：找不到变量定义'+args[ArgNumber]+'，代码未执行。');
+      exit;
+    end;
+    res:=Script.RamVar(tmpUnit.value);
+  END ELSE BEGIN
+    res:=Script.RamVar(nargs[ArgNumber]);
+  END;
+
   if (res.size=0) then
     begin
       Script.send_error('警告：第'+IntToStr(ArgNumber)+'个参数不是ARV变量，代码未执行。');
@@ -3929,19 +3962,9 @@ begin
 end;
 function TAuf.TryArgToObject(ArgNumber:byte;ObjectClass:TClass;out obj:TObject):boolean;
 var arv:TAufRamVar;
-    tmpUnit:TAufExpressionUnit;
 begin
   result:=false;
-  if nargs[ArgNumber].pre = '' then begin
-    //目前仅在TryArgToObject中增加动态的变量查找
-    tmpUnit:=Script.Expression.Local.Find(args[ArgNumber]);
-    if tmpUnit=nil then exit;
-    arv:=Script.RamVar(tmpUnit.value);
-    if arv.size=0 then exit;
-  end else begin
-    if not TryArgToARV(ArgNumber,8,8,[ARV_FixNum],arv) then exit;
-  end;
-
+  if not TryArgToARV(ArgNumber,8,8,[ARV_FixNum],arv) then exit;
   obj:=arv_to_obj(arv);
   if not (obj is ObjectClass) then begin
     Script.send_error('警告：第'+IntToStr(ArgNumber)+'个参数无法对应'+ObjectClass.ClassName+'实例，代码未执行。');
@@ -4413,7 +4436,8 @@ begin
     'B','b':begin base:=2;delete(stmp,len,1);dec(len);end;
     '.':begin base:=10;delete(stmp,len,1);dec(len);end;
     '0'..'9':base:=10;
-    else exit;
+    //else exit;
+    else raise Exception.Create('非法浮点数字符');//原先TryArgToDouble始终不会报错
   end;
   if len=0 then exit;
   poss:=pos('.',stmp);
@@ -4434,7 +4458,8 @@ begin
                     if dot_already>0 then begin result:=0;exit;end;
                     inc(dot_already);
                   end;
-              else begin result:=0;exit end;
+              //else begin result:=0;exit end;
+              else raise Exception.Create('非法浮点数字符');//原先TryArgToDouble始终不会报错
             end;
             delete(stmp,len,1);
             dec(len);
@@ -4453,7 +4478,8 @@ begin
                     if dot_already>0 then begin result:=0;exit;end;
                     inc(dot_already);
                   end;
-              else begin result:=0;exit end;
+              //else begin result:=0;exit end;
+              else raise Exception.Create('非法浮点数字符');//原先TryArgToDouble始终不会报错
             end;
             delete(stmp,len,1);
             dec(len);
@@ -4464,6 +4490,7 @@ begin
       begin
         {let}offs:=0;
         val(stmp,result,{let}offs);
+        if {let}offs<>0 then raise Exception.Create('非法浮点数字符');//原先TryArgToDouble始终不会报错
       end;
   end;
 end;
@@ -4741,6 +4768,7 @@ end;
 procedure TAufScript.add_func(func_name:ansistring;func_ptr:pFuncAuf;func_param,helper:string;arv_type:TClass=nil);
 var i:word;
 begin
+  func_name:=lowercase(func_name);
   for i:=0 to func_range-1 do if Self.func[i].name='' then break;
   if (i=func_range-1) and (Self.func[i].name<>'') then begin Self.send_error('错误：函数列表已满，不能继续添加新的函数！');Self.readln;halt end;
   Self.func[i].name:=func_name;
@@ -4756,8 +4784,9 @@ procedure TAufScript.run_func(func_name:ansistring);
 var i:word;
     stmp:string;
 begin
-  if func_name='' then begin Self.writeln('');exit end;
-  stmp:=','+lowercase(func_name)+',';
+  func_name:=lowercase(func_name);
+  if func_name='' then exit;
+  stmp:=','+func_name+',';
   i:=0;
   repeat
     if pos(stmp,','+Self.func[i].name+',')>0 then
@@ -4772,7 +4801,8 @@ end;
 function TAufScript.have_func(func_name:ansistring):boolean;
 var i:word;
 begin
-  if func_name='' then begin Self.writeln('');exit end;;
+  func_name:=lowercase(func_name);
+  if func_name='' then exit;;
   for i:=0 to func_range-1 do if Self.func[i].name=func_name then break;
   if (i=func_range-1) and (Self.func[i].name<>func_name) then begin result:=false;exit end;
   result:=true;
@@ -4781,6 +4811,7 @@ function TAufScript.type_func(func_name:ansistring):TClass;
 var idx:word;
 begin
   result:=nil;
+  func_name:=lowercase(func_name);
   if func_name='' then exit;
   for idx:=0 to func_range-1 do begin
     if Self.func[idx].name=func_name then begin
@@ -4794,8 +4825,9 @@ var i:word;
     shown:boolean;
 begin
   shown:=false;
+  func_name:=lowercase(func_name);
   for i:=0 to func_range-1 do begin
-    if pos(','+lowercase(func_name)+',',','+Self.func[i].name+',')>0 then begin
+    if pos(','+func_name+',',','+Self.func[i].name+',')>0 then begin
       Self.write('函数指南：');
       Self.writeln(Usf.left_adjust(StringReplace(Self.func[i].name,',',' | ',[rfReplaceAll])+' '+Self.func[i].parameter,16)+' '+Self.func[i].helper);
       shown:=true;
@@ -5127,18 +5159,6 @@ procedure TAufScript.push_addr_inline(line:dword);
 begin
   push_addr(Self.ScriptLines,Self.ScriptName,line);//why? 再怎么说也应该要和push_addr_inline一样吧
 end;
-function TAufScript.is_assign_syntax:boolean;
-begin
-  result:=false;
-  if (Auf as TAuf).ArgsCount<3 then exit;
-  result:=(Auf as TAuf).args[1]='=';
-end;
-function TAufScript.is_property_syntax:boolean;
-begin
-  result:=false;
-  if (Auf as TAuf).ArgsCount<3 then exit;
-  result:=(Auf as TAuf).args[1]='.';
-end;
 
 {$ifdef MsgTimerMode}
 procedure TAufScript.send(msg:UINT);
@@ -5440,30 +5460,28 @@ end;
 function TAufExpressionList.TryRenameExp(OldKey,NewKey:string):boolean;
 var tmp:TAufExpressionUnit;
 begin
+  result:=false;
   tmp:=Self.Find(OldKey);
-  if tmp=nil then
-    begin
-      raise Exception.Create('不能给不存在的表达式更名')
-    end
-  else
-    begin
-      if tmp.readonly then raise Exception.Create('不能修改只读表达式')
-      else tmp.key:=NewKey;
-    end;
+  if tmp=nil then begin
+    raise Exception.Create('不能给不存在的表达式更名')
+  end else begin
+    if tmp.readonly then raise Exception.Create('不能修改只读表达式')
+    else tmp.key:=NewKey;
+  end;
+  result:=true;
 end;
 function TAufExpressionList.TryDeleteExp(Key:string):boolean;
 var tmp:TAufExpressionUnit;
 begin
+  result:=false;
   tmp:=Self.Find(Key);
-  if tmp=nil then
-    begin
-      raise Exception.Create('不存在指定表达式')
-    end
-  else
-    begin
-      if tmp.readonly then raise Exception.Create('不能删除只读表达式')
-      else Self.Remove(tmp);
-    end;
+  if tmp=nil then begin
+    raise Exception.Create('不存在指定表达式')
+  end else begin
+    if tmp.readonly then raise Exception.Create('不能删除只读表达式')
+    else Self.Remove(tmp);
+  end;
+  result:=true;
 end;
 
 {$ifdef MsgTimerMode}

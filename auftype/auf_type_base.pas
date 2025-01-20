@@ -19,17 +19,25 @@ type
   public
     property ARV:TAufRamVar read FARV;
   public
-    procedure Assign(ASource:TAufBase);virtual;
-    function Equal(ACompare:TAufBase):boolean;virtual;
-    function Copy:TAufBase;virtual;
+    procedure Assign(ASource:TAufBase); virtual;
+    function Equal(ACompare:TAufBase):boolean; virtual;
+    function Copy:TAufBase; virtual;
   public
     constructor Create;
     constructor CreateAsARV(value:TAufRamVar);
     constructor CreateAsFixnum(value:integer);
     constructor CreateAsDouble(value:double);
     constructor CreateAsString(value:string);
-    destructor Destroy;override;
-    function AufTypeName:string;virtual;
+    destructor Destroy; override;
+  public
+    class function AufTypeName:string; virtual;
+    class var Class_InstanceList:TList;                             //实例列表地址会发生变化
+    class function ClassInstancesCount:Integer; virtual;             //返回自身实例数
+    class function TotalInstancesCount:Integer; virtual;             //返回自身及所有子类实例数
+    class function ClearClassInstances:boolean; virtual;             //释放自身的实例
+    class function ClearTotalInstances:boolean; virtual;             //释放自身及所有子类的实例
+    class constructor CreateClass;
+    class destructor DestoryClass;
   protected
     function GetLargeInt:int64;
     procedure SetLargeInt(value:int64);
@@ -46,6 +54,8 @@ type
     property AsFloat:double read GetFloat write SetFloat;
     property AsString:string read GetString write SetString;
   end;
+
+  TAufBaseClass = class of TAufBase;
 
   function CreateAufTypeByText(syntax:string):TAufBase;
 
@@ -99,6 +109,7 @@ begin
   FARV.VarType:=ARV_Raw;
   FARV.size:=0;
   FARV.Head:=nil;
+  Class_InstanceList.Add(Self);
 end;
 
 constructor TAufBase.CreateAsARV(value:TAufRamVar);
@@ -155,12 +166,75 @@ end;
 destructor TAufBase.Destroy;
 begin
   if FARV.Head<>nil then FreeMem(FARV.Head,FARV.size);
+  Class_InstanceList.Remove(Self);
   inherited Destroy;
 end;
 
-function TAufBase.AufTypeName:string;
+class function TAufBase.AufTypeName:string;
 begin
   result:='base';
+end;
+
+class function TAufBase.ClassInstancesCount:Integer;
+var idx:integer;
+begin
+  result:=0;
+  for idx:=Class_InstanceList.Count-1 downto 0 do
+    if TObject(Class_InstanceList.Items[idx]).ClassType = Self then inc(result);
+end;
+
+class function TAufBase.TotalInstancesCount:Integer;
+var idx:integer;
+begin
+  result:=0;
+  for idx:=Class_InstanceList.Count-1 downto 0 do
+    if TObject(Class_InstanceList.Items[idx]) is Self then inc(result);
+end;
+
+class function TAufBase.ClearClassInstances:boolean;
+var idx:integer;
+    new_list:Tlist;
+    tmp_obj:TObject;
+begin
+  new_list:=TList.Create;
+  for idx:=Class_InstanceList.Count-1 downto 0 do begin
+    tmp_obj:=TObject(Class_InstanceList.Items[idx]);
+    if tmp_obj.ClassType = Self then begin
+      tmp_obj.Free;
+    end else begin
+      new_list.Add(tmp_obj);
+    end;
+  end;
+  Class_InstanceList.Free;
+  Class_InstanceList:=new_list;
+end;
+
+class function TAufBase.ClearTotalInstances:boolean;
+var idx:integer;
+    new_list:Tlist;
+    tmp_obj:TObject;
+begin
+  new_list:=TList.Create;
+  for idx:=Class_InstanceList.Count-1 downto 0 do begin
+    tmp_obj:=TObject(Class_InstanceList.Items[idx]);
+    if tmp_obj is Self then begin
+      tmp_obj.Free;
+    end else begin
+      new_list.Add(tmp_obj);
+    end;
+  end;
+  Class_InstanceList.Free;
+  Class_InstanceList:=new_list;
+end;
+
+class constructor TAufBase.CreateClass;
+begin
+  Class_InstanceList:=TList.Create;
+end;
+
+class destructor TAufBase.DestoryClass;
+begin
+  Class_InstanceList.Free;
 end;
 
 procedure TAufBase.Assign(ASource:TAufBase);

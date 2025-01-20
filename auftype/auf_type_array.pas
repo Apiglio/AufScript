@@ -39,18 +39,15 @@ type
     procedure Clear;                                  //清空：清除所有元素
 
   public
-    procedure Assign(ASource:TAufBase);override;
-    function Copy:TAufBase;override;
+    procedure Assign(ASource:TAufBase); override;
+    function Copy:TAufBase; override;
   public
     constructor Create;                               //创建不定长数组
     destructor Destroy; override;                     //释放不定长数组
-    function AufTypeName:string;override;
-  public
-    class function InstanceCount:Integer;             //返回总共多少个实例
-    class function InstanceClear:boolean;             //释放所有实例
+    class function AufTypeName:String; override;
+
   end;
 
-var List_AufArray:TList;
 
 implementation
 
@@ -244,7 +241,6 @@ end;
 constructor TAufArray.Create;
 begin
   inherited Create;
-  List_AufArray.Add(Self);
   FARV.Head:=@Self;
   FARV.size:={$ifdef cpu64}8{$else}4{$endif};
 end;
@@ -252,38 +248,19 @@ end;
 destructor TAufArray.Destroy;
 begin
   Clear;
-  List_AufArray.Remove(Self);
   FARV.Head:=nil;
   FARV.size:=0;
   inherited Destroy;
 end;
 
-function TAufArray.AufTypeName:string;
+class function TAufArray.AufTypeName:String;
 begin
   result:='array';
-end;
-
-class function TAufArray.InstanceCount:Integer;
-begin
-  result:=List_AufArray.Count;
-end;
-
-class function TAufArray.InstanceClear:boolean;
-begin
-  result:=false;
-  while List_AufArray.Count>0 do begin
-    TAufArray(List_AufArray[0]).Free;
-    //List_AufArray.Delete(0);//不需要Delete，在Destroy方法中Remove
-  end;
-  result:=true;
 end;
 
 
 initialization
   Randomize;
-  List_AufArray:=TList.Create;
 
-finalization
-  List_AufArray.Free;
 end.
 
