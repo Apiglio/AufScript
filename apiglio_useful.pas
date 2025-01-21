@@ -46,7 +46,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.6';
+  AufScript_Version='beta 2.6.1';
   {$if defined(cpu32)}
   AufScript_CPU='32bits';
   {$elseif defined(cpu64)}
@@ -68,7 +68,7 @@ const
 
   CRLF = {$ifdef Windows} #13#10 {$else} #10 {$endif};
   c_divi=[' ',','];//隔断符号
-  c_iden=['~','@','$','#','?',':','&'];//变量符号，前后缀符号
+  c_iden=['~','@','$','#',':','&'];//变量符号，前后缀符号
   c_toto=c_divi+c_iden;
   ram_range=$20000{4096}{32};//变量区大小
   stack_range=32;//行数堆栈区大小，最多支持256个
@@ -2697,56 +2697,27 @@ end;
 procedure file_read(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
-    exprname,filename:string;
-    exp:TNargs;
-    head,size:pRam;
-    str:TMemoryStream;
+    filename:string;
+    mem:TMemoryStream;
+    fsize:int64;
+    arv:TAufRamVar;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
-  if not AAuf.TryArgToString(1,exprname) then exit;
   if not AAuf.TryArgToString(2,filename) then exit;
-  if exprname='' then begin AufScpt.send_error('警告：第1个参数至少需要一个字符要是字母或下划线，该语句未执行。');exit end;
-  case exprname[1] of
-    'a'..'z','A'..'Z','_':;
-    else begin AufScpt.send_error('警告：第1个参数的第一个字符需要是字母或下划线，该语句未执行。');exit end;
-  end;
-  if AufScpt.Expression.Local.Find(exprname)<>nil then
-    begin
-      AufScpt.send_error('警告：变量已存在，该语句未执行。');
-      exit
-    end;
-
-  str:=TMemoryStream.Create;
+  fsize:=FileSize(filename);
+  if not AAuf.TryArgToARV(1,fsize,fsize,ARV_AllType,arv) then exit;
+  mem:=TMemoryStream.Create;
   try
-    str.LoadFromFile(filename);
-    size:=str.Size;
-    head:=AufScpt.FindRamVacant(size);
-    if head>=AufScpt.PSW.run_parameter.ram_size then begin
-      AufScpt.send_error('警告：创建变量失败，未执行。');
-      exit;
-    end;
-    exp.arg:=pRamToRawStr(head)+'|'+pRamToRawStr(size);
-    exp.post:='"';
-    exp.pre:='#"';
-    try
-      AufScpt.Expression.Local.TryAddExp(exprname,exp);
-    except
-      AufScpt.send_error('警告：var参数有误，未正确执行。');
-      exit;
-    end;
-    AufScpt.RamOccupation[head,size]:=true;
-    //Move((str.Memory+size-1)^,(AufScpt.PSW.run_parameter.ram_zero+head)^,-size);
-    //不能逆向复制，考虑寻找有没有reverse_move()之类的选择，或者自己修改asm
-    Move(str.Memory^,(AufScpt.PSW.run_parameter.ram_zero+head)^,size);
-    //ReverseMove(str.Memory^,(AufScpt.PSW.run_parameter.ram_zero+head)^,size);
-
+    mem.LoadFromFile(filename);
+    mem.Position:=0;
+    mem.Read(arv.Head^,fsize);
   finally
-    str.Free;
+    mem.Free;
   end;
-
 end;
+
 procedure file_write(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
@@ -2759,7 +2730,6 @@ begin
   if not AAuf.CheckArgs(3) then exit;
   if not AAuf.TryArgToARV(1,0,High(Longint),[ARV_Char],arv) then exit;
   if not AAuf.TryArgToString(2,filename) then exit;
-
   str:=TMemoryStream.Create;
   try
     str.SetSize(arv.size);
@@ -2768,10 +2738,9 @@ begin
   finally
     str.Free;
   end;
-
 end;
 
-procedure file_list(Sender:TObject);//file.list "path","filter",@array
+procedure file_list(Sender:TObject);//file.list @array "path","filter"
 var AufScpt:TAufScript;
     AAuf:TAuf;
     pathname,filter,stmp:string;
@@ -2783,9 +2752,9 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(4) then exit;
-  if not AAuf.TryArgToString(1,pathname) then exit;
-  if not AAuf.TryArgToString(2,filter) then exit;
-  if not AAuf.TryArgToObject(3,TAufArray,obj) then exit;
+  if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
+  if not AAuf.TryArgToString(2,pathname) then exit;
+  if not AAuf.TryArgToString(3,filter) then exit;
   array_obj:=obj as TAufArray;
   array_obj.Clear;
   file_list:=TStringList.Create;
@@ -2797,81 +2766,6 @@ begin
   finally
     file_list.Free;
   end;
-end;
-
-procedure list_pop(Sender:TObject);//list.pop @list,var
-var AufScpt:TAufScript;
-    AAuf:TAuf;
-    exprname:string;
-    arv:TAufRamVar;
-    tmpUnit:TAufExpressionUnit;
-    list,list_out:string;
-    po:integer;
-
-begin
-  AufScpt:=Sender as TAufScript;
-  AAuf:=AufScpt.Auf as TAuf;
-  if not AAuf.CheckArgs(3) then exit;
-  //if not AAuf.TryArgToString(1,e1) then exit;
-  if not AAuf.TryArgToARV(2,0,High(longint),[ARV_Char],arv) then exit;
-  exprname:=AAuf.nargs[1].arg;
-  //e2:=AAuf.nargs[2].arg;
-  if exprname='' then begin AufScpt.send_error('警告：第1个参数至少需要一个字符要是字母或下划线，该语句未执行。');exit end;
-  case exprname[1] of
-    'a'..'z','A'..'Z','_':;
-    else begin AufScpt.send_error('警告：第1个参数的第一个字符需要是字母或下划线，该语句未执行。');exit end;
-  end;
-
-  tmpUnit:=AufScpt.Expression.Local.Find(exprname);
-  if tmpUnit = nil then begin
-    AufScpt.send_error('警告：文本列表'+exprname+'未找到，代码未执行。');
-    exit;
-  end;
-  list:=tmpUnit.value.arg;
-  list_out:=list;
-  po:=pos('|',list);
-  if po<=0 then begin
-    list:='';
-  end else begin
-    delete(list,1,po);
-    delete(list_out,po,length(list_out));
-  end;
-  AufScpt.Expression.Local.TryAddExp(exprname,Narg('',list,''));
-  //AufScpt.Expression.Local.TryAddExp(e2,Narg('',list_out,''));
-  s_to_arv(list_out,arv);
-
-end;
-
-procedure list_has(Sender:TObject);//list.has? @list,:addr
-var AufScpt:TAufScript;
-    AAuf:TAuf;
-    exprname:string;
-    addr:pRam;
-    tmpUnit:TAufExpressionUnit;
-    list,list_out:string;
-    po:integer;
-
-begin
-  AufScpt:=Sender as TAufScript;
-  AAuf:=AufScpt.Auf as TAuf;
-  if not AAuf.CheckArgs(3) then exit;
-  //if not AAuf.TryArgToString(1,e1) then exit;
-  exprname:=AAuf.nargs[1].arg;
-  if exprname='' then begin AufScpt.send_error('警告：第1个参数至少需要一个字符要是字母或下划线，该语句未执行。');exit end;
-  case exprname[1] of
-    'a'..'z','A'..'Z','_':;
-    else begin AufScpt.send_error('警告：第1个参数的第一个字符需要是字母或下划线，该语句未执行。');exit end;
-  end;
-  if not AAuf.TryArgToAddr(2,addr) then exit;
-
-  tmpUnit:=AufScpt.Expression.Local.Find(exprname);
-  if tmpUnit = nil then begin
-    AufScpt.send_error('警告：文本列表'+exprname+'未找到，代码未执行。');
-    exit;
-  end;
-  list:=tmpUnit.value.arg;
-  if list='' then {do-nothing}
-  else AufScpt.jump_addr(addr);
 end;
 
 procedure ptr_shift_or_offset(Sender:TObject);//pshl|pshr|pofl|pofr|pexl|pexr|pcpl|pcpr var,byte
@@ -2999,8 +2893,8 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
-  if not AAuf.TryArgToString(1, method_name) then exit;
-  if not AAuf.TryArgToString(2, define_name) then exit;
+  method_name:=AAuf.args[1];
+  define_name:=AAuf.args[2];
 
   if (length(define_name)<1) or not (define_name[1] in ['a'..'z','A'..'Z','_']) then begin
     AufScpt.send_error('警告：无效变量名。赋值语法需要以@开头，且变量名需要以字母或下划线开头');
@@ -3077,7 +2971,7 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
-  if not AAuf.TryArgToString(1, method_name) then exit;
+  method_name:=AAuf.args[1];
   if not AAuf.TryArgToObject(2, TAufBase, obj) then exit;
   assert(not (obj is TAufBase),'_syntax_property中第二个参数obj必须是TAufBase及其子类');
   obj_class:=obj.ClassType;
@@ -3311,19 +3205,29 @@ begin
   dword_to_arv(TAufArray(obj).Count,arv);
 end;
 
-procedure array_HasElement(Sender:TObject);//array.has_element? @array, :addr
+procedure array_CheckElement(Sender:TObject);//array.valid? @array, :addr || array.empty?
 var AAuf:TAuf;
     AufScpt:TAufScript;
     obj:TObject;
     addr:pRam;
-
+    method_name:string;
+    is_not,is_call:boolean;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
   if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
   if not AAuf.TryArgToAddr(2,addr) then exit;
-  if (obj as TAufArray).Count>0 then AufScpt.jump_addr(addr);
+  method_name:=AAuf.args[0];
+  is_not:=false;
+  compare_jump_mode(method_name,is_not,is_call);
+  case method_name of
+    'empty?':is_not:=not is_not;
+  end;
+  if ((obj as TAufArray).Count>0) xor is_not then begin
+    if is_call then AAuf.Script.push_addr(AufScpt.ScriptLines,AufScpt.ScriptName,addr)
+    else AufScpt.jump_addr(addr);
+  end;
 end;
 
 function img_get_filename(AufScpt:TAufScript;filename:string;write_mode:string):string;
@@ -4997,6 +4901,7 @@ begin
               end
             else
               begin
+                //这个没用到过感觉，因为?要作为函数名，这个部分需要去除
                 AAuf.nargs[i].pre:='?"';
                 AAuf.nargs[i].post:='"';
                 AAuf.nargs[i].arg:='~Error';
@@ -5734,23 +5639,10 @@ begin
 end;
 procedure TAufScript.AdditionFuncDefine_File;
 begin
-  Self.add_func('file.exist?', @file_exist,          'addr,filename,mode',      '如果存在文件filename则跳转至addr，mode="[N][C]"');
-  Self.add_func('file.read',   @file_read,           'var,filename',            '读取文件并保存至var');
-  Self.add_func('file.write',  @file_write,          'var,filename',            '将var保存至文件');
-  Self.add_func('file.list',   @file_list,           'pathname,filter,@array',  '遍历路径中的每一个文件(filter为过滤器)，文件名赋值给数组@array');
-  Self.add_func('list.pop',    @list_pop,            '@list,@out',              '将文本列表的第一个转存给@out');
-  Self.add_func('list.has?',   @list_has,            '@list,addr',              '文本列表还有元素则跳转至addr');
-
-  {
-  这个是这么用的：
-    define o,#256[0]
-    file.list "f:\temp\","*.*",s
-    loo:
-    list.pop s,@o
-    println @o
-    list.has? s,:loo
-    end
-  }
+  Self.add_func('file.exist?', @file_exist,  'addr,filename,mode',   '如果存在文件filename则跳转至addr，mode="[N][C]"');
+  Self.add_func('file.read',   @file_read,   'var,filename',         '读取文件并保存至var');
+  Self.add_func('file.write',  @file_write,  'var,filename',         '将var保存至文件');
+  Self.add_func('file.list',   @file_list,   'array,path,filter',    '遍历路径中的每一个文件(filter为过滤器)，文件名赋值给数组@array', TAufArray);
 
 end;
 procedure TAufScript.AdditionFuncDefine_Math;
@@ -5803,11 +5695,12 @@ begin
   Self.add_func('array.draw',         @array_Draw,             'arr[,element]', '从arr数组中随机抽取元素并从数组中移除');
   Self.add_func('array.clear',        @array_Clear,            'arr',           '清空arr数组');
   Self.add_func('array.count',        @array_Count,            'arr,out',       '返回arr数组的元素数量');
-  Self.add_func('array.has_element?', @array_HasElement,       'arr, :label',   '如果arr数组中有元素则跳转');
+  Self.add_func('array.valid?',       @array_CheckElement,     'arr, :label',   '如果arr数组中有元素则跳转');
+  Self.add_func('array.empty?',       @array_CheckElement,     'arr, :label',   '如果arr数组中无元素则跳转');
+  Self.add_func('array.valid?c',      @array_CheckElement,     'arr, :label',   '如果arr数组中有元素则跳转，并压栈');
+  Self.add_func('array.empty?c',      @array_CheckElement,     'arr, :label',   '如果arr数组中无元素则跳转，并压栈');
 
   Self.add_func('array.print,array.println',  @array_Print,    'arr',           '在屏幕中打印arr数组');
-
-
 
 end;
 
