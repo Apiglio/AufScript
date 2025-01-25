@@ -46,7 +46,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.6.1';
+  AufScript_Version='beta 2.6.2';
   {$if defined(cpu32)}
   AufScript_CPU='32bits';
   {$elseif defined(cpu64)}
@@ -67,6 +67,7 @@ const
   {$endif}
 
   CRLF = {$ifdef Windows} #13#10 {$else} #10 {$endif};
+  c_space=[' ',#9];
   c_divi=[' ',','];//隔断符号
   c_iden=['~','@','$','#',':','&'];//变量符号，前后缀符号
   c_toto=c_divi+c_iden;
@@ -172,6 +173,8 @@ type
   pFuncAuf   = procedure(Sender:TObject);
   pFuncAufStr= procedure(Sender:TObject;str:string);
   PAufScript = ^TAufScript;
+  EAufScriptSyntaxError = class(Exception)
+  end;
 
   TAufScript = class
     protected
@@ -459,7 +462,7 @@ var
   procedure de_decoder(var str:string);
 
   function narg(Apre,Aarg,Apost:string):Tnargs;
-  procedure compare_jump_mode(var core_mode:string;var is_not,is_call:boolean);
+  procedure compare_jump_mode(var core_mode:string;out is_not,is_call:boolean);
 
   function isprintable(str:string):boolean;
   function pRamToRawStr(inp:pRam):string;
@@ -673,7 +676,7 @@ begin
       begin
         if (not(tps[length(tps)]in c_divi))or(ps[tpi]<>tps[length(tps)]) then
           begin
-            if (ps[tpi]=' ')and(tpi<length(ps))then
+            if (ps[tpi] in c_space)and(tpi<length(ps))then
               begin
                 if ps[tpi+1] in c_divi then tps:=tps+ps[tpi+1]
                 else tps:=tps+ps[tpi];
@@ -681,9 +684,9 @@ begin
             else tps:=tps+ps[tpi];
         end;
       end;
-  while (tps<>'') do if tps[1]=' ' then delete(tps,1,1) else break;
+  while (tps<>'') do if tps[1] in c_space then delete(tps,1,1) else break;
   if tps='' then exit;
-  while (tps[length(tps)]=' ') do delete(tps,length(tps),1);
+  while (tps[length(tps)] in c_space) do delete(tps,length(tps),1);
   result:=tps;
 end;
 
@@ -706,6 +709,18 @@ begin
   end;
 end;
 
+function ShowBytes_MultiUnit(byte_count:int64):string;
+begin
+  if byte_count>$80000000 then begin
+    result:=FloatToStrF(byte_count / $40000000,ffFixed,8,3)+' GiB';
+  end else if byte_count>$200000 then begin
+    result:=FloatToStrF(byte_count / $100000,ffFixed,8,3)+' MiB';
+  end else if byte_count>$800 then begin
+    result:=FloatToStrF(byte_count / $400,ffFixed,8,3)+' KiB';
+  end else begin
+    result:=IntToStr(byte_count)+' B';
+  end;
+end;
 
 //内置流程函数开始
 procedure _version(Sender:TObject);
@@ -717,6 +732,7 @@ begin
   AufScpt.writeln('AufScript version:');
   AufScpt.writeln(AufScpt.Version);
   AufScpt.writeln(AufScript_OS+' ('+AufScript_CPU+')');
+  AufScpt.writeln('Ram size: '+ShowBytes_MultiUnit(ram_range));
 end;
 procedure _helper(Sender:TObject);
 var AufScpt:TAufScript;
@@ -1560,7 +1576,7 @@ begin
   end;
 end;
 
-procedure compare_jump_mode(var core_mode:string;var is_not,is_call:boolean);
+procedure compare_jump_mode(var core_mode:string;out is_not,is_call:boolean);
 var poss:integer;
 begin
   core_mode:=lowercase(core_mode);
@@ -1586,7 +1602,8 @@ end;
 procedure cj_mode(mode:string;Sender:TObject);//比较两个变量，满足条件则跳转至ofs  cj var1,var2,ofs
 var a,b:double;
     sa,sb:string;
-    ofs:smallint;
+    //ofs:smallint;
+    addr:pRam;
     is_not,is_call,tmp_bool_reg:boolean;//是否有N前缀或C后缀
     core_mode:string;//去除前后缀的mode
     AufScpt:TAufScript;
@@ -1604,22 +1621,9 @@ begin
   core_mode:=mode;
   compare_jump_mode(core_mode,is_not,is_call);
 
-  ofs:=0;
   if not AAuf.CheckArgs(4) then exit;
+  if not AAuf.TryArgToAddr(3,addr) then exit;
 
-  case AAuf.nargs[3].pre of
-    '$':ofs:=pByte(AufScpt.Pointer(AAuf.nargs[3].pre,Usf.to_i(AAuf.nargs[3].arg)))^;
-    '@':ofs:=pLongint(AufScpt.Pointer(AAuf.nargs[3].pre,Usf.to_i(AAuf.nargs[3].arg)))^;
-    '~':ofs:=round(pDouble(AufScpt.Pointer(AAuf.nargs[3].pre,Usf.to_i(AAuf.nargs[3].arg)))^);
-    '&"':ofs:=RawStrToPRam(AAuf.nargs[3].arg) - AufScpt.PSW.run_parameter.current_line_number;
-    '':ofs:=Usf.to_i(AAuf.nargs[3].arg);
-    else begin AufScpt.send_error('警告：地址偏移参数有误，语句未执行');exit end;
-  end;
-
-  if ofs=0 then begin
-    AufScpt.send_error('警告：'+AAuf.nargs[0].arg+'需要非零的地址偏移量，该语句未执行。');
-    exit;
-  end;
   if core_mode[3]<>'s' then begin
     if not AAuf.TryArgToDouble(2,b) then exit;
     if not AAuf.TryArgToDouble(1,a) then exit;
@@ -1628,12 +1632,12 @@ begin
     if not AAuf.TryArgToString(1,sa) then exit;
   end;
   case core_mode of
-    'cje':if (a=b) xor is_not then switch_addr(AufScpt.currentLine+ofs,is_call);
-    'cjl':if (a<b) xor is_not then switch_addr(AufScpt.currentLine+ofs,is_call);
-    'cjm':if (a>b) xor is_not then switch_addr(AufScpt.currentLine+ofs,is_call);
+    'cje':if (a=b) xor is_not then switch_addr(addr,is_call);
+    'cjl':if (a<b) xor is_not then switch_addr(addr,is_call);
+    'cjm':if (a>b) xor is_not then switch_addr(addr,is_call);
 
-    'cjs':if (sa=sb) xor is_not then switch_addr(AufScpt.currentLine+ofs,is_call);
-    'cjsub':if (pos(sa,sb)>0) xor is_not then switch_addr(AufScpt.currentLine+ofs,is_call);
+    'cjs':if (sa=sb) xor is_not then switch_addr(addr,is_call);
+    'cjsub':if (pos(sa,sb)>0) xor is_not then switch_addr(addr,is_call);
     'cjsreg':
       begin
         RegCalc.Expression:=sa;
@@ -1642,7 +1646,7 @@ begin
         except
           tmp_bool_reg:=false;
         end;
-        if tmp_bool_reg xor is_not then switch_addr(AufScpt.currentLine+ofs,is_call);
+        if tmp_bool_reg xor is_not then switch_addr(addr,is_call);
       end;
 
   end;
@@ -4248,7 +4252,7 @@ begin
     '$':begin result.VarType:=ARV_FixNum;result.size:=1 end;
   end;
   val(arg.arg,value,codee);
-  if codee<>0 then begin raise Exception.Create('没有中部');exit end;
+  if codee<>0 then begin raise EAufScriptSyntaxError.Create('没有中部');exit end;
   result.head:=pbyte(value)+pRam(Self.PSW.run_parameter.ram_zero);
   result.Is_Temporary:=false;
   result.Stream:=nil;
@@ -4341,7 +4345,7 @@ begin
     '.':begin base:=10;delete(stmp,len,1);dec(len);end;
     '0'..'9':base:=10;
     //else exit;
-    else raise Exception.Create('非法浮点数字符');//原先TryArgToDouble始终不会报错
+    else raise EAufScriptSyntaxError.Create('非法浮点数字符');//原先TryArgToDouble始终不会报错
   end;
   if len=0 then exit;
   poss:=pos('.',stmp);
@@ -4363,7 +4367,7 @@ begin
                     inc(dot_already);
                   end;
               //else begin result:=0;exit end;
-              else raise Exception.Create('非法浮点数字符');//原先TryArgToDouble始终不会报错
+              else raise EAufScriptSyntaxError.Create('非法浮点数字符');//原先TryArgToDouble始终不会报错
             end;
             delete(stmp,len,1);
             dec(len);
@@ -4383,7 +4387,7 @@ begin
                     inc(dot_already);
                   end;
               //else begin result:=0;exit end;
-              else raise Exception.Create('非法浮点数字符');//原先TryArgToDouble始终不会报错
+              else raise EAufScriptSyntaxError.Create('非法浮点数字符');//原先TryArgToDouble始终不会报错
             end;
             delete(stmp,len,1);
             dec(len);
@@ -4394,7 +4398,7 @@ begin
       begin
         {let}offs:=0;
         val(stmp,result,{let}offs);
-        if {let}offs<>0 then raise Exception.Create('非法浮点数字符');//原先TryArgToDouble始终不会报错
+        if {let}offs<>0 then raise EAufScriptSyntaxError.Create('非法浮点数字符');//原先TryArgToDouble始终不会报错
       end;
   end;
 end;
@@ -4416,7 +4420,7 @@ begin
               '0'..'9':result:=result+ord(stmp[1])-ord('0');
               'A'..'F':result:=result+ord(stmp[1])+10-ord('A');
               'a'..'f':result:=result+ord(stmp[1])+10-ord('a');
-              else raise Exception.Create('SharpToDword Error: 十六进制包含非法字符');
+              else raise EAufScriptSyntaxError.Create('SharpToDword Error: 十六进制包含非法字符');
             end;
             delete(stmp,1,1);
           end;
@@ -4429,7 +4433,7 @@ begin
             result:=result*2;
             case stmp[1] of
               '1':result:=result+1;
-              else raise Exception.Create('SharpToDword Error: 二进制包含非法字符');
+              else raise EAufScriptSyntaxError.Create('SharpToDword Error: 二进制包含非法字符');
             end;
             delete(stmp,1,1);
           end;
@@ -4438,7 +4442,7 @@ begin
       begin
         let:=0;
         val(stmp,result,let);
-        if let<>0 then raise Exception.Create('SharpToDword Error: 十进制包含非法字符');
+        if let<>0 then raise EAufScriptSyntaxError.Create('SharpToDword Error: 十进制包含非法字符');
       end;
   end;
 end;
@@ -4460,7 +4464,7 @@ begin
               '0'..'9':result:=result+ord(stmp[1])-ord('0');
               'A'..'F':result:=result+ord(stmp[1])+10-ord('A');
               'a'..'f':result:=result+ord(stmp[1])+10-ord('a');
-              else raise Exception.Create('SharpToDword Error: 十六进制包含非法字符');
+              else raise EAufScriptSyntaxError.Create('SharpToDword Error: 十六进制包含非法字符');
             end;
             delete(stmp,1,1);
           end;
@@ -4473,7 +4477,7 @@ begin
             result:=result*2;
             case stmp[1] of
               '1':result:=result+1;
-              else raise Exception.Create('SharpToDword Error: 二进制包含非法字符');
+              else raise EAufScriptSyntaxError.Create('SharpToDword Error: 二进制包含非法字符');
             end;
             delete(stmp,1,1);
           end;
@@ -4482,7 +4486,7 @@ begin
       begin
         let:=0;
         val(stmp,result,let);
-        if let<>0 then raise Exception.Create('SharpToDword Error: 十进制包含非法字符');
+        if let<>0 then raise EAufScriptSyntaxError.Create('SharpToDword Error: 十进制包含非法字符');
       end;
   end;
 end;
@@ -4497,7 +4501,7 @@ begin
   val(tmpexp.arg,index,codee);
   if codee<>0 then begin
     Self.send_error('TmpexpToDouble error: @n/$n/~n index invalid');
-    raise Exception.Create('TmpexpToDouble error: @n/$n/~n index invalid');
+    raise EAufScriptSyntaxError.Create('TmpexpToDouble error: @n/$n/~n index invalid');
   end;
   case tmpexp.pre of
     '@':result:=Self.vLong[index];
@@ -4511,7 +4515,7 @@ begin
   val(tmpexp.arg,index,codee);
   if codee<>0 then begin
     Self.send_error('TmpexpToDword error: @n/$n/~n index invalid');
-    raise Exception.Create('TmpexpToDword error: @n/$n/~n index invalid');
+    raise EAufScriptSyntaxError.Create('TmpexpToDword error: @n/$n/~n index invalid');
   end;
   case tmpexp.pre of
     '@':result:=Self.vLong[index];
@@ -4525,7 +4529,7 @@ begin
   val(tmpexp.arg,index,codee);
   if codee<>0 then begin
     Self.send_error('TmpexpToString error: @n/$n/~n index invalid');
-    raise Exception.Create('TmpexpToString error: @n/$n/~n index invalid');
+    raise EAufScriptSyntaxError.Create('TmpexpToString error: @n/$n/~n index invalid');
   end;
   case tmpexp.pre of
     '@':result:=IntToStr(Self.vLong[index]);
@@ -5358,7 +5362,7 @@ begin
     end
   else
     begin
-      if tmp.readonly then raise Exception.Create('不能修改只读表达式')
+      if tmp.readonly then raise EAufScriptSyntaxError.Create('不能修改只读表达式')
       else tmp.value:=AValue;
     end;
 end;
@@ -5368,9 +5372,9 @@ begin
   result:=false;
   tmp:=Self.Find(OldKey);
   if tmp=nil then begin
-    raise Exception.Create('不能给不存在的表达式更名')
+    raise EAufScriptSyntaxError.Create('不能给不存在的表达式更名')
   end else begin
-    if tmp.readonly then raise Exception.Create('不能修改只读表达式')
+    if tmp.readonly then raise EAufScriptSyntaxError.Create('不能修改只读表达式')
     else tmp.key:=NewKey;
   end;
   result:=true;
@@ -5381,9 +5385,9 @@ begin
   result:=false;
   tmp:=Self.Find(Key);
   if tmp=nil then begin
-    raise Exception.Create('不存在指定表达式')
+    raise EAufScriptSyntaxError.Create('不存在指定表达式')
   end else begin
-    if tmp.readonly then raise Exception.Create('不能删除只读表达式')
+    if tmp.readonly then raise EAufScriptSyntaxError.Create('不能删除只读表达式')
     else Self.Remove(tmp);
   end;
   result:=true;
