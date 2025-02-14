@@ -18,6 +18,7 @@ type
   TAufArray = class(TAufBase)
   private
     FArray:array of TAufBase;
+    FParentArray:TAufArray;
   protected
     function getValidReadIndex(index:Integer):Integer;
     function getValidWriteIndex(index:Integer):Integer;
@@ -32,6 +33,7 @@ type
     function Find(element:TAufBase):Integer;          //查找element，并返回所在位置下标，找不到则返回元素总数
     function Count:Integer;                           //返回元素个数
     property Items[Index:Integer]:TAufBase read GetItem write SetItem; default;
+    property ParentArray:TAufArray read FParentArray write FParentArray;
   public
     function Draw:TAufBase;                           //抽牌：随机返回一个元素并从数组中移除
     procedure Reinsert(element:TAufBase);             //插牌：将元素随机插入数组中的一个位置
@@ -39,13 +41,14 @@ type
     procedure Clear;                                  //清空：清除所有元素
 
   public
+    procedure LinkAppend(link_element:TAufBase);      //Append的指针版本
     procedure Assign(ASource:TAufBase); override;
     function Copy:TAufBase; override;
+    function ToString: ansistring; override;
   public
     constructor Create;                               //创建不定长数组
     destructor Destroy; override;                     //释放不定长数组
     class function AufTypeName:String; override;
-
   end;
 
 
@@ -101,8 +104,9 @@ var len:Integer;
 begin
   len:=Length(FArray);
   SetLength(FArray,len+1);
-  FArray[len]:=TAufBase.Create;
-  FArray[len].Assign(element);
+  //FArray[len]:=TAufBase.Create;
+  //FArray[len].Assign(element);
+  FArray[len]:=element.Copy;
 end;
 
 function TAufArray.Delete(index:Integer):TAufBase;
@@ -152,6 +156,14 @@ begin
   end;
 end;
 
+procedure TAufArray.LinkAppend(link_element:TAufBase);
+var len:Integer;
+begin
+  len:=Length(FArray);
+  SetLength(FArray,len+1);
+  FArray[len]:=link_element;
+end;
+
 procedure TAufArray.Assign(ASource:TAufBase);
 var len,idx:Integer;
     SourceElement:TAufBase;
@@ -175,6 +187,18 @@ function TAufArray.Copy:TAufBase;
 begin
   result:=TAufArray.Create;
   (result as TAufArray).Assign(Self);
+end;
+
+function TAufArray.ToString: ansistring;
+var idx,max:Integer;
+begin
+  result:='[';
+  max:=Length(FArray)-1;
+  for idx:=0 to max do begin
+    result:=result+FArray[idx].ToString;
+    if idx<>max then result:=result+', ';
+  end;
+  result:=result+']';
 end;
 
 function TAufArray.Find(element:TAufBase):Integer;
@@ -226,10 +250,13 @@ var len,idx:Integer;
     elem:TAufBase;
 begin
   len:=Length(FArray);
-  for idx:=1 to len-1 do begin
+  for idx:=0 to len-1 do begin
     elem:=FArray[idx];
     if elem.ARV.VarType=ARV_Raw then begin
-      //非基本类型不析构
+      //非基本类型，不属于子数组的不析构
+      if elem is TAufArray then
+        with elem as TAufArray do
+          if ParentArray=Self then Free;
     end else begin
       //基本类型析构
       elem.Free;
@@ -241,6 +268,7 @@ end;
 constructor TAufArray.Create;
 begin
   inherited Create;
+  FParentArray:=nil;
   FARV.Head:=@Self;
   FARV.size:={$ifdef cpu64}8{$else}4{$endif};
 end;
@@ -257,7 +285,6 @@ class function TAufArray.AufTypeName:String;
 begin
   result:='array';
 end;
-
 
 initialization
   Randomize;

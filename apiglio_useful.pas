@@ -46,7 +46,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.6.2';
+  AufScript_Version='beta 2.6.2.1';
   {$if defined(cpu32)}
   AufScript_CPU='32bits';
   {$elseif defined(cpu64)}
@@ -438,6 +438,7 @@ type
         TypeAllowance:TAufRamVarTypeSet;out res:TAufRamVar):boolean;
       function TryArgToAddr(ArgNumber:byte;out res:pRam):boolean;
       function TryArgToObject(ArgNumber:byte;ObjectClass:TClass;out obj:TObject):boolean;
+      function TryArgToAufArray(ArgNumber:byte;out arr:TAufArray):boolean;
 
       function RangeCheck(target,min,max:int64):boolean;inline;
       //min<=target<=max时返回true否则返回false，并send_error
@@ -473,6 +474,7 @@ var
 
 
 IMPLEMENTATION
+uses auf_type_parser;
 
 procedure de_decoder(var str:string);
 begin
@@ -3062,7 +3064,7 @@ begin
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
   if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
-  element:=CreateAufTypeByText(AAuf.args[2]);
+  element:=AufBaseParser(AAuf.args[2]);
   if element=nil then begin
     if not AAuf.TryArgToARV(2,1,High(dword),[ARV_FixNum, ARV_Float, ARV_Char],arv) then exit;
     element:=TAufBase.CreateAsARV(arv);
@@ -3086,7 +3088,7 @@ begin
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
   if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
-  element:=CreateAufTypeByText(AAuf.args[2]);
+  element:=AufBaseParser(AAuf.args[2]);
   if element=nil then begin
     if not AAuf.TryArgToARV(2,1,High(dword),[ARV_FixNum, ARV_Float, ARV_Char],arv) then exit;
     element:=TAufBase.CreateAsARV(arv);
@@ -3879,6 +3881,23 @@ begin
     exit;
   end;
   result:=true;
+end;
+function TAuf.TryArgToAufArray(ArgNumber:byte;out arr:TAufArray):boolean;
+var tmpBase:TAufBase;
+begin
+  try
+    tmpBase:=AufArrayParser(args[ArgNumber]);
+    if tmpBase is TAufArray then begin
+      arr:=tmpBase as TAufArray;
+      result:=true;
+    end else begin
+      arr:=nil;
+      result:=false;
+    end;
+  except
+    arr:=nil;
+    result:=false;
+  end;
 end;
 function TAuf.RangeCheck(target,min,max:int64):boolean;
 begin

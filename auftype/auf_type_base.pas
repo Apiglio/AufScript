@@ -22,6 +22,7 @@ type
     procedure Assign(ASource:TAufBase); virtual;
     function Equal(ACompare:TAufBase):boolean; virtual;
     function Copy:TAufBase; virtual;
+    function ToString: ansistring; override;
   public
     constructor Create;
     constructor CreateAsARV(value:TAufRamVar);
@@ -57,50 +58,8 @@ type
 
   TAufBaseClass = class of TAufBase;
 
-  function CreateAufTypeByText(syntax:string):TAufBase;
-
 implementation
 uses auf_type_array;
-
-function CreateAufTypeByText(syntax:string):TAufBase;
-var itmp:int64;
-    idx,codee:integer;
-    ftmp:double;
-    stmp:string;
-    he,hd:boolean;
-begin
-  //type priority: integer float string
-  //临时的方法，之后用语法树来实现，数组之类的先不实现
-  result:=nil;
-  if syntax='' then exit;
-  if syntax[1]+syntax[length(syntax)]='""' then begin
-    stmp:=syntax;
-    if length(stmp)<2 then exit;
-    delete(stmp,length(stmp),1);
-    delete(stmp,1,1);
-    result:=TAufBase.CreateAsString(stmp);
-    exit;
-  end;
-  he:=false;
-  hd:=false;
-  for idx:=1 to length(syntax) do begin
-    if syntax[idx] in ['e','E'] then he:=true;
-    if syntax[idx]='.' then hd:=true;
-  end;
-  if he or hd then begin
-    try
-      ftmp:=StrToFloat(syntax);
-      result:=TAufBase.CreateAsDouble(ftmp);
-    except
-      //
-    end;
-  end else begin
-    val(syntax,itmp,codee);
-    if codee<=0 then begin
-      result:=TAufBase.CreateAsFixnum(itmp);
-    end;
-  end;
-end;
 
 { TAufBase }
 
@@ -260,6 +219,14 @@ function TAufBase.Copy:TAufBase;
 begin
   result:=TAufBase.Create;
   result.Assign(Self);
+end;
+
+function TAufBase.ToString: ansistring;
+begin
+  case FARV.VarType of
+    ARV_Char:result:='"'+arv_to_s(FARV)+'"';
+    else result:=arv_to_s(FARV);
+  end;
 end;
 
 function TAufBase.GetLargeInt:int64;

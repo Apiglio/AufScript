@@ -20,7 +20,7 @@ uses
   Classes, StdCtrls, ExtCtrls, Sysutils, Forms, consoletestrunner, Interfaces,
   Controls, Dialogs, LazUTF8, Apiglio_Useful, auf_ram_var, aufscript_frame,
   aufscript_command, auf_ram_syntax, auf_ram_image, aufscript_thread,
-  auf_type_array, auf_type_base, word_tree, svo_tree;
+  auf_type_array, auf_type_base, word_tree, svo_tree, auf_type_parser;
 
 type
 
@@ -74,11 +74,19 @@ var tmp:TAufRamVar;
     AAuf:TAuf;
     tmpNode:TWordTreeNode;
     tmpP:Pointer;
+    arr:TAufArray;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
 
   //AufScpt.writeln('arv_to_dec_fraction:'+arv_to_dec_fraction(AufScpt.RamVar(AAuf.nargs[1])));
+
+  if not AAuf.CheckArgs(2) then exit;
+  if not AAuf.TryArgToAufArray(1,arr) then exit;
+  AufScpt.writeln(arr.ToString);
+  arr.Free;
+
+  exit;
 
   tmpNode:=TWordTreeNode.Create;
   try
