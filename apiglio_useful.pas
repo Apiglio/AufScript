@@ -3893,10 +3893,12 @@ begin
     end else begin
       arr:=nil;
       result:=false;
+      Script.send_error('警告：第'+IntToStr(ArgNumber)+'个参数无法正确解析为TAufArray实例，代码未执行。');
     end;
   except
     arr:=nil;
     result:=false;
+    Script.send_error('警告：第'+IntToStr(ArgNumber)+'个参数无法正确解析为TAufArray实例，代码未执行。');
   end;
 end;
 function TAuf.RangeCheck(target,min,max:int64):boolean;

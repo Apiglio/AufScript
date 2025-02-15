@@ -41,7 +41,8 @@ type
     procedure Clear;                                  //清空：清除所有元素
 
   public
-    procedure LinkAppend(link_element:TAufBase);      //Append的指针版本
+    procedure LinkInsert(index:Integer;link_element:TAufBase);  //Insert的指针版本
+    procedure LinkAppend(link_element:TAufBase);                //Append的指针版本
     procedure Assign(ASource:TAufBase); override;
     function Copy:TAufBase; override;
     function ToString: ansistring; override;
@@ -95,8 +96,9 @@ begin
   for pi:=len-1 downto index do begin
     FArray[pi+1]:=FArray[pi];
   end;
-  FArray[index]:=TAufBase.Create;
-  FArray[index].Assign(element);
+  //FArray[index]:=TAufBase.Create;
+  //FArray[index].Assign(element);
+  FArray[len]:=element.Copy;
 end;
 
 procedure TAufArray.Append(element:TAufBase);
@@ -154,6 +156,18 @@ begin
       FArray[idx]:=tmpElement;
     end;
   end;
+end;
+
+procedure TAufArray.LinkInsert(index:Integer;link_element:TAufBase);
+var len,pi:Integer;
+begin
+  index:=getValidWriteIndex(index);
+  len:=Length(FArray);
+  SetLength(FArray,len+1);
+  for pi:=len-1 downto index do begin
+    FArray[pi+1]:=FArray[pi];
+  end;
+  FArray[len]:=link_element;
 end;
 
 procedure TAufArray.LinkAppend(link_element:TAufBase);
