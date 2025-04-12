@@ -46,7 +46,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.6.2.1';
+  AufScript_Version='beta 2.6.2.2';
   {$if defined(cpu32)}
   AufScript_CPU='32bits';
   {$elseif defined(cpu64)}
@@ -1256,6 +1256,7 @@ procedure add_arv(Sender:TObject);
 var tmp1,tmp2:TAufRamVar;
     AufScpt:TAufScript;
     AAuf:TAuf;
+    tmpFloatOperand:double;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
@@ -1271,12 +1272,27 @@ begin
     AufScpt.send_error('警告：add_arv的第2个参数错误，语句未执行。');
     exit;
   end;
-  ARV_add(tmp1,tmp2);
+  case tmp1.VarType of
+    ARV_Float:
+      begin
+        case tmp2.size of
+          4:tmpFloatOperand:=PSingle(tmp2.Head)^;
+          8:tmpFloatOperand:=PDouble(tmp2.Head)^;
+        end;
+        case tmp1.size of
+          4:PSingle(tmp1.Head)^:=PSingle(tmp1.Head)^+tmpFloatOperand;
+          8:PDouble(tmp1.Head)^:=PDouble(tmp1.Head)^+tmpFloatOperand;
+          else AufScpt.send_error('警告：浮点数长度不支持。');
+        end;
+      end;
+    ARV_FixNum:ARV_add(tmp1,tmp2);
+    else AufScpt.send_error('警告：add_arv的第1个参数类型不支持加法，代码未执行。');
+  end;
 
 end;
 procedure add(Sender:TObject);
 var a,b:double;
-    tmp:TAufRamVar;
+    tmp,arg1,arg2:TAufRamVar;
     AufScpt:TAufScript;
     AAuf:TAuf;
 begin
@@ -1285,7 +1301,9 @@ begin
   if not AAuf.CheckArgs(3) then exit;
   //if AAuf.ArgsCount<3 then begin AufScpt.send_error('警告：add需要两个参数，赋值未成功。');exit end;
   {=begin 临时增加}
-  if AufScpt.RamVar(AAuf.nargs[1]).size * AufScpt.RamVar(AAuf.nargs[2]).size <>0 then
+  arg1:=AufScpt.RamVar(AAuf.nargs[1]);
+  arg2:=AufScpt.RamVar(AAuf.nargs[2]);
+  if arg1.size * arg2.size <> 0 then
     begin
       add_arv(Sender);
       exit;
