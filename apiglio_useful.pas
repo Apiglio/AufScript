@@ -1332,6 +1332,7 @@ procedure sub_arv(Sender:TObject);
 var tmp1,tmp2:TAufRamVar;
     AufScpt:TAufScript;
     AAuf:TAuf;
+    tmpFloatOperand:double;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
@@ -1347,7 +1348,23 @@ begin
     AufScpt.send_error('警告：sub_arv的第2个参数错误，语句未执行。');
     exit;
   end;
-  ARV_sub(tmp1,tmp2);
+  case tmp1.VarType of
+    ARV_Float:
+      begin
+        case tmp2.size of
+          4:tmpFloatOperand:=PSingle(tmp2.Head)^;
+          8:tmpFloatOperand:=PDouble(tmp2.Head)^;
+        end;
+        case tmp1.size of
+          4:PSingle(tmp1.Head)^:=PSingle(tmp1.Head)^-tmpFloatOperand;
+          8:PDouble(tmp1.Head)^:=PDouble(tmp1.Head)^-tmpFloatOperand;
+          else AufScpt.send_error('警告：浮点数长度不支持。');
+        end;
+      end;
+    ARV_FixNum:ARV_sub(tmp1,tmp2);
+    else AufScpt.send_error('警告：add_arv的第1个参数类型不支持减法，代码未执行。');
+  end;
+
 end;
 procedure sub(Sender:TObject);
 var a,b:double;
@@ -1389,6 +1406,7 @@ procedure mul_arv(Sender:TObject);
 var tmp1,tmp2:TAufRamVar;
     AufScpt:TAufScript;
     AAuf:TAuf;
+    tmpFloatOperand:double;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
@@ -1404,7 +1422,22 @@ begin
     AufScpt.send_error('警告：mul_arv的第2个参数错误，语句未执行。');
     exit;
   end;
-  ARV_mul2(tmp1,tmp2);
+  case tmp1.VarType of
+    ARV_Float:
+      begin
+        case tmp2.size of
+          4:tmpFloatOperand:=PSingle(tmp2.Head)^;
+          8:tmpFloatOperand:=PDouble(tmp2.Head)^;
+        end;
+        case tmp1.size of
+          4:PSingle(tmp1.Head)^:=PSingle(tmp1.Head)^*tmpFloatOperand;
+          8:PDouble(tmp1.Head)^:=PDouble(tmp1.Head)^*tmpFloatOperand;
+          else AufScpt.send_error('警告：浮点数长度不支持。');
+        end;
+      end;
+    ARV_FixNum:ARV_mul2(tmp1,tmp2);
+    else AufScpt.send_error('警告：add_arv的第1个参数类型不支持乘法，代码未执行。');
+  end;
 end;
 
 procedure mul(Sender:TObject);
@@ -1447,6 +1480,7 @@ procedure div_arv(Sender:TObject);
 var tmp1,tmp2:TAufRamVar;
     AufScpt:TAufScript;
     AAuf:TAuf;
+    tmpFloatOperand:double;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
@@ -1457,14 +1491,22 @@ begin
     AufScpt.send_error('警告：div_arv的第2个参数不能为0，语句未执行。');
     exit;
   end;
-  if tmp1.VarType=ARV_Float then begin
-    case tmp1.size of
-      4:psingle(tmp1.Head)^:=arv_to_double(tmp1) / arv_to_double(tmp2);
-      8:pdouble(tmp1.Head)^:=arv_to_double(tmp1) / arv_to_double(tmp2);
-      else AufScpt.send_error('警告：暂不支持4位和8位以外的浮点型除法，语句未执行。');
-    end;
-  end else begin
-    ARV_div(tmp1,tmp2);
+
+  case tmp1.VarType of
+    ARV_Float:
+      begin
+        case tmp2.size of
+          4:tmpFloatOperand:=PSingle(tmp2.Head)^;
+          8:tmpFloatOperand:=PDouble(tmp2.Head)^;
+        end;
+        case tmp1.size of
+          4:PSingle(tmp1.Head)^:=PSingle(tmp1.Head)^/tmpFloatOperand;
+          8:PDouble(tmp1.Head)^:=PDouble(tmp1.Head)^/tmpFloatOperand;
+          else AufScpt.send_error('警告：浮点数长度不支持。');
+        end;
+      end;
+    ARV_FixNum:ARV_div(tmp1,tmp2);
+    else AufScpt.send_error('警告：add_arv的第1个参数类型不支持除法，代码未执行。');
   end;
 end;
 procedure div_(Sender:TObject);//这一段写的tm和屎一样。好多了。
@@ -1510,6 +1552,14 @@ procedure mod_arv(Sender:TObject);
 var tmp1,tmp2:TAufRamVar;
     AufScpt:TAufScript;
     AAuf:TAuf;
+    tmpFloatOperand:double;
+    function float_mod(a,b:double):double;
+    var quotient:double;
+    begin
+        quotient:=trunc(a/b);
+        result:=a-quotient*b
+    end;
+
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
@@ -1529,7 +1579,24 @@ begin
     AufScpt.send_error('警告：mod_arv的第2个参数不能为0，语句未执行。');
     exit;
   end;
-  ARV_mod(tmp1,tmp2);
+
+  case tmp1.VarType of
+    ARV_Float:
+      begin
+        case tmp2.size of
+          4:tmpFloatOperand:=PSingle(tmp2.Head)^;
+          8:tmpFloatOperand:=PDouble(tmp2.Head)^;
+        end;
+        case tmp1.size of
+          4:PSingle(tmp1.Head)^:=float_mod(PSingle(tmp1.Head)^,tmpFloatOperand);
+          8:PDouble(tmp1.Head)^:=float_mod(PDouble(tmp1.Head)^,tmpFloatOperand);
+          else AufScpt.send_error('警告：浮点数长度不支持。');
+        end;
+      end;
+    ARV_FixNum:ARV_mod(tmp1,tmp2);
+    else AufScpt.send_error('警告：add_arv的第1个参数类型不支持除法，代码未执行。');
+  end;
+
 end;
 procedure mod_(Sender:TObject);
 var l,r:longint;
