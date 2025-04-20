@@ -101,6 +101,10 @@ type
   function ARV_offset_count(ina,inb:TAufRamVar;offset_threshold:byte):dword;//统计每个字节差距大于offset_threshold的字节数量
   function ARV_float_valid(ina:TAufRamVar):boolean;//判断浮点型是否是有效值
 
+  function ARV_floating_exponent_digits(byteCount:integer):integer;
+  procedure ARV_floating_make_zero(ina:TAufRamVar;negative:boolean=false);
+  procedure ARV_floating_make_infinity(ina:TAufRamVar;negative:boolean=false);
+
   procedure ARV_shl(var inp:TAufRamVar;bit:qword);
   procedure ARV_shr(var inp:TAufRamVar;bit:qword);
   procedure ARV_not(var inp:TAufRamVar);
@@ -1147,6 +1151,37 @@ begin
      else exit;
   end;
   result:=true;
+end;
+
+function ARV_floating_exponent_digits(byteCount:integer):integer;
+begin
+  result:=trunc(5.5*ln(byteCount+0.5));
+end;
+
+procedure ARV_floating_make_zero(ina:TAufRamVar;negative:boolean=false);
+begin
+  FillByte(ina.Head^,ina.size,0);
+  if negative then pbyte(ina.Head+ina.size-1)^:=$80;
+end;
+
+procedure ARV_floating_make_infinity(ina:TAufRamVar;negative:boolean=false);
+var exponent_digit, mantissa_digit, EM_byte:integer;
+// | Sign Exponent| ... | Exponent Mantissa | ... | Mantissa
+//   HEAD+size-1          HEAD+EM_byte-1            HEAD^
+begin
+  exponent_digit:=ARV_floating_exponent_digits(ina.size);
+  mantissa_digit:=ina.size*8 - exponent_digit -1;
+  EM_byte:=mantissa_digit div 8;
+  FillByte(ina.Head^,EM_byte,0);
+  pbyte(ina.Head+EM_byte)^:=$ff shl (mantissa_digit mod 8);
+  FillByte((ina.Head+EM_byte+1)^,ina.size-EM_byte-1,$ff);
+  if not negative then pbyte(ina.Head+ina.size-1)^:=pbyte(ina.Head+ina.size-1)^ and $7f;;
+end;
+
+procedure ARV_floating_add(var ina:TAufRamVar;const inb:TAufRamVar);
+//var
+begin
+
 end;
 
 procedure ARV_shl(var inp:TAufRamVar;bit:qword);
