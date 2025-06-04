@@ -941,23 +941,28 @@ procedure print(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
     str:string;
+    arg_index,arg_count:integer;
+    new_lined:boolean;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
-  if not AAuf.CheckArgs(2) then exit;
-  if not AAuf.TryArgToString(1,str) then exit;
-  if AAuf.ArgsCount>=3 then
-    begin
-      case lowercase(AAuf.args[2]) of
-        'utf8-encode':str:=WinCPToUtf8(str);
-        'utf8-decode':str:=Utf8ToWinCP(str);
-      end;
-    end;
   case lowercase(AAuf.args[0]) of
-    'print':AufScpt.write(str);
-    'println':AufScpt.writeln(str);
-    else AufScpt.send_error('未知函数，需要print或println。');
+    'print':   new_lined:=false;
+    'println': new_lined:=true;
+    else begin
+      AufScpt.send_error('未知函数，需要print或println。');
+      exit;
+    end;
   end;
+
+  if not AAuf.CheckArgs(2) then exit;
+  arg_count:=AAuf.ArgsCount;
+  for arg_index:=1 to arg_count-1 do begin
+    if not AAuf.TryArgToString(arg_index,str) then exit;
+    AufScpt.write(str);
+  end;
+  if new_lined then AufScpt.writeln('');
+
 end;
 procedure hex(Sender:TObject);
 var AufScpt:TAufScript;
