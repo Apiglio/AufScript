@@ -100,7 +100,6 @@ type
   function ARV_comp(ina,inb:TAufRamVar):smallint;//ina<=>inb
   function ARV_offset_count(ina,inb:TAufRamVar;offset_threshold:byte):dword;//统计每个字节差距大于offset_threshold的字节数量
   function ARV_float_valid(ina:TAufRamVar):boolean;//判断浮点型是否是有效值
-
   function ARV_floating_exponent_digits(byteCount:integer):integer;
   procedure ARV_floating_make_zero(ina:TAufRamVar;negative:boolean=false);
   procedure ARV_floating_make_infinity(ina:TAufRamVar;negative:boolean=false);
@@ -134,6 +133,7 @@ type
 
   function arv_to_s(ina:TAufRamVar):string;
   function arv_to_hex(ina:TAufRamVar):string;
+  function arv_to_bin(ina:TAufRamVar):string;
   function arv_to_dec(ina:TAufRamVar):string;
   function arv_to_dec_fraction(ina:TAufRamVar):string;//小数点后
   function arv_to_qword(ina:TAufRamVar):qword;
@@ -1142,6 +1142,7 @@ begin
   until ia=0;
 end;
 
+
 function ARV_float_valid(ina:TAufRamVar):boolean;
 begin
   result:=false;
@@ -1574,23 +1575,41 @@ begin
 end;
 
 function arv_to_hex(ina:TAufRamVar):string;
-var pi:dword;
+var idx:dword;
 begin
   result:='';
-  //result:='UnKnown.Hex(';
-  if assignedARV(ina) then
-    begin
-      for pi:=ina.size-1 downto 0 do
-        begin
-          result:=result+IntToHex((ina.Head+pi)^,2);
-        end;
-    end
-  else
-    begin
-      raise Exception.Create('警告：地址超界！');
-      result:='00H';
+  if assignedARV(ina) then begin
+    for idx:=ina.size-1 downto 0 do begin
+      result:=result+IntToHex((ina.Head+idx)^,2);
     end;
-  //result:=result+')';
+  end else
+    raise Exception.Create('警告：地址超界！');
+end;
+function arv_to_bin(ina:TAufRamVar):string;
+var tmpHex:string;
+    idx,maxIdx:integer;
+begin
+  result:='';
+  tmpHex:=arv_to_hex(ina);
+  maxIdx:=length(tmpHex);
+  for idx:=1 to maxIdx do case tmpHex[idx] of
+    '0':     result:=result+'0000';
+    '1':     result:=result+'0001';
+    '2':     result:=result+'0010';
+    '3':     result:=result+'0011';
+    '4':     result:=result+'0100';
+    '5':     result:=result+'0101';
+    '6':     result:=result+'0110';
+    '7':     result:=result+'0111';
+    '8':     result:=result+'1000';
+    '9':     result:=result+'1001';
+    'A','a': result:=result+'1010';
+    'B','b': result:=result+'1011';
+    'C','c': result:=result+'1100';
+    'D','d': result:=result+'1101';
+    'E','e': result:=result+'1110';
+    'F','f': result:=result+'1111';
+  end;
 end;
 function arv_to_dec(ina:TAufRamVar):string;
 var pi,pj:dword;

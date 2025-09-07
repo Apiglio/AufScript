@@ -17,6 +17,8 @@ UNIT Apiglio_Useful;
 
 INTERFACE
 
+//{$UNITPATH ./auftype}
+//{$UNITPATH ./aufkernel}
 uses
   {$IFDEF UNIX}
   cthreads,
@@ -73,7 +75,7 @@ const
   c_toto=c_divi+c_iden;
   ram_range=$20000{4096}{32};//变量区大小
   stack_range=32;//行数堆栈区大小，最多支持256个
-  func_range=256;//函数区大小，最多支持65536个
+  func_range=1024;//256;//函数区大小，最多支持65536个
   args_range=16;//函数参数最大数量
 
   {$IFDEF MsgTimerMode}
@@ -972,6 +974,21 @@ begin
     'hex':AufScpt.write(arv_to_hex(arv));
     'hexln':AufScpt.writeln(arv_to_hex(arv));
     else AufScpt.send_error('未知函数，需要hex或hexln。');
+  end;
+end;
+procedure binary(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    arv:TAufRamVar;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(2) then exit;
+  if not AAuf.TryArgToARV(1,High(dword),0,[ARV_FixNum,ARV_Char,ARV_Float,ARV_Raw],arv) then exit;
+  case lowercase(AAuf.args[0]) of
+    'bin':AufScpt.write(arv_to_bin(arv));
+    'binln':AufScpt.writeln(arv_to_bin(arv));
+    else AufScpt.send_error('未知函数，需要bin或binln。');
   end;
 end;
 procedure inspect(Sender:TObject);
@@ -5654,6 +5671,7 @@ begin
   Self.add_func('cmd,shell', @_cmd,       'command',        '调用命令提示行');
 
   Self.add_func('hex,hexln', @hex,        'var',            '输出标准变量形式的十六进制,后加"ln"则换行');
+  Self.add_func('bin,binln', @binary,     'var',            '输出标准变量形式的二进制,后加"ln"则换行');
   Self.add_func('print,println',  @print, 'var',            '输出变量var,后加"ln"则换行');
   Self.add_func('echo,echoln',    @echo,  'expr',           '解析表达式,后加"ln"则换行');
   Self.add_func('inspect',   @inspect,    'expr',           '检视表达式的值');
