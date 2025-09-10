@@ -11,6 +11,12 @@ uses
   Classes, SysUtils, LazUTF8;
 
 type
+
+  EAufRamVarError = class(Exception);
+  EAufRamVarUnimplementedError=class(EAufRamVarError);
+  EAufRamVarTypeError=class(EAufRamVarError);
+  EAufRamVarAddressError=class(EAufRamVarError);
+
   TAufRamVarType = (ARV_Raw=0,ARV_FixNum=1,ARV_Float=2,ARV_Char=3);
   TAufRamVarTypeSet = set of TAufRamVarType;
   TAufRamVar = record
@@ -99,10 +105,14 @@ type
   function ARV_EqlZero(inp:TAufRamVar):boolean;
   function ARV_comp(ina,inb:TAufRamVar):smallint;//ina<=>inb
   function ARV_offset_count(ina,inb:TAufRamVar;offset_threshold:byte):dword;//统计每个字节差距大于offset_threshold的字节数量
+  procedure ARV_copyBits(src,dst:TAufRamVar; srcStart,dstStart:qword; CopyLen:qword);
+
   function ARV_float_valid(ina:TAufRamVar):boolean;//判断浮点型是否是有效值
   function ARV_floating_exponent_digits(byteCount:integer):integer;
   procedure ARV_floating_make_zero(ina:TAufRamVar;negative:boolean=false);
   procedure ARV_floating_make_infinity(ina:TAufRamVar;negative:boolean=false);
+  procedure ARV_floating_make_notanumber(ina:TAufRamVar;negative:boolean=false);
+  procedure ARV_floating_scaling(var oup:TAufRamVar;const inp:TAufRamVar);
 
   procedure ARV_shl(var inp:TAufRamVar;bit:qword);
   procedure ARV_shr(var inp:TAufRamVar;bit:qword);
@@ -1141,6 +1151,64 @@ begin
       end;
   until ia=0;
 end;
+{
+██ Copilot
+
+here is definition of a little-endian data record TAufRamVar:
+TAufRamVar = record
+    Head:pbyte;
+    size:dword;
+end;
+
+Now I need a function to copy digits from src to dst. complete the pascal code for me please:
+
+procedure ARV_copyBits(src, dst: TAufRamVar; srcStart, dstStart, CopyLen: qword);
+var src1,src2,dst1,dst2:qword;
+    srcEnd,dstEnd:qword;
+begin
+    srcEnd:=srcStart+CopyLen;
+    if srcEnd>src.size then srcEnd:=src.size;
+    dstEnd:=dstStart+CopyLen;
+    if dstEnd>dst.size then dstEnd:=dst.size;
+    src1:=srcStart;
+    dst1:=dstStart;
+    //complete here
+end;
+
+██ Copilot
+
+no, srcStartc and dstStart are bit position not byte position.
+CopyLen is not byte length neither.
+so you must consider bits aligning problem
+
+██ Copilot
+}
+procedure ARV_copyBits(src, dst: TAufRamVar; srcStart, dstStart, CopyLen: qword);
+var idx:qword;
+    srcByte,dstByte:byte;
+    srcBitPos,dstBitPos:integer;
+    srcByteIndex,dstByteIndex:qword;
+    bitVal:byte;
+begin
+  for idx:=0 to CopyLen-1 do begin
+    // Calculate source bit position
+    srcByteIndex:=(srcStart+idx) div 8;
+    srcBitPos:=(srcStart+idx) mod 8;
+    // Extract bit from source
+    srcByte:=src.Head[srcByteIndex];
+    bitVal:=(srcByte shr srcBitPos) and $01;
+    // Calculate destination bit position
+    dstByteIndex:=(dstStart+idx) div 8;
+    dstBitPos:=(dstStart+idx) mod 8;
+    // Read destination byte
+    dstByte:=dst.Head[dstByteIndex];
+    // Set or clear the bit
+    if bitVal=1 then dstByte:=dstByte or (1 shl dstBitPos)
+    else dstByte:=dstByte and not (1 shl dstBitPos);
+    // Write back to destination
+    dst.Head[dstByteIndex]:=dstByte;
+  end;
+end;
 
 
 function ARV_float_valid(ina:TAufRamVar):boolean;
@@ -1176,7 +1244,33 @@ begin
   FillByte(ina.Head^,EM_byte,0);
   pbyte(ina.Head+EM_byte)^:=$ff shl (mantissa_digit mod 8);
   FillByte((ina.Head+EM_byte+1)^,ina.size-EM_byte-1,$ff);
-  if not negative then pbyte(ina.Head+ina.size-1)^:=pbyte(ina.Head+ina.size-1)^ and $7f;;
+  if not negative then pbyte(ina.Head+ina.size-1)^:=pbyte(ina.Head+ina.size-1)^ and $7f;
+end;
+
+procedure ARV_floating_make_notanumber(ina:TAufRamVar;negative:boolean=false);
+begin
+  FillByte(ina.Head^,ina.size,$ff);
+  if not negative then pbyte(ina.Head+ina.size-1)^:=pbyte(ina.Head+ina.size-1)^ and $7f;
+end;
+
+procedure ARV_floating_scaling(var oup:TAufRamVar;const inp:TAufRamVar);
+var e1, m1, e2, m2:integer;
+//long | S E | E | E M
+//shrt | S E | E | E M
+begin
+  if oup.size=inp.size then begin
+    copyARV(inp,oup);
+    exit;
+  end;
+  e1:=ARV_floating_exponent_digits(inp.size);
+  m1:=inp.size*8 - e1 -1;
+  e2:=ARV_floating_exponent_digits(oup.size);
+  m2:=oup.size*8 - e2 -1;
+  if oup.size>inp.size then begin
+    //拓展
+  end else begin
+    //压缩
+  end;
 end;
 
 procedure ARV_floating_add(var ina:TAufRamVar;const inb:TAufRamVar);

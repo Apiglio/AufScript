@@ -1,0 +1,108 @@
+//等长计算测试
+define a, $32[00]
+define b, $32[32]
+
+rand @a
+rand @b
+print "A:   "
+binln @a
+print "B:   "
+binln @b
+or @a, @b
+print "A|B: "
+binln @a
+
+cwln
+
+rand @a
+rand @b
+print "A:   "
+binln @a
+print "B:   "
+binln @b
+and @a, @b
+print "A&B: "
+binln @a
+
+cwln
+
+rand @a
+rand @b
+print "A:   "
+binln @a
+print "B:   "
+binln @b
+xor @a, @b
+print "A^B: "
+binln @a
+
+cwln
+
+rand @a
+print "A:   "
+binln @a
+not @a
+print "*A:  "
+binln @a
+
+cwln
+
+//非等长计算测试
+define a, $8[00]
+define b, $3[08]
+
+fill @a, 0
+fill @b, 255
+print "A:   "
+binln @a
+print "B:   "
+binln @b
+or @a, @b
+print "A|B: "
+binln @a
+
+cwln
+
+fill @a, 255
+fill @b, 255
+print "A:   "
+binln @a
+print "B:   "
+binln @b
+and @a, @b
+print "A&B: "
+binln @a
+
+cwln
+
+fill @a, 255
+fill @b, 255
+print "A:   "
+binln @a
+print "B:   "
+binln @b
+xor @a, @b
+print "A^B: "
+binln @a
+
+cwln
+
+//位移测试
+define a, $8[00]
+define b, $8[08]
+
+fill @a, 255
+print "A:     "
+binln @a
+shl @a 12
+print "A<<12: "
+binln @a
+
+fill @b, 255
+print "B:     "
+binln @b
+shr @b 24
+print "B>>24: "
+binln @b
+
+cwln
