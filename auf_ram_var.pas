@@ -1183,6 +1183,7 @@ so you must consider bits aligning problem
 
 ██ Copilot
 }
+{
 procedure ARV_copyBits(src, dst: TAufRamVar; srcStart, dstStart, CopyLen: qword);
 var idx:qword;
     srcByte,dstByte:byte;
@@ -1209,6 +1210,38 @@ begin
     dst.Head[dstByteIndex]:=dstByte;
   end;
 end;
+}
+//这个是GPT的生成方法（比copilot的快20%，故采用）
+procedure ARV_copyBits(src, dst: TAufRamVar; srcStart, dstStart, CopyLen: qword);
+var
+  src1, dst1, srcEnd, dstEnd: qword;
+  srcByte, dstByte: byte;
+  srcBit, dstBit: integer;
+  bitVal: byte;
+begin
+  srcEnd := srcStart + CopyLen;
+  if srcEnd > src.size * 8 then srcEnd := src.size * 8;  // size in bits
+  dstEnd := dstStart + CopyLen;
+  if dstEnd > dst.size * 8 then dstEnd := dst.size * 8;  // size in bits
+  src1 := srcStart;
+  dst1 := dstStart;
+  while (src1 < srcEnd) and (dst1 < dstEnd) do begin
+    // find which byte & bit in src
+    srcByte := src.Head[src1 div 8];
+    srcBit  := src1 mod 8;
+    bitVal  := (srcByte shr srcBit) and $01;
+    // find which byte & bit in dst
+    dstByte := dst.Head[dst1 div 8];
+    dstBit  := dst1 mod 8;
+    // clear that bit, then set if needed
+    dstByte := dstByte and not (1 shl dstBit);
+    dstByte := dstByte or (bitVal shl dstBit);
+    dst.Head[dst1 div 8] := dstByte;
+    inc(src1);
+    inc(dst1);
+  end;
+end;
+
 
 
 function ARV_float_valid(ina:TAufRamVar):boolean;
