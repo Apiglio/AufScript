@@ -11,6 +11,12 @@ uses
   Classes, SysUtils, LazUTF8;
 
 type
+
+  EAufRamVarError = class(Exception);
+  EAufRamVarUnimplementedError=class(EAufRamVarError);
+  EAufRamVarTypeError=class(EAufRamVarError);
+  EAufRamVarAddressError=class(EAufRamVarError);
+
   TAufRamVarType = (ARV_Raw=0,ARV_FixNum=1,ARV_Float=2,ARV_Char=3);
   TAufRamVarTypeSet = set of TAufRamVarType;
   TAufRamVar = record
@@ -99,7 +105,14 @@ type
   function ARV_EqlZero(inp:TAufRamVar):boolean;
   function ARV_comp(ina,inb:TAufRamVar):smallint;//ina<=>inb
   function ARV_offset_count(ina,inb:TAufRamVar;offset_threshold:byte):dword;//统计每个字节差距大于offset_threshold的字节数量
+  procedure ARV_copyBits(src,dst:TAufRamVar; srcStart,dstStart:qword; CopyLen:qword);
+
   function ARV_float_valid(ina:TAufRamVar):boolean;//判断浮点型是否是有效值
+  function ARV_floating_exponent_digits(byteCount:integer):integer;
+  procedure ARV_floating_make_zero(ina:TAufRamVar;negative:boolean=false);
+  procedure ARV_floating_make_infinity(ina:TAufRamVar;negative:boolean=false);
+  procedure ARV_floating_make_notanumber(ina:TAufRamVar;negative:boolean=false);
+  procedure ARV_floating_scaling(var oup:TAufRamVar;const inp:TAufRamVar);
 
   procedure ARV_shl(var inp:TAufRamVar;bit:qword);
   procedure ARV_shr(var inp:TAufRamVar;bit:qword);
@@ -130,6 +143,7 @@ type
 
   function arv_to_s(ina:TAufRamVar):string;
   function arv_to_hex(ina:TAufRamVar):string;
+  function arv_to_bin(ina:TAufRamVar):string;
   function arv_to_dec(ina:TAufRamVar):string;
   function arv_to_dec_fraction(ina:TAufRamVar):string;//小数点后
   function arv_to_qword(ina:TAufRamVar):qword;
@@ -1137,6 +1151,98 @@ begin
       end;
   until ia=0;
 end;
+{
+██ Copilot
+
+here is definition of a little-endian data record TAufRamVar:
+TAufRamVar = record
+    Head:pbyte;
+    size:dword;
+end;
+
+Now I need a function to copy digits from src to dst. complete the pascal code for me please:
+
+procedure ARV_copyBits(src, dst: TAufRamVar; srcStart, dstStart, CopyLen: qword);
+var src1,src2,dst1,dst2:qword;
+    srcEnd,dstEnd:qword;
+begin
+    srcEnd:=srcStart+CopyLen;
+    if srcEnd>src.size then srcEnd:=src.size;
+    dstEnd:=dstStart+CopyLen;
+    if dstEnd>dst.size then dstEnd:=dst.size;
+    src1:=srcStart;
+    dst1:=dstStart;
+    //complete here
+end;
+
+██ Copilot
+
+no, srcStartc and dstStart are bit position not byte position.
+CopyLen is not byte length neither.
+so you must consider bits aligning problem
+
+██ Copilot
+}
+{
+procedure ARV_copyBits(src, dst: TAufRamVar; srcStart, dstStart, CopyLen: qword);
+var idx:qword;
+    srcByte,dstByte:byte;
+    srcBitPos,dstBitPos:integer;
+    srcByteIndex,dstByteIndex:qword;
+    bitVal:byte;
+begin
+  for idx:=0 to CopyLen-1 do begin
+    // Calculate source bit position
+    srcByteIndex:=(srcStart+idx) div 8;
+    srcBitPos:=(srcStart+idx) mod 8;
+    // Extract bit from source
+    srcByte:=src.Head[srcByteIndex];
+    bitVal:=(srcByte shr srcBitPos) and $01;
+    // Calculate destination bit position
+    dstByteIndex:=(dstStart+idx) div 8;
+    dstBitPos:=(dstStart+idx) mod 8;
+    // Read destination byte
+    dstByte:=dst.Head[dstByteIndex];
+    // Set or clear the bit
+    if bitVal=1 then dstByte:=dstByte or (1 shl dstBitPos)
+    else dstByte:=dstByte and not (1 shl dstBitPos);
+    // Write back to destination
+    dst.Head[dstByteIndex]:=dstByte;
+  end;
+end;
+}
+//这个是GPT的生成方法（比copilot的快20%，故采用）
+procedure ARV_copyBits(src, dst: TAufRamVar; srcStart, dstStart, CopyLen: qword);
+var
+  src1, dst1, srcEnd, dstEnd: qword;
+  srcByte, dstByte: byte;
+  srcBit, dstBit: integer;
+  bitVal: byte;
+begin
+  srcEnd := srcStart + CopyLen;
+  if srcEnd > src.size * 8 then srcEnd := src.size * 8;  // size in bits
+  dstEnd := dstStart + CopyLen;
+  if dstEnd > dst.size * 8 then dstEnd := dst.size * 8;  // size in bits
+  src1 := srcStart;
+  dst1 := dstStart;
+  while (src1 < srcEnd) and (dst1 < dstEnd) do begin
+    // find which byte & bit in src
+    srcByte := src.Head[src1 div 8];
+    srcBit  := src1 mod 8;
+    bitVal  := (srcByte shr srcBit) and $01;
+    // find which byte & bit in dst
+    dstByte := dst.Head[dst1 div 8];
+    dstBit  := dst1 mod 8;
+    // clear that bit, then set if needed
+    dstByte := dstByte and not (1 shl dstBit);
+    dstByte := dstByte or (bitVal shl dstBit);
+    dst.Head[dst1 div 8] := dstByte;
+    inc(src1);
+    inc(dst1);
+  end;
+end;
+
+
 
 function ARV_float_valid(ina:TAufRamVar):boolean;
 begin
@@ -1147,6 +1253,63 @@ begin
      else exit;
   end;
   result:=true;
+end;
+
+function ARV_floating_exponent_digits(byteCount:integer):integer;
+begin
+  result:=trunc(5.5*ln(byteCount+0.5));
+end;
+
+procedure ARV_floating_make_zero(ina:TAufRamVar;negative:boolean=false);
+begin
+  FillByte(ina.Head^,ina.size,0);
+  if negative then pbyte(ina.Head+ina.size-1)^:=$80;
+end;
+
+procedure ARV_floating_make_infinity(ina:TAufRamVar;negative:boolean=false);
+var exponent_digit, mantissa_digit, EM_byte:integer;
+// | Sign Exponent| ... | Exponent Mantissa | ... | Mantissa
+//   HEAD+size-1          HEAD+EM_byte-1            HEAD^
+begin
+  exponent_digit:=ARV_floating_exponent_digits(ina.size);
+  mantissa_digit:=ina.size*8 - exponent_digit -1;
+  EM_byte:=mantissa_digit div 8;
+  FillByte(ina.Head^,EM_byte,0);
+  pbyte(ina.Head+EM_byte)^:=$ff shl (mantissa_digit mod 8);
+  FillByte((ina.Head+EM_byte+1)^,ina.size-EM_byte-1,$ff);
+  if not negative then pbyte(ina.Head+ina.size-1)^:=pbyte(ina.Head+ina.size-1)^ and $7f;
+end;
+
+procedure ARV_floating_make_notanumber(ina:TAufRamVar;negative:boolean=false);
+begin
+  FillByte(ina.Head^,ina.size,$ff);
+  if not negative then pbyte(ina.Head+ina.size-1)^:=pbyte(ina.Head+ina.size-1)^ and $7f;
+end;
+
+procedure ARV_floating_scaling(var oup:TAufRamVar;const inp:TAufRamVar);
+var e1, m1, e2, m2:integer;
+//long | S E | E | E M
+//shrt | S E | E | E M
+begin
+  if oup.size=inp.size then begin
+    copyARV(inp,oup);
+    exit;
+  end;
+  e1:=ARV_floating_exponent_digits(inp.size);
+  m1:=inp.size*8 - e1 -1;
+  e2:=ARV_floating_exponent_digits(oup.size);
+  m2:=oup.size*8 - e2 -1;
+  if oup.size>inp.size then begin
+    //拓展
+  end else begin
+    //压缩
+  end;
+end;
+
+procedure ARV_floating_add(var ina:TAufRamVar;const inb:TAufRamVar);
+//var
+begin
+
 end;
 
 procedure ARV_shl(var inp:TAufRamVar;bit:qword);
@@ -1539,23 +1702,41 @@ begin
 end;
 
 function arv_to_hex(ina:TAufRamVar):string;
-var pi:dword;
+var idx:dword;
 begin
   result:='';
-  //result:='UnKnown.Hex(';
-  if assignedARV(ina) then
-    begin
-      for pi:=ina.size-1 downto 0 do
-        begin
-          result:=result+IntToHex((ina.Head+pi)^,2);
-        end;
-    end
-  else
-    begin
-      raise Exception.Create('警告：地址超界！');
-      result:='00H';
+  if assignedARV(ina) then begin
+    for idx:=ina.size-1 downto 0 do begin
+      result:=result+IntToHex((ina.Head+idx)^,2);
     end;
-  //result:=result+')';
+  end else
+    raise Exception.Create('警告：地址超界！');
+end;
+function arv_to_bin(ina:TAufRamVar):string;
+var tmpHex:string;
+    idx,maxIdx:integer;
+begin
+  result:='';
+  tmpHex:=arv_to_hex(ina);
+  maxIdx:=length(tmpHex);
+  for idx:=1 to maxIdx do case tmpHex[idx] of
+    '0':     result:=result+'0000';
+    '1':     result:=result+'0001';
+    '2':     result:=result+'0010';
+    '3':     result:=result+'0011';
+    '4':     result:=result+'0100';
+    '5':     result:=result+'0101';
+    '6':     result:=result+'0110';
+    '7':     result:=result+'0111';
+    '8':     result:=result+'1000';
+    '9':     result:=result+'1001';
+    'A','a': result:=result+'1010';
+    'B','b': result:=result+'1011';
+    'C','c': result:=result+'1100';
+    'D','d': result:=result+'1101';
+    'E','e': result:=result+'1110';
+    'F','f': result:=result+'1111';
+  end;
 end;
 function arv_to_dec(ina:TAufRamVar):string;
 var pi,pj:dword;

@@ -17,6 +17,8 @@ UNIT Apiglio_Useful;
 
 INTERFACE
 
+//{$UNITPATH ./auftype}
+//{$UNITPATH ./aufkernel}
 uses
   {$IFDEF UNIX}
   cthreads,
@@ -46,7 +48,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.6.2.1';
+  AufScript_Version='beta 2.7.0.1';
   {$if defined(cpu32)}
   AufScript_CPU='32bits';
   {$elseif defined(cpu64)}
@@ -73,8 +75,9 @@ const
   c_toto=c_divi+c_iden;
   ram_range=$20000{4096}{32};//变量区大小
   stack_range=32;//行数堆栈区大小，最多支持256个
-  func_range=256;//函数区大小，最多支持65536个
+  func_range=1024;//256;//函数区大小，最多支持65536个
   args_range=16;//函数参数最大数量
+  task_range=128;//跨任务消息存储条数限制
 
   {$IFDEF MsgTimerMode}
   AufProcessControl_RunFirst = WM_USER + 19950;
@@ -87,6 +90,7 @@ const
 
 type
 
+  TAufScript = class;
   pRam = {$ifdef cpu64}QWord{$else}DWord{$endif};//内存编号
 
   {Usf  工具库}
@@ -123,6 +127,14 @@ type
   end;
   TJumpMode=(jmNot,jmCall);
   TJumpModeSet=set of TJumpMode;
+
+  TMsgUuid = TGUID;
+  TMsgCode = (mcUnknown=0, mcNormal=1);
+  TMsgItem = record
+    From:TAufScript;
+    Data:TAufRamVar;
+    Code:TMsgCode;
+  end;
 
   {$ifdef MsgTimerMode}
   TAufTimer=class(TTimer)
@@ -161,6 +173,33 @@ type
     function TryAddExp(AKey:string;AValue:Tnargs):boolean;
     function TryRenameExp(OldKey,NewKey:string):boolean;
     function TryDeleteExp(Key:string):boolean;
+  end;
+
+  TAufMultiTaskList = class(TStringList)
+    function AddTask(AufScpt:TAufscript):boolean;
+    function FindTask(task_id:TMsgUuid):TAufScript;
+    function DelTask(AufScpt:TAufscript):boolean;
+  public
+    constructor Create;
+  end;
+
+  TAufTaskMessageQueue = class
+  private
+    FUUID:TMsgUuid;
+    FQueue:array[0..task_range-1] of TMsgItem;
+    FFirst:Integer;
+    FCount:Integer;
+  protected
+    function GetQueueItem(Index:Integer):TMsgItem;
+  public
+    function Append(Msg:TMsgItem):boolean;
+    function Pop:TMsgItem;
+    constructor Create;
+    destructor Destroy; override;
+    property UUID:TMsgUuid read FUUID;
+    property Count:Integer read FCount;
+    property First:Integer read FFirst;
+    property Items[Index:Integer]:TMsgItem read GetQueueItem;
   end;
 
 
@@ -286,6 +325,7 @@ type
         extra_variable:record
           timer:longint;            //用于Time模块的settimer和gettimer
         end;
+        message:TAufTaskMessageQueue;      //用于跨线程信息处理
         print_mode:record
           target_file:string;
           is_screen:boolean;
@@ -383,6 +423,11 @@ type
       procedure helper;
       procedure define_helper;
 
+      procedure EnableTaskMessage;
+      procedure DisableTaskMessage;
+      function SendTaskMessage(SendTo:TAufScript;Data:TAufRamVar;Code:TMsgCode):boolean;
+      procedure ReadTaskMessage(var From:TAufScript; var Data:TAufRamVar; var Code:TMsgCode); //没有消息时返回nil
+      function CountTaskMessage:integer;
 
       procedure Pause;//人为暂停
       procedure Resume;//人为继续
@@ -399,6 +444,7 @@ type
       constructor Create(AOwner:TComponent);
       destructor Destroy; override;
       procedure InternalFuncDefine;//默认函数定义
+      procedure AdditionFuncDefine_Task;//多任务协同模块定义
       procedure AdditionFuncDefine_Text;//字串模块函数定义
       procedure AdditionFuncDefine_Time;//时间模块函数定义
       procedure AdditionFuncDefine_File;//文件模块函数定义
@@ -453,6 +499,7 @@ var
 
   Auf:TAuf;
   GlobalExpressionList:TAufExpressionList;
+  GlobalMultiTaskList:TAufMultiTaskList;
   RegCalc:TRegExpr;
 
   procedure de_writeln(Sender:Tobject;str:string);
@@ -979,6 +1026,21 @@ begin
     else AufScpt.send_error('未知函数，需要hex或hexln。');
   end;
 end;
+procedure binary(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    arv:TAufRamVar;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(2) then exit;
+  if not AAuf.TryArgToARV(1,High(dword),0,[ARV_FixNum,ARV_Char,ARV_Float,ARV_Raw],arv) then exit;
+  case lowercase(AAuf.args[0]) of
+    'bin':AufScpt.write(arv_to_bin(arv));
+    'binln':AufScpt.writeln(arv_to_bin(arv));
+    else AufScpt.send_error('未知函数，需要bin或binln。');
+  end;
+end;
 procedure inspect(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
@@ -1261,6 +1323,7 @@ procedure add_arv(Sender:TObject);
 var tmp1,tmp2:TAufRamVar;
     AufScpt:TAufScript;
     AAuf:TAuf;
+    tmpFloatOperand:double;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
@@ -1276,12 +1339,27 @@ begin
     AufScpt.send_error('警告：add_arv的第2个参数错误，语句未执行。');
     exit;
   end;
-  ARV_add(tmp1,tmp2);
+  case tmp1.VarType of
+    ARV_Float:
+      begin
+        case tmp2.size of
+          4:tmpFloatOperand:=PSingle(tmp2.Head)^;
+          8:tmpFloatOperand:=PDouble(tmp2.Head)^;
+        end;
+        case tmp1.size of
+          4:PSingle(tmp1.Head)^:=PSingle(tmp1.Head)^+tmpFloatOperand;
+          8:PDouble(tmp1.Head)^:=PDouble(tmp1.Head)^+tmpFloatOperand;
+          else AufScpt.send_error('警告：浮点数长度不支持。');
+        end;
+      end;
+    ARV_FixNum:ARV_add(tmp1,tmp2);
+    else AufScpt.send_error('警告：add_arv的第1个参数类型不支持加法，代码未执行。');
+  end;
 
 end;
 procedure add(Sender:TObject);
 var a,b:double;
-    tmp:TAufRamVar;
+    tmp,arg1,arg2:TAufRamVar;
     AufScpt:TAufScript;
     AAuf:TAuf;
 begin
@@ -1290,7 +1368,9 @@ begin
   if not AAuf.CheckArgs(3) then exit;
   //if AAuf.ArgsCount<3 then begin AufScpt.send_error('警告：add需要两个参数，赋值未成功。');exit end;
   {=begin 临时增加}
-  if AufScpt.RamVar(AAuf.nargs[1]).size * AufScpt.RamVar(AAuf.nargs[2]).size <>0 then
+  arg1:=AufScpt.RamVar(AAuf.nargs[1]);
+  arg2:=AufScpt.RamVar(AAuf.nargs[2]);
+  if arg1.size * arg2.size <> 0 then
     begin
       add_arv(Sender);
       exit;
@@ -1319,6 +1399,7 @@ procedure sub_arv(Sender:TObject);
 var tmp1,tmp2:TAufRamVar;
     AufScpt:TAufScript;
     AAuf:TAuf;
+    tmpFloatOperand:double;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
@@ -1334,7 +1415,23 @@ begin
     AufScpt.send_error('警告：sub_arv的第2个参数错误，语句未执行。');
     exit;
   end;
-  ARV_sub(tmp1,tmp2);
+  case tmp1.VarType of
+    ARV_Float:
+      begin
+        case tmp2.size of
+          4:tmpFloatOperand:=PSingle(tmp2.Head)^;
+          8:tmpFloatOperand:=PDouble(tmp2.Head)^;
+        end;
+        case tmp1.size of
+          4:PSingle(tmp1.Head)^:=PSingle(tmp1.Head)^-tmpFloatOperand;
+          8:PDouble(tmp1.Head)^:=PDouble(tmp1.Head)^-tmpFloatOperand;
+          else AufScpt.send_error('警告：浮点数长度不支持。');
+        end;
+      end;
+    ARV_FixNum:ARV_sub(tmp1,tmp2);
+    else AufScpt.send_error('警告：add_arv的第1个参数类型不支持减法，代码未执行。');
+  end;
+
 end;
 procedure sub(Sender:TObject);
 var a,b:double;
@@ -1376,6 +1473,7 @@ procedure mul_arv(Sender:TObject);
 var tmp1,tmp2:TAufRamVar;
     AufScpt:TAufScript;
     AAuf:TAuf;
+    tmpFloatOperand:double;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
@@ -1391,7 +1489,22 @@ begin
     AufScpt.send_error('警告：mul_arv的第2个参数错误，语句未执行。');
     exit;
   end;
-  ARV_mul2(tmp1,tmp2);
+  case tmp1.VarType of
+    ARV_Float:
+      begin
+        case tmp2.size of
+          4:tmpFloatOperand:=PSingle(tmp2.Head)^;
+          8:tmpFloatOperand:=PDouble(tmp2.Head)^;
+        end;
+        case tmp1.size of
+          4:PSingle(tmp1.Head)^:=PSingle(tmp1.Head)^*tmpFloatOperand;
+          8:PDouble(tmp1.Head)^:=PDouble(tmp1.Head)^*tmpFloatOperand;
+          else AufScpt.send_error('警告：浮点数长度不支持。');
+        end;
+      end;
+    ARV_FixNum:ARV_mul2(tmp1,tmp2);
+    else AufScpt.send_error('警告：add_arv的第1个参数类型不支持乘法，代码未执行。');
+  end;
 end;
 
 procedure mul(Sender:TObject);
@@ -1434,6 +1547,7 @@ procedure div_arv(Sender:TObject);
 var tmp1,tmp2:TAufRamVar;
     AufScpt:TAufScript;
     AAuf:TAuf;
+    tmpFloatOperand:double;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
@@ -1444,14 +1558,22 @@ begin
     AufScpt.send_error('警告：div_arv的第2个参数不能为0，语句未执行。');
     exit;
   end;
-  if tmp1.VarType=ARV_Float then begin
-    case tmp1.size of
-      4:psingle(tmp1.Head)^:=arv_to_double(tmp1) / arv_to_double(tmp2);
-      8:pdouble(tmp1.Head)^:=arv_to_double(tmp1) / arv_to_double(tmp2);
-      else AufScpt.send_error('警告：暂不支持4位和8位以外的浮点型除法，语句未执行。');
-    end;
-  end else begin
-    ARV_div(tmp1,tmp2);
+
+  case tmp1.VarType of
+    ARV_Float:
+      begin
+        case tmp2.size of
+          4:tmpFloatOperand:=PSingle(tmp2.Head)^;
+          8:tmpFloatOperand:=PDouble(tmp2.Head)^;
+        end;
+        case tmp1.size of
+          4:PSingle(tmp1.Head)^:=PSingle(tmp1.Head)^/tmpFloatOperand;
+          8:PDouble(tmp1.Head)^:=PDouble(tmp1.Head)^/tmpFloatOperand;
+          else AufScpt.send_error('警告：浮点数长度不支持。');
+        end;
+      end;
+    ARV_FixNum:ARV_div(tmp1,tmp2);
+    else AufScpt.send_error('警告：add_arv的第1个参数类型不支持除法，代码未执行。');
   end;
 end;
 procedure div_(Sender:TObject);//这一段写的tm和屎一样。好多了。
@@ -1497,6 +1619,14 @@ procedure mod_arv(Sender:TObject);
 var tmp1,tmp2:TAufRamVar;
     AufScpt:TAufScript;
     AAuf:TAuf;
+    tmpFloatOperand:double;
+    function float_mod(a,b:double):double;
+    var quotient:double;
+    begin
+        quotient:=trunc(a/b);
+        result:=a-quotient*b
+    end;
+
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
@@ -1516,7 +1646,24 @@ begin
     AufScpt.send_error('警告：mod_arv的第2个参数不能为0，语句未执行。');
     exit;
   end;
-  ARV_mod(tmp1,tmp2);
+
+  case tmp1.VarType of
+    ARV_Float:
+      begin
+        case tmp2.size of
+          4:tmpFloatOperand:=PSingle(tmp2.Head)^;
+          8:tmpFloatOperand:=PDouble(tmp2.Head)^;
+        end;
+        case tmp1.size of
+          4:PSingle(tmp1.Head)^:=float_mod(PSingle(tmp1.Head)^,tmpFloatOperand);
+          8:PDouble(tmp1.Head)^:=float_mod(PDouble(tmp1.Head)^,tmpFloatOperand);
+          else AufScpt.send_error('警告：浮点数长度不支持。');
+        end;
+      end;
+    ARV_FixNum:ARV_mod(tmp1,tmp2);
+    else AufScpt.send_error('警告：add_arv的第1个参数类型不支持除法，代码未执行。');
+  end;
+
 end;
 procedure mod_(Sender:TObject);
 var l,r:longint;
@@ -2429,6 +2576,89 @@ begin
   initiate_arv_str(c.data,oup);
   //AufScpt.writeln(c.data);
 
+end;
+
+procedure task_enable(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    tmp:TAufRamVar;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(2) then exit;
+  if not AAuf.TryArgToARV(1,38,38,[ARV_Char],tmp) then exit;
+  AufScpt.EnableTaskMessage;
+  initiate_arv_str(GUIDToString(AufScpt.PSW.message.UUID), tmp);
+end;
+
+procedure task_disable(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  AufScpt.DisableTaskMessage;
+end;
+
+procedure task_list(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    idx,len:integer;
+    tmpMI:TMsgItem;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  AufScpt.writeln('TaskQueue '+GUIDToString(AufScpt.PSW.message.UUID)+':');
+  len:=AufScpt.PSW.message.Count;
+  idx:=AufScpt.PSW.message.First;
+  while len>0 do begin
+    dec(len);
+    tmpMI:=AufScpt.PSW.message.Items[idx];
+    AufScpt.writeln('  F:'+GUIDToString(tmpMI.From.PSW.message.UUID)+' S:'+IntToStr(tmpMI.Data.size));
+    idx:=(idx-1) mod task_range;
+  end;
+end;
+
+procedure task_send(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    send_to:TAufScript;
+    uuid:TMsgUuid;
+    stmp:string;
+    arv:TAufRamVar;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToString(1, stmp) then exit;
+  if not AAuf.TryArgToARV(2, 0, High(dword), ARV_AllType, arv) then exit;
+  uuid:=StringToGUID(stmp);
+  send_to:=GlobalMultiTaskList.FindTask(uuid);
+  if send_to<>nil then
+    AufScpt.SendTaskMessage(send_to, arv, mcNormal)
+  else
+    AufScpt.send_error('未找到任务：'+stmp+'，协同消息未发出。');
+end;
+
+procedure task_read(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    arv_uuid, arv_data:TAufRamVar;
+    str_uuid:string;
+    uuid:TMsgUuid;
+    aufs_from:TAufScript;
+    msg_code:TMsgCode;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToARV(1, 38, 38, [ARV_Char], arv_uuid) then exit;
+  if not AAuf.TryArgToARV(2, 0, High(dword), ARV_AllType, arv_data) then exit;
+  AufScpt.ReadTaskMessage(aufs_from, arv_data, msg_code);
+  if aufs_from<>nil then begin
+    str_uuid:=GUIDToString(aufs_from.PSW.message.UUID);
+    initiate_arv_str(str_uuid, arv_uuid);
+  end else AufScpt.send_error('协同消息队列中无条目。');
 end;
 
 procedure text_str(Sender:TObject);
@@ -3898,10 +4128,12 @@ begin
     end else begin
       arr:=nil;
       result:=false;
+      Script.send_error('警告：第'+IntToStr(ArgNumber)+'个参数无法正确解析为TAufArray实例，代码未执行。');
     end;
   except
     arr:=nil;
     result:=false;
+    Script.send_error('警告：第'+IntToStr(ArgNumber)+'个参数无法正确解析为TAufArray实例，代码未执行。');
   end;
 end;
 function TAuf.RangeCheck(target,min,max:int64):boolean;
@@ -5093,6 +5325,41 @@ begin
   push_addr(Self.ScriptLines,Self.ScriptName,line);//why? 再怎么说也应该要和push_addr_inline一样吧
 end;
 
+procedure TAufScript.EnableTaskMessage;
+begin
+  GlobalMultiTaskList.AddTask(Self);
+end;
+
+procedure TAufScript.DisableTaskMessage;
+begin
+  GlobalMultiTaskList.DelTask(Self);
+end;
+
+function TAufScript.SendTaskMessage(SendTo:TAufScript;Data:TAufRamVar;Code:TMsgCode):boolean;
+var tmpMI:TMsgItem;
+begin
+  tmpMI.From:=Self;
+  tmpMI.Code:=Code;
+  tmpMI.Data:=Data;
+  result:=SendTo.PSW.message.Append(tmpMI);
+end;
+
+procedure TAufScript.ReadTaskMessage(var From:TAufScript; var Data:TAufRamVar; var Code:TMsgCode);
+var tmpMI:TMsgItem;
+begin
+  From:=nil;
+  if Self.PSW.message.Count=0 then exit;
+  tmpMI.Data:=Data;
+  tmpMI:=Self.PSW.message.Pop;
+  From:=tmpMI.From;
+  Code:=tmpMI.Code;
+end;
+
+function TAufScript.CountTaskMessage:integer;
+begin
+  result:=Self.PSW.message.Count;
+end;
+
 {$ifdef MsgTimerMode}
 procedure TAufScript.send(msg:UINT);
 begin
@@ -5417,6 +5684,93 @@ begin
   result:=true;
 end;
 
+{ TAufMultiTaskList }
+function TAufMultiTaskList.AddTask(AufScpt:TAufscript):boolean;
+var new_guid:TGUID;
+begin
+  result:=false;
+  if not IsEqualGUID(AufScpt.PSW.message.UUID, GUID_NULL) then exit;
+  if CreateGUID(new_guid) <> 0 then exit; //如果UUID没有创建成功，就不会加入TaskList
+  AddObject(GUIDToString(new_guid), AufScpt);
+  AufScpt.PSW.message.FUUID:=new_guid;
+  result:=true;
+end;
+
+function TAufMultiTaskList.FindTask(task_id:TMsgUuid):TAufScript;
+var str_guid:string;
+    index:integer;
+begin
+  str_guid:=GUIDToString(task_id);
+  if Find(str_guid, index) then result:=Objects[index] as TAufScript
+  else result:=nil;
+end;
+
+function TAufMultiTaskList.DelTask(AufScpt:TAufscript):boolean;
+var str_guid:string;
+    index:integer;
+begin
+  result:=false;
+  str_guid:=GUIDToString(AufScpt.PSW.message.UUID);
+  if Find(str_guid, index) then begin
+    Delete(index);
+  end;
+  AufScpt.PSW.message.FUUID:=GUID_NULL;
+  result:=true;
+end;
+
+constructor TAufMultiTaskList.Create;
+begin
+  Inherited Create;
+  Sorted:=true;
+end;
+
+
+{ TAufTaskMessageQueue }
+
+function TAufTaskMessageQueue.GetQueueItem(Index:Integer):TMsgItem;
+begin
+  result:=FQueue[index];
+end;
+
+function TAufTaskMessageQueue.Append(Msg:TMsgItem):boolean;
+begin
+  result:=false;
+  if FCount>=task_range then exit;
+  FCount:=FCount+1;
+  FFirst:=(FFirst+1) mod task_range;
+
+  FQueue[FFirst].Code:=Msg.Code;
+  FQueue[FFirst].From:=Msg.From;
+  //以下两行展示了*ARV方法设计究竟有多不合理
+  newARV(FQueue[FFirst].Data, Msg.Data.size);
+  copyARV(Msg.Data, FQueue[FFirst].Data);
+end;
+
+function TAufTaskMessageQueue.Pop:TMsgItem;
+begin
+  result.From:=nil;
+  if FCount<=0 then exit;
+  copyARV(FQueue[FFirst].Data, result.Data);
+  freeARV(FQueue[FFirst].Data);
+  result.Code:=FQueue[FFirst].Code;
+  result.From:=FQueue[FFirst].From;
+  dec(FFirst);
+end;
+
+constructor TAufTaskMessageQueue.Create;
+begin
+  inherited Create;
+  FCount:=0;
+  FFirst:=0;
+end;
+
+destructor TAufTaskMessageQueue.Destroy;
+begin
+  while FCount>0 do Pop;
+  inherited Destroy;
+end;
+
+
 {$ifdef MsgTimerMode}
 
 procedure TAufTimer.OnTimerResume(Sender:TObject);
@@ -5540,6 +5894,9 @@ begin
   PSW.haltoff:=true;
   PSW.print_mode.resume_when_run_close:=false;
   PSW.print_mode.is_screen:=true;
+  PSW.message:=TAufTaskMessageQueue.Create;
+  PSW.message.FUUID:=GUID_NULL;
+
 
   Expression.Global:=GlobalExpressionList;
   Expression.Local:=TAufExpressionList.Create;
@@ -5554,6 +5911,7 @@ begin
   var_stream.Free;
   var_occupied.Free;
   Expression.Local.Free;
+  PSW.message.Free;
   FSVOKernel.Free;
   inherited Destroy;
 end;
@@ -5572,6 +5930,7 @@ begin
   Self.add_func('cmd,shell', @_cmd,       'command',        '调用命令提示行');
 
   Self.add_func('hex,hexln', @hex,        'var',            '输出标准变量形式的十六进制,后加"ln"则换行');
+  Self.add_func('bin,binln', @binary,     'var',            '输出标准变量形式的二进制,后加"ln"则换行');
   Self.add_func('print,println',  @print, 'var',            '输出变量var,后加"ln"则换行');
   Self.add_func('echo,echoln',    @echo,  'expr',           '解析表达式,后加"ln"则换行');
   Self.add_func('inspect',   @inspect,    'expr',           '检视表达式的值');
@@ -5634,7 +5993,7 @@ begin
   Self.add_func('.',        @_syntax_property,      'method, subject',  '成员语法糖');
 
 
-
+  AdditionFuncDefine_Task;
   AdditionFuncDefine_Text;
   AdditionFuncDefine_Time;
   AdditionFuncDefine_File;
@@ -5644,6 +6003,15 @@ begin
   AdditionFuncDefine_SVO;
 end;
 
+procedure TAufScript.AdditionFuncDefine_Task;
+begin
+  Self.add_func('task.enable',  @task_enable,        '@var',          '开始多任务协同，并将当前TaskID返回给var');
+  Self.add_func('task.disable', @task_disable,       '',              '结束多任务协同，并将当前TaskID置空');
+  Self.add_func('task.list',    @task_list,          '',              '调试查看多任务协同消息队列');
+  Self.add_func('task.send',    @task_send,          'taskId, @var, code',     '向其他任务发送协同消息');
+  Self.add_func('task.read',    @task_read,          'taskId, @var, @code',    '直接读取跨任务协同消息');
+
+end;
 procedure TAufScript.AdditionFuncDefine_Text;
 begin
   Self.add_func('str',       @text_str,              '#[],var',       '将var转化成字符串存入#[]');
@@ -5778,7 +6146,7 @@ INITIALIZATION
   GlobalExpressionList.TryAddExp('AufScriptVersion',narg('"',AufScript_Version,'"'));
   TAufExpressionUnit(GlobalExpressionList.Items[0]).readonly:=true;
   TAufExpressionUnit(GlobalExpressionList.Items[1]).readonly:=true;
-
+  GlobalMultiTaskList:=TAufMultiTaskList.Create;
   RegCalc:=TRegExpr.Create;
 
 
@@ -5795,6 +6163,7 @@ FINALIZATION
   Usf.Free;
   RegCalc.Free;
   GlobalExpressionList.Free;
+  GlobalMultiTaskList.Free;
   Auf.Free;
 
 END.

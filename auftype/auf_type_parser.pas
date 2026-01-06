@@ -113,7 +113,15 @@ begin
     end;
     inc(idx);
   until idx>len;
-  if current_array<>nil then raise AufScriptParserError.Create;
+  if current_array<>nil then begin
+    repeat
+      last_array:=current_array;
+      current_array:=current_array.ParentArray;
+    until current_array=nil;
+    last_array.Free;
+    result:=nil;
+    raise AufScriptParserError.Create;
+  end;
   if last_array=nil then result:=AufBaseParser(current_line)
   else result:=last_array;
 end;
