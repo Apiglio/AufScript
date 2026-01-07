@@ -129,7 +129,7 @@ type
   TJumpModeSet=set of TJumpMode;
 
   TMsgUuid = TGUID;
-  TMsgCode = (mcUnknown=0, mcNormal=1);
+  TMsgCode = (mcUnknown=0, mcNormal=1, mcBroadcast=2);
   TMsgItem = record
     From:TAufScript;
     Data:TAufRamVar;
@@ -194,6 +194,7 @@ type
   public
     function Append(Msg:TMsgItem):boolean;
     function Pop:TMsgItem;
+    procedure Clear;
     constructor Create;
     destructor Destroy; override;
     property UUID:TMsgUuid read FUUID;
@@ -2645,7 +2646,6 @@ var AufScpt:TAufScript;
     AAuf:TAuf;
     arv_uuid, arv_data:TAufRamVar;
     str_uuid:string;
-    uuid:TMsgUuid;
     aufs_from:TAufScript;
     msg_code:TMsgCode;
 begin
@@ -2654,11 +2654,34 @@ begin
   if not AAuf.CheckArgs(3) then exit;
   if not AAuf.TryArgToARV(1, 38, 38, [ARV_Char], arv_uuid) then exit;
   if not AAuf.TryArgToARV(2, 0, High(dword), ARV_AllType, arv_data) then exit;
+  aufs_from:=nil;
   AufScpt.ReadTaskMessage(aufs_from, arv_data, msg_code);
   if aufs_from<>nil then begin
     str_uuid:=GUIDToString(aufs_from.PSW.message.UUID);
     initiate_arv_str(str_uuid, arv_uuid);
-  end else AufScpt.send_error('协同消息队列中无条目。');
+  end else {AufScpt.send_error('协同消息队列中无条目。')};
+end;
+
+procedure task_broadcast(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    send_to:TAufScript;
+    uuid_target,uuid_self:string;
+    arv:TAufRamVar;
+    idx,len:integer;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(2) then exit;
+  if not AAuf.TryArgToARV(1, 0, High(dword), ARV_AllType, arv) then exit;
+  uuid_self:=GUIDToString(AufScpt.PSW.message.UUID);
+  len:=GlobalMultiTaskList.Count;
+  for idx:=len-1 downto 0 do begin
+    uuid_target:=GlobalMultiTaskList.Strings[idx];
+    if uuid_target=uuid_self then continue;
+    send_to:=TAufScript(GlobalMultiTaskList.Objects[idx]);
+    AufScpt.SendTaskMessage(send_to, arv, mcBroadcast);
+  end;
 end;
 
 procedure text_str(Sender:TObject);
@@ -5332,6 +5355,7 @@ end;
 
 procedure TAufScript.DisableTaskMessage;
 begin
+  PSW.message.Clear;
   GlobalMultiTaskList.DelTask(Self);
 end;
 
@@ -5754,7 +5778,21 @@ begin
   freeARV(FQueue[FFirst].Data);
   result.Code:=FQueue[FFirst].Code;
   result.From:=FQueue[FFirst].From;
-  dec(FFirst);
+  FFirst:=(FFirst+task_range-1) mod task_range;
+  dec(FCount);
+end;
+
+procedure TAufTaskMessageQueue.Clear;
+var len,idx:integer;
+begin
+  len:=FCount;
+  idx:=FFirst;
+  while len>0 do begin
+    freeARV(FQueue[idx].Data);
+    idx:=(idx+task_range-1) mod task_range;
+  end;
+  FCount:=0;
+  FFirst:=0;
 end;
 
 constructor TAufTaskMessageQueue.Create;
@@ -5766,7 +5804,7 @@ end;
 
 destructor TAufTaskMessageQueue.Destroy;
 begin
-  while FCount>0 do Pop;
+  Clear;
   inherited Destroy;
 end;
 
@@ -6005,11 +6043,12 @@ end;
 
 procedure TAufScript.AdditionFuncDefine_Task;
 begin
-  Self.add_func('task.enable',  @task_enable,        '@var',          '开始多任务协同，并将当前TaskID返回给var');
-  Self.add_func('task.disable', @task_disable,       '',              '结束多任务协同，并将当前TaskID置空');
-  Self.add_func('task.list',    @task_list,          '',              '调试查看多任务协同消息队列');
-  Self.add_func('task.send',    @task_send,          'taskId, @var, code',     '向其他任务发送协同消息');
-  Self.add_func('task.read',    @task_read,          'taskId, @var, @code',    '直接读取跨任务协同消息');
+  Self.add_func('task.enable',    @task_enable,        '@var',          '开始多任务协同，并将当前TaskID返回给var');
+  Self.add_func('task.disable',   @task_disable,       '',              '结束多任务协同，并将当前TaskID置空');
+  Self.add_func('task.list',      @task_list,          '',              '调试查看多任务协同消息队列');
+  Self.add_func('task.send',      @task_send,          'taskId, @var',  '向其他任务发送协同消息');
+  Self.add_func('task.read',      @task_read,          'taskId, @var',  '直接读取跨任务协同消息');
+  Self.add_func('task.broadcast', @task_broadcast,     '@var',          '向其他任务发送协同消息');
 
 end;
 procedure TAufScript.AdditionFuncDefine_Text;
