@@ -1274,7 +1274,7 @@ begin
   tmp_src:=AufScpt.RamVar(AAuf.nargs[2]);
   if tmp_src.size>0 then begin
     if tmp.VarType = tmp_src.VarType then begin
-      copyARV(tmp,tmp_src);
+      copyARV(tmp_src,tmp);
     end else begin
       //arv 类型转换
       AufScpt.send_error('暂不支持不同类型arv之间的直接转换。');
