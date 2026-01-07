@@ -2684,6 +2684,22 @@ begin
   end;
 end;
 
+procedure task_wait(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    arv_uuid, arv_data:TAufRamVar;
+    addr:pRam;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(4) then exit;
+  if not AAuf.TryArgToARV(1, 38, 38, [ARV_Char], arv_uuid) then exit;
+  if not AAuf.TryArgToARV(2, 0, High(dword), ARV_AllType, arv_data) then exit;
+  if not AAuf.TryArgToAddr(3, addr) then exit;
+  //需要处理预设消息，并且SendMultiTaskMessage需要避免阻塞。
+  AufScpt.push_addr(addr);
+end;
+
 procedure text_str(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
@@ -6049,6 +6065,7 @@ begin
   Self.add_func('task.send',      @task_send,          'taskId, @var',  '向其他任务发送协同消息');
   Self.add_func('task.read',      @task_read,          'taskId, @var',  '直接读取跨任务协同消息');
   Self.add_func('task.broadcast', @task_broadcast,     '@var',          '向其他任务发送协同消息');
+  Self.add_func('task.wait,wjmc', @task_wait,          'taskId, @var, :addr',   '等待读取一个跨任务协同消息后压栈跳转');
 
 end;
 procedure TAufScript.AdditionFuncDefine_Text;
