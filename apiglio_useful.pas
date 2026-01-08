@@ -143,6 +143,12 @@ type
     procedure OnTimerResume(Sender:TObject);
     constructor Create(AOwner:TComponent;AAufScript:TObject);
   end;
+  TAufMultiTaskTimer=class(TTimer)
+  public
+    AufScript:TObject;
+    procedure OnTimerResume(Sender:TObject);
+    constructor Create(AOwner:TComponent;AAufScript:TObject);
+  end;
 
   ACBase = {TForm}TWinControl;
   TAufControl=class(ACBase)
@@ -291,6 +297,8 @@ type
         {$ifdef MsgTimerMode}
         Timer:TTimer;
         TimerPause:boolean;
+        MultiTaskTimer:TTimer;
+        MultiTaskTimerPause:boolean;
         {$endif}
         Synthesis_Mode:(SynMoDelay=0,SynMoTimer=1);
       end;
@@ -327,6 +335,10 @@ type
           timer:longint;            //用于Time模块的settimer和gettimer
         end;
         message:TAufTaskMessageQueue;      //用于跨线程信息处理
+        message_stored:record
+          uuid:TAufRamVar;
+          data:TAufRamVar;
+        end;                               //用于task.wait/wmjc的返回值记录
         print_mode:record
           target_file:string;
           is_screen:boolean;
@@ -2697,6 +2709,18 @@ begin
   if not AAuf.TryArgToARV(2, 0, High(dword), ARV_AllType, arv_data) then exit;
   if not AAuf.TryArgToAddr(3, addr) then exit;
   //需要处理预设消息，并且SendMultiTaskMessage需要避免阻塞。
+  IF AufScpt.Time.Synthesis_Mode=SynMoTimer THEN BEGIN
+    {$ifdef MsgTimerMode}
+    AufScpt.Time.MultiTaskTimer.Interval:=50; //暂时将跨任务协同监听间隔定为50ms
+    AufScpt.Time.MultiTaskTimer.Enabled:=true;
+    AufScpt.Time.MultiTaskTimerPause:=true;
+    {$else}
+    AufScpt.send_error('SynMoTimer的多线程时间模式跨任务协同，暂未实现。');
+    {$endif}
+  END ELSE BEGIN
+    AufScpt.send_error('SynMoDelay时间模式不支持跨任务协同。');
+  END;
+
   AufScpt.push_addr(addr);
 end;
 
@@ -5168,6 +5192,14 @@ begin
   Self.PSW.pause:=false;
   Self.PSW.inRunNext:=false;;
   Self.PSW.calc.YC:=false;
+  with Self.PSW.message_stored do begin
+    uuid.Head:=pbyte(0);
+    uuid.size:=0;
+    uuid.VarType:=ARV_Raw;
+    data.Head:=pbyte(0);
+    data.size:=0;
+    data.VarType:=ARV_Raw;
+  end;
 
 end;
 
@@ -5560,7 +5592,7 @@ begin
     Self.next_addr;
     Self.PSW.inRunNext:=false;//取消过程保护，允许新的RunNext消息
     if Self.Func_process.post<>nil then Self.Func_process.post(Self);//预设的后置过程
-    if (not Self.PSW.Pause){$ifdef MsgTimerMode} and (not Self.Time.TimerPause){$endif} and (not Self.PSW.haltoff) then DoRunNext;
+    if (not Self.PSW.Pause){$ifdef MsgTimerMode} and (not Self.Time.TimerPause) and (not Self.Time.MultiTaskTimerPause){$endif} and (not Self.PSW.haltoff) then DoRunNext;
   end else begin
     DoRunClose;
   end;
@@ -5641,6 +5673,9 @@ begin
     Self.Time.Timer:=TAufTimer.Create(Self.Control.Owner,Self);
   Self.Time.Synthesis_Mode:=SynMoTimer;
   Self.Time.Timer.Enabled:=false;
+  if not Assigned(Self.Time.MultiTaskTimer) then
+    Self.Time.MultiTaskTimer:=TAufMultiTaskTimer.Create(Self.Control.Owner,Self);
+  Self.Time.MultiTaskTimer.Enabled:=false;
   Self.Control.FAuf:=Self.Auf as TAuf;
   Self.Control.FAufScpt:=Self as TAufScript;
 end;
@@ -5836,6 +5871,29 @@ begin
   auf.send(AufProcessControl_RunNext);
 end;
 constructor TAufTimer.Create(AOwner:TComponent;AAufScript:TObject);
+begin
+  inherited Create(AOwner);
+  Self.AufScript:=AAufScript as TAufScript;
+  Self.OnTimer:=@Self.OnTimerResume;
+end;
+
+procedure TAufMultiTaskTimer.OnTimerResume(Sender:TObject);
+var auf:TAufScript;
+    msgQueue:TAufTaskMessageQueue;
+    tmpMsg:TMsgItem;
+begin
+  auf:=(Sender as TAufMultiTaskTimer).AufScript as TAufScript;
+  msgQueue:=auf.PSW.message;
+  if msgQueue.Count>0 then begin
+    tmpMsg.Data:=auf.PSW.message_stored.data;
+    tmpMsg:=msgQueue.Pop;
+    initiate_arv_str(GUIDToString(tmpMsg.From.PSW.message.UUID),auf.PSW.message_stored.uuid);
+    auf.Time.MultiTaskTimerPause:=false;
+    Self.Enabled:=false;
+    auf.send(AufProcessControl_RunNext);
+  end;
+end;
+constructor TAufMultiTaskTimer.Create(AOwner:TComponent;AAufScript:TObject);
 begin
   inherited Create(AOwner);
   Self.AufScript:=AAufScript as TAufScript;
