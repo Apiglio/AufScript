@@ -2701,6 +2701,9 @@ var AufScpt:TAufScript;
     AAuf:TAuf;
     arv_uuid, arv_data:TAufRamVar;
     addr:pRam;
+    {$ifdef MsgTimerMode}{$else}
+    message_received:boolean;
+    {$endif}
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
@@ -2714,14 +2717,29 @@ begin
     AufScpt.Time.MultiTaskTimer.Interval:=50; //暂时将跨任务协同监听间隔定为50ms
     AufScpt.Time.MultiTaskTimer.Enabled:=true;
     AufScpt.Time.MultiTaskTimerPause:=true;
+    AufScpt.PSW.message_stored.data:=arv_data;
+    AufScpt.PSW.message_stored.uuid:=arv_uuid;
+    AufScpt.push_addr(addr);
     {$else}
-    AufScpt.send_error('SynMoTimer的多线程时间模式跨任务协同，暂未实现。');
+    //多线程模式还未测试
+    message_received:=false;
+    while not AufScpt.PSW.haltoff and not AufScpt.PSW.pause do begin
+      if AufScpt.PSW.message.Count>0 then begin
+        message_received:=true;
+        break;
+      end;
+    end;
+    if message_received then begin
+      AufScpt.PSW.message_stored.data:=arv_data;
+      AufScpt.PSW.message_stored.uuid:=arv_uuid;
+    end else begin
+      //AufScpt.offs_addr(0);
+      //没有接收到消息时通过手动的方法恢复运行时，直接执行下一行
+    end;
     {$endif}
   END ELSE BEGIN
     AufScpt.send_error('SynMoDelay时间模式不支持跨任务协同。');
   END;
-
-  AufScpt.push_addr(addr);
 end;
 
 procedure text_str(Sender:TObject);
