@@ -13,6 +13,11 @@ UNIT Apiglio_Useful;
   {$define SynEditMode}
 {$endif}
 
+{$if defined(MsgTimerMode)}
+{$else}
+'Windows下的多线程会卡死AufFrame'
+{$endif}
+
 //{$define TEST_MODE}//开启这个模式会导致没有命令行的GUI报错
 
 INTERFACE
