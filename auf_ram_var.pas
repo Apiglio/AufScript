@@ -85,17 +85,21 @@ type
 
 
 
-  procedure newARV(var inp:TAufRamVar;Size:dword);
+  procedure newARV(out inp:TAufRamVar;Size:dword);
   procedure freeARV(inp:TAufRamVar);
   function assignedARV(inp:TAufRamVar):boolean;
   procedure copyARV(ori_arv:TAufRamVar;var new_arv:TAufRamVar);
   procedure fillARV(target:byte;var arv:TAufRamVar);
 
   function fixnum_comp(ina,inb: TAufRamVar):smallint;
+  function fixnum_comp_abs(ina,inb: TAufRamVar):smallint;
+  procedure fixnum_opp(var ina:TAufRamVar);
+  procedure fixnum_abs(var ina:TAufRamVar);inline;
   procedure fixnum_add(ina,inb:TAufRamVar;var oup:TAufRamVar;out CY:int16);
   procedure fixnum_sub(ina,inb:TAufRamVar;var oup:TAufRamVar;out BR:int16);
   procedure fixnum_mul(ina,inb:TAufRamVar;var oup:TAufRamVar);
   procedure fixnum_div(ina,inb:TAufRamVar;var oup,rem:TAufRamVar);
+  function fixnum_to_decimal(ina:TAufRamVar):string;
 
   {
   procedure ARV_add(ina,inb:TAufRamVar;var oup:TAufRamVar);
@@ -937,7 +941,7 @@ end;
 
 
 
-procedure newARV(var inp:TAufRamVar;Size:dword);
+procedure newARV(out inp:TAufRamVar;Size:dword);
 begin
   inp.Is_Temporary:=true;
   if not assigned(inp.Stream) then inp.Stream.Free;
@@ -983,107 +987,213 @@ end;
 function fixnum_comp(ina,inb:TAufRamVar):smallint;
 var i,max_s:dword;
     ta,tb:byte;
+    sa,sb:byte;
 begin
   result:=0;
+  if (pbyte(ina.Head+ina.size-1)^ and $80) <> 0 then sa:=$FF else sa:=$00;
+  if (pbyte(inb.Head+inb.size-1)^ and $80) <> 0 then sb:=$FF else sb:=$00;
+  if sa<>sb then begin
+    if sa>0 then exit(-1) else exit(1);
+  end;
   if ina.size>inb.size then max_s:=ina.size else max_s:=inb.size;
-  for i:=max_s-1 downto 0 do
-  begin
-    if i<ina.size then ta:=(ina.Head+i)^ else ta:=0;
-    if i<inb.size then tb:=(inb.Head+i)^ else tb:=0;
+  if max_s=0 then raise Exception.Create('不能比较两个长度为0的整数。');
+  for i:=max_s-1 downto 0 do begin
+    if i<ina.size then ta:=(ina.Head+i)^ else ta:=sa;
+    if i<inb.size then tb:=(inb.Head+i)^ else tb:=sb;
     if ta>tb then begin result:=1;exit;end;
     if ta<tb then begin result:=-1;exit;end;
   end;
 end;
+function fixnum_comp_abs(ina,inb:TAufRamVar):smallint;
+var i,max_s:dword;
+    ta,tb:byte;
+begin
+  result:=0;
+  if ina.size>inb.size then max_s:=ina.size else max_s:=inb.size;
+  for i:=max_s - 1 downto 0 do begin
+    if i<ina.size then ta:=(ina.Head+i)^ else ta:=0;
+    if i<inb.size then tb:=(inb.Head+i)^ else tb:=0;
+    if ta>tb then exit(1);
+    if ta<tb then exit(-1);
+  end;
+end;
+procedure fixnum_opp(var ina:TAufRamVar);
+var i:dword;
+    CY:int16;
+begin
+  ARV_not(ina);
+  CY:=1;
+  for i:=0 to ina.size-1 do begin
+    CY:=CY+pbyte(ina.Head+i)^;
+    pbyte(ina.Head+i)^:=byte(CY mod 256);
+    CY:=CY div 256;
+  end;
+end;
+procedure fixnum_abs(var ina:TAufRamVar);inline;
+begin
+  if ((ina.Head+ina.size-1)^ and $80) = 0 then exit;
+  fixnum_opp(ina);
+end;
 procedure fixnum_add(ina,inb:TAufRamVar;var oup:TAufRamVar;out CY:int16);
-var digit,digit_total:dword;
+var digit:dword;
     ta,tb:int16;
+    sa,sb:byte;
 begin
   if oup.Is_Temporary then begin
     if not assignedARV(oup) then raise Exception.Create('临时性ARV地址错误，内存流未初始化。');
   end else begin
     if not assignedARV(oup) then raise Exception.Create('非临时性ARV地址错误。');
   end;
+  if (pbyte(ina.Head+ina.size-1)^ and $80) <> 0 then sa:=$FF else sa:=$00;
+  if (pbyte(inb.Head+inb.size-1)^ and $80) <> 0 then sb:=$FF else sb:=$00;
   CY:=0;
-  digit_total:=ina.size;
-  if inb.size>digit_total then digit_total:=inb.size+1;
-  if oup.size<digit_total then digit_total:=oup.size;
-  for digit:=0 to digit_total-1 do
+  for digit:=0 to oup.size-1 do
     begin
-      if ina.size>digit then ta:=(ina.Head+digit)^ else ta:=0;
-      if inb.size>digit then tb:=(inb.Head+digit)^ else tb:=0;
+      if ina.size>digit then ta:=(ina.Head+digit)^ else ta:=sa;
+      if inb.size>digit then tb:=(inb.Head+digit)^ else tb:=sb;
       pbyte(oup.Head+digit)^:=(ta+tb+CY) mod 256;
       CY:=(ta+tb+CY) div 256;
     end;
-  for digit:=digit_total to oup.size-1 do (oup.Head+digit)^:=0;
 end;
 procedure fixnum_sub(ina,inb:TAufRamVar;var oup:TAufRamVar;out BR:int16);
-var digit,digit_total:dword;
+var digit:dword;
     ta,tb:int16;
+    sa,sb:byte;
 begin
   if oup.Is_Temporary then begin
     if not assignedARV(oup) then raise Exception.Create('临时性ARV地址错误，内存流未初始化。');
   end else begin
     if not assignedARV(oup) then raise Exception.Create('非临时性ARV地址错误。');
   end;
+  if (pbyte(ina.Head+ina.size-1)^ and $80) <> 0 then sa:=$FF else sa:=$00;
+  if (pbyte(inb.Head+inb.size-1)^ and $80) <> 0 then sb:=$FF else sb:=$00;
   BR:=0;
-  digit_total:=ina.size;
-  if inb.size>digit_total then digit_total:=inb.size;
-  if oup.size<digit_total then digit_total:=oup.size;
-  for digit:=0 to digit_total-1 do
+  for digit:=0 to oup.size-1 do
     begin
-      if ina.size>digit then ta:=(ina.Head+digit)^ else ta:=0;
-      if inb.size>digit then tb:=(inb.Head+digit)^ else tb:=0;
+      if ina.size>digit then ta:=(ina.Head+digit)^ else ta:=sa;
+      if inb.size>digit then tb:=(inb.Head+digit)^ else tb:=sb;
       pbyte(oup.Head+digit)^:=byte(ta-BR-tb) mod 256;
       if ta-BR<tb then BR:=1 else BR:=0;
     end;
-  for digit:=digit_total to oup.size-1 do (oup.Head+digit)^:=0;
 end;
 //由Gemini生成
 procedure fixnum_mul(ina,inb:TAufRamVar;var oup:TAufRamVar);
-var i,j:dword;
+var i,j,k:dword;
     ta,tb:dword;
+    arva,arvb:TAufRamVar;
     accum:dword;
     CY:dword;
+    sa,sb:boolean;
 begin
-  for i:=0 to oup.size-1 do pbyte(oup.Head+i)^:=0;
-  for i:=0 to ina.size-1 do begin
+  fillARV(0,oup);
+  newARV(arva,ina.size);
+  newARV(arvb,inb.size);
+  copyARV(ina,arva);
+  copyARV(inb,arvb);
+  sa:=(pbyte(arva.Head+arva.size-1)^ and $80) <> 0;
+  if sa then fixnum_abs(arva);
+  sb:=(pbyte(arvb.Head+arvb.size-1)^ and $80) <> 0;
+  if sb then fixnum_abs(arvb);
+
+  for i:=0 to arva.size-1 do begin
     if i>=oup.size then break;
-    ta:=(ina.Head+i)^;
+    ta:=(arva.Head+i)^;
     CY:=0;
-    for j:=0 to inb.size-1 do begin
+    for j:=0 to arvb.size-1 do begin
       if i+j>=oup.size then break;
-      tb:=(inb.Head+j)^;
+      tb:=(arvb.Head+j)^;
       accum:=pbyte(oup.Head+i+j)^ + (ta*tb) + CY;
       pbyte(oup.Head+i+j)^ := byte(accum mod 256);
-      CY:=accum div 256;
+      CY:=accum shr 8;
     end;
-    if (i+inb.size < oup.size) and (CY > 0) then begin
-      accum:=pbyte(oup.Head+i+inb.size)^+CY;
-      pbyte(oup.Head+i+inb.size)^:=byte(accum mod 256);
+    k:=i+arvb.size;
+    while (CY>0) and (k<oup.size) do begin
+      accum:=dword(pbyte(oup.Head+k)^)+CY;
+      pbyte(oup.Head+k)^:=byte(accum and $FF);
+      CY:=accum shr 8;
+      inc(k);
     end;
   end;
+  if sa<>sb then fixnum_opp(oup);
+  freeARV(arva);
+  freeARV(arvb);
 end;
 //由Gemini生成
 procedure fixnum_div(ina,inb:TAufRamVar;var oup,rem:TAufRamVar);
 var i:integer;
     quotient_bit:byte;
     BR:int16;
+    arva,arvb:TAufRamVar;
+    sa,sb:boolean;
 begin
-  for i:=0 to oup.size-1 do pbyte(oup.Head+i)^:=0;
-  for i:=0 to rem.size-1 do pbyte(rem.Head+i)^:=0;
-  for i:=ina.size-1 downto 0 do begin
-    arv_shl(rem,1);
-    pbyte(rem.Head)^:=(ina.Head+i)^;
+  sa:=(pbyte(ina.Head+ina.size-1)^ and $80) <> 0;
+  sb:=(pbyte(inb.Head+inb.size-1)^ and $80) <> 0;
+  newARV(arva,ina.size+1);
+  newARV(arvb,inb.size+1);
+  fillARV(0,oup);
+  fillARV(0,rem);
+  copyARV(ina,arva);
+  copyARV(inb,arvb);
+  if sa then fixnum_abs(arva);
+  if sb then fixnum_abs(arvb);
+  if ARV_EqlZero(arvb) then raise Exception.Create('Division by zero.');
+
+  fillARV(0,oup);
+  fillARV(0,rem);
+  for i:=arva.size-1 downto 0 do begin
+    arv_shl(rem,8);
+    pbyte(rem.Head)^:=(arva.Head+i)^;
     quotient_bit:=0;
-    while fixnum_comp(rem,inb)>=0 do begin
-      fixnum_sub(rem,inb,rem,BR);
+    while fixnum_comp_abs(rem,arvb)>=0 do begin
+      fixnum_sub(rem,arvb,rem,BR);//因为arva、arvb扩容，有符号减运算与无符号运算等价
       inc(quotient_bit);
       if quotient_bit=255 then break;
     end;
     if dword(i)<oup.size then pbyte(oup.Head+i)^:=quotient_bit;
   end;
-end;
 
+  if sa<>sb then fixnum_opp(oup);
+  if sa then fixnum_opp(rem);
+  freeARV(arva);
+  freeARV(arvb);
+end;
+//由Gemini生成
+function fixnum_to_decimal(ina:TAufRamVar):string;
+var temp,rem,b10:TAufRamVar;
+    isNeg:boolean;
+    digit:byte;
+    CY:int16;
+begin
+  result:='';
+  if ina.size=0 then exit('0');
+  isNeg:=(pbyte(ina.Head+ina.size-1)^ and $80) <> 0;
+  newARV(temp,ina.size+1);
+  newARV(rem,2);
+  newARV(b10,1);
+  pbyte(b10.Head)^:=10;
+  copyARV(ina,temp);
+  if isNeg then begin
+    ARV_not(temp);
+    CY:=1;
+    for i:=0 to temp.size-1 do begin
+      CY:=CY + pbyte(temp.Head+i)^;
+      pbyte(temp.Head+i)^:=byte(CY mod 256);
+      CY:=CY shr 8;
+    end;
+  end else begin
+    pbyte(temp.Head+temp.size-1)^:=0;
+  end;
+  repeat
+    fixnum_div(temp,b10,temp,rem);
+    digit:=pbyte(rem.Head)^;
+    result:=chr(ord('0')+digit)+result;
+  until ARV_EqlZero(temp);
+  if result='' then result:='0';
+  if isNeg then result:='-'+result;
+  freeARV(temp);
+  freeARV(rem);
+  freeARV(b10);
+end;
 
 
 
@@ -1773,6 +1883,8 @@ var pi,pj:dword;
   end;
 begin
   result:='';
+  if ina.VarType=ARV_FixNum then result:=fixnum_to_decimal(ina);
+  //后面可以逐渐退出删除了
   acc.data:='+0';
   base.data:='+1';
   if assignedARV(ina) then

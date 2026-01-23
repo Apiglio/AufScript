@@ -69,25 +69,40 @@ var
 
 
 procedure project_test(Sender:TObject);
-var tmp,tmp2:TAufRamVar;
+var tmp,tmp2,oup,oup2:TAufRamVar;
     AufScpt:TAufScript;
     AAuf:TAuf;
     tmpNode:TWordTreeNode;
     tmpP:Pointer;
     arr:TAufArray;
     dw1,dw2,dw3:dword;
+    subcode:string;
+    cy_n_br:int16;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
 
   //AufScpt.writeln('arv_to_dec_fraction:'+arv_to_dec_fraction(AufScpt.RamVar(AAuf.nargs[1])));
   if not AAuf.CheckArgs(2) then exit;
-  if not AAuf.TryArgToARV(1,1,high(QWord),ARV_AllType,tmp) then exit;
-  if not AAuf.TryArgToARV(2,1,high(QWord),ARV_AllType,tmp2) then exit;
-  if not AAuf.TryArgToDWord(3,dw1) then exit;
-  if not AAuf.TryArgToDWord(4,dw2) then exit;
-  if not AAuf.TryArgToDWord(5,dw3) then exit;
-  ARV_copyBits(tmp,tmp2,dw1,dw2,dw3);
+  if not AAuf.TryArgToStrParam(1,['add','sub','mul','div','rem'],false,subcode) then exit;
+  if not AAuf.TryArgToARV(2,1,high(QWord),[ARV_FixNum],tmp) then exit;
+  if not AAuf.TryArgToARV(3,1,high(QWord),[ARV_FixNum],tmp2) then exit;
+
+  newARV(oup, tmp.size);
+  newARV(oup2, tmp.size);
+  case lowercase(subcode) of
+    'add':fixnum_add(tmp,tmp2,oup,cy_n_br);
+    'sub':fixnum_sub(tmp,tmp2,oup,cy_n_br);
+    'mul':fixnum_mul(tmp,tmp2,oup);
+    'div':fixnum_div(tmp,tmp2,oup,oup2);
+    'rem':fixnum_div(tmp,tmp2,oup,oup2);
+  end;
+  case lowercase(subcode) of
+    'rem':copyARV(oup2, tmp);
+    else copyARV(oup, tmp);
+  end;
+  freeARV(oup);
+  freeARV(oup2);
 
   exit;
 
