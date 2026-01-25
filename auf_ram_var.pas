@@ -91,8 +91,8 @@ type
   procedure copyARV(ori_arv:TAufRamVar;var new_arv:TAufRamVar);
   procedure fillARV(target:byte;var arv:TAufRamVar);
 
-  function fixnum_comp(ina,inb: TAufRamVar):smallint;
-  function fixnum_comp_abs(ina,inb: TAufRamVar):smallint;
+  function fixnum_comp(ina,inb:TAufRamVar):smallint;
+  function fixnum_comp_abs(ina,inb:TAufRamVar):smallint;
   procedure fixnum_opp(var ina:TAufRamVar);
   procedure fixnum_abs(var ina:TAufRamVar);inline;
   procedure fixnum_add(ina,inb:TAufRamVar;var oup:TAufRamVar;out CY:int16);
@@ -100,14 +100,12 @@ type
   procedure fixnum_mul(ina,inb:TAufRamVar;var oup:TAufRamVar);
   procedure fixnum_div(ina,inb:TAufRamVar;var oup,rem:TAufRamVar);
   function fixnum_to_decimal(ina:TAufRamVar):string;
+  procedure decimal_to_fixnum(dec:string;var oup:TAufRamVar);
 
-  {
-  procedure ARV_add(ina,inb:TAufRamVar;var oup:TAufRamVar);
-  procedure ARV_sub(ina,inb:TAufRamVar;var oup:TAufRamVar);
-  procedure ARV_mul(ina,inb:TAufRamVar;var oup:TAufRamVar);
-  procedure ARV_div(ina,inb:TAufRamVar;var oup:TAufRamVar);
-  procedure ARV_mod(ina,inb:TAufRamVar;var oup:TAufRamVar);
-  }
+  procedure float_add(ina,inb:TAufRamVar;var oup:TAufRamVar);
+  procedure float_sub(ina,inb:TAufRamVar;var oup:TAufRamVar);
+  procedure float_mul(ina,inb:TAufRamVar;var oup:TAufRamVar);
+  procedure float_div(ina,inb:TAufRamVar;var oup:TAufRamVar);
 
   function ARV_EqlZero(inp:TAufRamVar):boolean;
   function ARV_comp(ina,inb:TAufRamVar):smallint;//ina<=>inb
@@ -118,6 +116,7 @@ type
   function ARV_floating_exponent_digits(byteCount:integer):integer;
   procedure ARV_floating_make_zero(ina:TAufRamVar;negative:boolean=false);
   procedure ARV_floating_make_infinity(ina:TAufRamVar;negative:boolean=false);
+  function ARV_floating_is_infinity(const ina:TAufRamVar):boolean;
   procedure ARV_floating_make_notanumber(ina:TAufRamVar;negative:boolean=false);
   procedure ARV_floating_scaling(var oup:TAufRamVar;const inp:TAufRamVar);
 
@@ -177,6 +176,20 @@ const
 var
 
   MaxDivDigit:dword;
+  _arvconst_fixnum_0_:TAufRamVar;
+  _arvconst_fixnum_p1_:TAufRamVar;
+  _arvconst_fixnum_n1_:TAufRamVar;
+  _arvconst_fixnum_p10_:TAufRamVar;
+  _arvconst_fixnum_n10_:TAufRamVar;
+  _arvconst_float_0_:TAufRamVar;
+  _arvconst_float_p1_:TAufRamVar;
+  _arvconst_float_n1_:TAufRamVar;
+  _arvconst_float_p10_:TAufRamVar;
+  _arvconst_float_n10_:TAufRamVar;
+  _arvconst_float_pInf_:TAufRamVar;
+  _arvconst_float_nInf_:TAufRamVar;
+  _arvconst_string_empty_:TAufRamVar;
+
 
 implementation
 
@@ -1124,18 +1137,20 @@ var i:integer;
     quotient_bit:byte;
     BR:int16;
     arva,arvb:TAufRamVar;
-    sa,sb:boolean;
+    sa,sb:byte;
 begin
-  sa:=(pbyte(ina.Head+ina.size-1)^ and $80) <> 0;
-  sb:=(pbyte(inb.Head+inb.size-1)^ and $80) <> 0;
+  if (pbyte(ina.Head+ina.size-1)^ and $80) <> 0 then sa:=$FF else sa:=$00;
+  if (pbyte(inb.Head+inb.size-1)^ and $80) <> 0 then sb:=$FF else sb:=$00;
   newARV(arva,ina.size+1);
   newARV(arvb,inb.size+1);
-  fillARV(0,oup);
-  fillARV(0,rem);
   copyARV(ina,arva);
   copyARV(inb,arvb);
-  if sa then fixnum_abs(arva);
-  if sb then fixnum_abs(arvb);
+  (arva.Head+arva.size-1)^:=sa;
+  (arvb.Head+arvb.size-1)^:=sb;
+  fillARV(0,oup);
+  fillARV(0,rem);
+  if sa>0 then fixnum_opp(arva);
+  if sb>0 then fixnum_opp(arvb);
   if ARV_EqlZero(arvb) then raise Exception.Create('Division by zero.');
 
   fillARV(0,oup);
@@ -1153,74 +1168,346 @@ begin
   end;
 
   if sa<>sb then fixnum_opp(oup);
-  if sa then fixnum_opp(rem);
+  if sa>0 then fixnum_opp(rem);
   freeARV(arva);
   freeARV(arvb);
 end;
 //由Gemini生成
 function fixnum_to_decimal(ina:TAufRamVar):string;
-var temp,rem,b10:TAufRamVar;
+var temp:TAufRamVar;
     isNeg:boolean;
-    digit:byte;
-    CY:int16;
+    i:dword;
+    current,CY:dword;
+    hasValue:boolean;
 begin
-  result:='';
-  if ina.size=0 then exit('0');
+  if (ina.size=0) or ARV_EqlZero(ina) then exit('0');
   isNeg:=(pbyte(ina.Head+ina.size-1)^ and $80) <> 0;
   newARV(temp,ina.size+1);
-  newARV(rem,2);
-  newARV(b10,1);
-  pbyte(b10.Head)^:=10;
-  copyARV(ina,temp);
+  for i:=0 to temp.size-1 do pbyte(temp.Head+i)^:=0;
+  for i:=0 to temp.size-1 do begin
+    if i<ina.size then
+      pbyte(temp.Head+i)^:=pbyte(ina.Head+i)^
+    else begin
+      if isNeg then pbyte(temp.Head+i)^:=$FF
+      else pbyte(temp.Head+i)^:=$00;
+    end;
+  end;
   if isNeg then begin
-    ARV_not(temp);
+    for i:=0 to temp.size-1 do
+      pbyte(temp.Head+i)^:=not pbyte(temp.Head+i)^;
     CY:=1;
     for i:=0 to temp.size-1 do begin
-      CY:=CY + pbyte(temp.Head+i)^;
-      pbyte(temp.Head+i)^:=byte(CY mod 256);
+      CY:=CY+pbyte(temp.Head+i)^;
+      pbyte(temp.Head+i)^:=byte(CY and $FF);
       CY:=CY shr 8;
     end;
-  end else begin
-    pbyte(temp.Head+temp.size-1)^:=0;
   end;
+  result:='';
   repeat
-    fixnum_div(temp,b10,temp,rem);
-    digit:=pbyte(rem.Head)^;
-    result:=chr(ord('0')+digit)+result;
-  until ARV_EqlZero(temp);
-  if result='' then result:='0';
+    current:=0;
+    hasValue:=false;
+    for i:=temp.size-1 downto 0 do begin
+      current:=(current shl 8)+pbyte(temp.Head+i)^;
+      pbyte(temp.Head+i)^:=byte(current div 10);
+      current:=current mod 10;
+      if pbyte(temp.Head+i)^<>0 then hasValue:=true;
+    end;
+    result:=chr(ord('0')+byte(current))+result;
+  until not hasValue;
   if isNeg then result:='-'+result;
   freeARV(temp);
-  freeARV(rem);
+end;
+//由Gemini生成
+procedure decimal_to_fixnum(dec:string;var oup:TAufRamVar);
+label _cleanup;
+var i,start_idx:integer;
+    isNeg:boolean;
+    b10,bDigit,temp_res:TAufRamVar;
+    c:char;
+    cy_n_br:int16;
+begin
+  if (dec='') or (oup.size=0) then exit;
+  newARV(b10,oup.size);
+  fillARV(0,b10);
+  pbyte(b10.Head)^:=10;
+  newARV(bDigit,oup.size);
+  newARV(temp_res,oup.size);
+  fillARV(0,oup);
+  isNeg:=false;
+  start_idx:=1;
+  if dec[1]='-' then begin
+    isNeg:=true;
+    inc(start_idx);
+  end else if dec[1]='+' then begin
+    inc(start_idx);
+  end;
+  for i:=start_idx to length(dec) do begin
+    c:=dec[i];
+    if (c<'0') or (c>'9') then begin
+      fillARV(0,oup);
+      pbyte(oup.Head+oup.size-1)^:=$80;
+      goto _cleanup;
+    end;
+    fixnum_mul(oup,b10,temp_res);
+    fillARV(0,bDigit);
+    pbyte(bDigit.Head)^:=ord(c)-ord('0');
+    fixnum_add(temp_res,bDigit,oup,cy_n_br);
+  end;
+  if isNeg then fixnum_opp(oup);
+
+_cleanup:
   freeARV(b10);
+  freeARV(bDigit);
+  freeARV(temp_res);
 end;
 
 
+function get_bit(const arv: TAufRamVar; bitIdx: integer): boolean;
+begin
+  result := (pbyte(arv.Head + (bitIdx div 8))^ and (1 shl (bitIdx mod 8))) <> 0;
+end;
 
-{
-procedure ARV_add(ina,inb:TAufRamVar;var oup:TAufRamVar);
+procedure set_bit(var arv: TAufRamVar; bitIdx: integer; val: boolean);
 begin
-  if (ina.VarType=ARV_FixNum) and (inb.VarType=ARV_FixNum) then fixnum_add(ina,inb,oup)
-  else raise Exception.Create('暂不支持整型数以外的变量加法');
+  if val then pbyte(arv.Head + (bitIdx div 8))^ := pbyte(arv.Head + (bitIdx div 8))^ or (1 shl (bitIdx mod 8))
+  else pbyte(arv.Head + (bitIdx div 8))^ := pbyte(arv.Head + (bitIdx div 8))^ and not (1 shl (bitIdx mod 8));
 end;
-procedure ARV_sub(ina,inb:TAufRamVar;var oup:TAufRamVar);
+procedure float_add(ina,inb:TAufRamVar;var oup:TAufRamVar);
+var vA,vB,vRes:UInt64;
+    sA,sB,sRes:UInt64;
+    eA,eB,eRes:Int64;
+    mA,mB,mRes:UInt64;
+    e_bits,m_bits:integer;
+    bias:Int64;
+    diff:Int64;
+    tmp_fsc:TAufRamVar;
 begin
-  if (ina.VarType=ARV_FixNum) and (inb.VarType=ARV_FixNum) then fixnum_sub(ina,inb,oup)
-  else raise Exception.Create('暂不支持整型数以外的变量减法');
+  if (oup.size>8) then exit;
+  newARV(tmp_fsc,oup.size);
+  ARV_floating_scaling(tmp_fsc,ina); Move(tmp_fsc.Head^,vA,oup.size);
+  ARV_floating_scaling(tmp_fsc,inb); Move(tmp_fsc.Head^,vB,oup.size);
+  freeARV(tmp_fsc);
+  e_bits:=ARV_floating_exponent_digits(oup.size);
+  m_bits:=(oup.size*8)-1-e_bits;
+  bias:=(1 shl (e_bits-1))-1;
+  sA:=(vA shr (oup.size * 8-1)) and 1;
+  eA:=(vA shr m_bits) and ((UInt64(1) shl e_bits)-1);
+  mA:=vA and ((UInt64(1) shl m_bits)-1);
+  if eA<>0 then mA:=mA or (UInt64(1) shl m_bits); // 补隐藏位
+  sB:=(vB shr (oup.size * 8-1)) and 1;
+  eB:=(vB shr m_bits) and ((UInt64(1) shl e_bits)-1);
+  mB:=vB and ((UInt64(1) shl m_bits)-1);
+  if eB<>0 then mB:=mB or (UInt64(1) shl m_bits); // 补隐藏位
+  if eA>eB then begin
+    diff:=eA-eB;
+    if diff>=64 then mB:=0 else mB:=mB shr diff;
+    eRes:=eA;
+  end else begin
+    diff:=eB-eA;
+    if diff>=64 then mA:=0 else mA:=mA shr diff;
+    eRes:=eB;
+  end;
+  if sA=sB then begin
+    mRes:=mA+mB;
+    sRes:=sA;
+    if (mRes and (UInt64(1) shl (m_bits+1)))<>0 then begin
+      mRes:=mRes shr 1;
+      inc(eRes);
+    end;
+  end else begin
+    if mA>=mB then begin
+      mRes:=mA-mB;
+      sRes:=sA;
+    end else begin
+      mRes:=mB-mA;
+      sRes:=sB;
+    end;
+    if mRes<>0 then begin
+      while (mRes and (UInt64(1) shl m_bits))=0 do begin
+        mRes:=mRes shl 1;
+        dec(eRes);
+        if eRes<=0 then break;
+      end;
+    end else eRes:=0;
+  end;
+  mRes:=mRes and ((UInt64(1) shl m_bits)-1);
+  vRes:=mRes or (UInt64(eRes) shl m_bits) or (sRes shl (oup.size*8-1));
+  fillARV(0,oup);
+  Move(vRes,oup.Head^,oup.size);
 end;
-procedure ARV_mul(ina,inb:TAufRamVar;var oup:TAufRamVar);
+procedure float_sub(ina,inb:TAufRamVar;var oup:TAufRamVar);
+var tmpB: TAufRamVar;
 begin
-  //
+  if (ina.size = 0) or (inb.size = 0) then exit;
+  newARV(tmpB,inb.size);
+  copyARV(inb,tmpB);
+  pbyte(tmpB.Head+tmpB.size-1)^:=pbyte(tmpB.Head+tmpB.size-1)^ xor $80;
+  float_add(ina,tmpB,oup);
+  freeARV(tmpB);
 end;
-procedure ARV_div(ina,inb:TAufRamVar;var oup:TAufRamVar);
+procedure float_mul(ina,inb:TAufRamVar;var oup:TAufRamVar);
+label _cleanup;
+var
+  tA,tB,MA,MB,MRes,EA,EB,ERes,tmp_Bias,tmp_V: TAufRamVar;
+  SA,SB,SRes:boolean;
+  E_bits,M_bits:integer;
+  i:integer;
+  cy_br:int16;
 begin
-  //
+  if (oup.size=0) or (ina.size=0) or (inb.size=0) then exit;
+  if ARV_EqlZero(ina) or ARV_EqlZero(inb) then begin
+    copyARV(_arvconst_float_0_,oup);
+    exit;
+  end;
+  if ARV_floating_is_infinity(ina) or ARV_floating_is_infinity(inb) then begin
+    SA:=(pbyte(ina.Head+ina.size-1)^ and $80) <> 0;
+    SB:=(pbyte(inb.Head+inb.size-1)^ and $80) <> 0;
+    if SA xor SB then copyARV(_arvconst_float_nInf_,oup)
+    else copyARV(_arvconst_float_pInf_,oup);
+    exit;
+  end;
+  E_bits:=ARV_floating_exponent_digits(oup.size);
+  M_bits:=(oup.size * 8)-1-E_bits;
+  newARV(tA,oup.size); newARV(tB,oup.size);
+  newARV(MA,oup.size); newARV(MB,oup.size);
+  newARV(EA,oup.size); newARV(EB,oup.size);
+  newARV(ERes,oup.size);
+  newARV(tmp_Bias,oup.size);
+  newARV(tmp_V,oup.size);
+  ARV_floating_scaling(tA,ina);
+  ARV_floating_scaling(tB,inb);
+  SA:=(pbyte(tA.Head+tA.size-1)^ and $80) <> 0;
+  SB:=(pbyte(tB.Head+tB.size-1)^ and $80) <> 0;
+  SRes:=SA xor SB;
+  copyARV(tA,EA); arv_shr(EA,M_bits);
+  pbyte(EA.Head+EA.size-1)^:=pbyte(EA.Head+EA.size-1)^ and $7F;
+  copyARV(tB,EB); arv_shr(EB,M_bits);
+  pbyte(EB.Head+EB.size-1)^:=pbyte(EB.Head+EB.size-1)^ and $7F;
+  copyARV(tA,MA); arv_shl(MA,E_bits+1); arv_shr(MA,E_bits+1);
+  if not ARV_EqlZero(EA) then set_bit(MA,M_bits,true);
+  copyARV(tB,MB); arv_shl(MB,E_bits+1); arv_shr(MB,E_bits+1);
+  if not ARV_EqlZero(EB) then set_bit(MB,M_bits,true);
+  fillARV(0,tmp_V);
+  set_bit(tmp_V,E_bits-1,true); // 2^(E_bits-1)
+  fixnum_sub(tmp_V,_arvconst_fixnum_p1_,tmp_Bias,cy_br); // Bias
+  fixnum_add(EA,EB,ERes,cy_br);
+  fixnum_sub(ERes,tmp_Bias,ERes,cy_br);
+  newARV(MRes,oup.size * 2);
+  fixnum_mul(MA,MB,MRes);
+  if get_bit(MRes,M_bits * 2+1) then begin
+    arv_shr(MRes,M_bits+1);
+    fixnum_add(ERes,_arvconst_fixnum_p1_,ERes,cy_br);
+  end else begin
+    arv_shr(MRes,M_bits);
+  end;
+  set_bit(MRes,M_bits,false); // 剥离隐藏位
+  fillARV(0,oup);
+  copyARV(MRes,oup);
+  copyARV(ERes,tmp_V);
+  arv_shl(tmp_V,M_bits);
+  for i:=0 to oup.size-1 do pbyte(oup.Head+i)^:=pbyte(oup.Head+i)^ or pbyte(tmp_V.Head+i)^;
+  if SRes then pbyte(oup.Head+oup.size-1)^:=pbyte(oup.Head+oup.size-1)^ or $80;
+
+_cleanup:
+  freeARV(tA);
+  freeARV(tB);
+  freeARV(MA);
+  freeARV(MB);
+  freeARV(EA);
+  freeARV(EB);
+  freeARV(ERes);
+  freeARV(tmp_Bias);
+  freeARV(tmp_V);
+  if MRes.Head <> nil then freeARV(MRes);
 end;
-procedure ARV_mod(ina,inb:TAufRamVar;var oup:TAufRamVar);
+procedure float_div(ina,inb:TAufRamVar;var oup:TAufRamVar);
+label _cleanup;
+var tA,tB,MA,MB,MRes,MRem,EA,EB,ERes,tmp_Bias,tmp_V:TAufRamVar;
+    SA,SB,SRes:boolean;
+    E_bits,M_bits,double_size:integer;
+    i:integer;
+    cy_br:int16;
 begin
-  //
+  if (oup.size = 0) or (ina.size = 0) or (inb.size = 0) then exit;
+  if ARV_EqlZero(inb) then begin
+    SA:=(pbyte(ina.Head+ina.size-1)^ and $80) <> 0;
+    SB:=(pbyte(inb.Head+inb.size-1)^ and $80) <> 0;
+    ARV_floating_make_infinity(oup,SA xor SB);
+    exit;
+  end;
+  if ARV_EqlZero(ina) then begin
+    copyARV(_arvconst_float_0_,oup);
+    exit;
+  end;
+  E_bits:=ARV_floating_exponent_digits(oup.size);
+  M_bits:=(oup.size * 8)-1-E_bits;
+  double_size:=oup.size * 2; // 中间尾数运算使用双倍位宽
+  newARV(tA,oup.size); newARV(tB,oup.size);
+  newARV(EA,oup.size); newARV(EB,oup.size);
+  newARV(ERes,oup.size);
+  newARV(tmp_Bias,oup.size);
+  newARV(tmp_V,oup.size);
+  newARV(MA,double_size); fillARV(0,MA);
+  newARV(MB,double_size); fillARV(0,MB);
+  newARV(MRes,double_size); fillARV(0,MRes);
+  newARV(MRem,double_size); fillARV(0,MRem);
+  ARV_floating_scaling(tA,ina);
+  ARV_floating_scaling(tB,inb);
+  SA:=(pbyte(tA.Head+tA.size-1)^ and $80) <> 0;
+  SB:=(pbyte(tB.Head+tB.size-1)^ and $80) <> 0;
+  SRes:=SA xor SB;
+  copyARV(tA,EA);
+  arv_shr(EA,M_bits);
+  pbyte(EA.Head+EA.size-1)^:=pbyte(EA.Head+EA.size-1)^ and $7F;
+  copyARV(tB,EB);
+  arv_shr(EB,M_bits);
+  pbyte(EB.Head+EB.size-1)^:=pbyte(EB.Head+EB.size-1)^ and $7F;
+  copyARV(tA,tmp_V);
+  arv_shl(tmp_V,E_bits+1); arv_shr(tmp_V,E_bits+1);
+  Move(tmp_V.Head^,MA.Head^,oup.size);
+  if not ARV_EqlZero(EA) then set_bit(MA,M_bits,true);
+  copyARV(tB,tmp_V);
+  arv_shl(tmp_V,E_bits+1); arv_shr(tmp_V,E_bits+1);
+  Move(tmp_V.Head^,MB.Head^,oup.size);
+  if not ARV_EqlZero(EB) then set_bit(MB,M_bits,true);
+  fillARV(0,tmp_V);
+  set_bit(tmp_V,E_bits-1,true); // 2^(E_bits-1)
+  fixnum_sub(tmp_V,_arvconst_fixnum_p1_,tmp_Bias,cy_br); // Bias
+  fixnum_sub(EA,EB,ERes,cy_br);
+  fixnum_add(ERes,tmp_Bias,ERes,cy_br);
+  arv_shl(MA,M_bits);
+  fixnum_div(MA,MB,MRes,MRem);
+  if ARV_EqlZero(MRes) then begin
+    copyARV(_arvconst_float_0_,oup);
+    goto _cleanup;
+  end;
+  if get_bit(MRes,M_bits+1) then begin
+    arv_shr(MRes,1);
+    fixnum_add(ERes,_arvconst_fixnum_p1_,ERes,cy_br);
+  end else begin
+    while (not get_bit(MRes,M_bits)) do begin
+      arv_shl(MRes,1);
+      fixnum_sub(ERes,_arvconst_fixnum_p1_,ERes,cy_br);
+      if ARV_EqlZero(ERes) then break;
+    end;
+  end;
+  set_bit(MRes,M_bits,false); // 剥离隐藏位
+  fillARV(0,oup);
+  Move(MRes.Head^,oup.Head^,oup.size);
+  copyARV(ERes,tmp_V);
+  arv_shl(tmp_V,M_bits);
+  for i:=0 to oup.size-1 do pbyte(oup.Head+i)^:=pbyte(oup.Head+i)^ or pbyte(tmp_V.Head+i)^;
+  if SRes then pbyte(oup.Head+oup.size-1)^:=pbyte(oup.Head+oup.size-1)^ or $80;
+
+_cleanup:
+  freeARV(tA); freeARV(tB);
+  freeARV(EA); freeARV(EB); freeARV(ERes);
+  freeARV(tmp_Bias); freeARV(tmp_V);
+  if MA.Head <> nil then freeARV(MA);
+  if MB.Head <> nil then freeARV(MB);
+  if MRes.Head <> nil then freeARV(MRes);
+  if MRem.Head <> nil then freeARV(MRem);
 end;
-}
 
 
 function ARV_EqlZero(inp:TAufRamVar):boolean;
@@ -1401,6 +1688,7 @@ end;
 
 procedure ARV_floating_make_infinity(ina:TAufRamVar;negative:boolean=false);
 var exponent_digit, mantissa_digit, EM_byte:integer;
+    mask:byte;
 // | Sign Exponent| ... | Exponent Mantissa | ... | Mantissa
 //   HEAD+size-1          HEAD+EM_byte-1            HEAD^
 begin
@@ -1408,9 +1696,31 @@ begin
   mantissa_digit:=ina.size*8 - exponent_digit -1;
   EM_byte:=mantissa_digit div 8;
   FillByte(ina.Head^,EM_byte,0);
-  pbyte(ina.Head+EM_byte)^:=$ff shl (mantissa_digit mod 8);
-  FillByte((ina.Head+EM_byte+1)^,ina.size-EM_byte-1,$ff);
-  if not negative then pbyte(ina.Head+ina.size-1)^:=pbyte(ina.Head+ina.size-1)^ and $7f;
+  mask:=($FF shl (mantissa_digit mod 8)) and $FF;
+  pbyte(ina.Head+EM_byte)^:=mask;
+  if (ina.size-1 > EM_byte) then FillByte((ina.Head+EM_byte+1)^, (ina.size-1-EM_byte), $FF);
+  if negative then pbyte(ina.Head+ina.size-1)^:=pbyte(ina.Head+ina.size-1)^ or $80
+  else pbyte(ina.Head+ina.size-1)^:=pbyte(ina.Head+ina.size-1)^ and $7F;
+end;
+function ARV_floating_is_infinity(const ina:TAufRamVar):boolean;
+var exponent_digit,mantissa_digit,EM_byte:integer;
+    i:integer;
+    mask: byte;
+begin
+  result:=false;
+  if (ina.size=0) then exit;
+  exponent_digit:=ARV_floating_exponent_digits(ina.size);
+  mantissa_digit:=(ina.size*8)-exponent_digit-1;
+  EM_byte:=mantissa_digit div 8;
+  for i:=0 to EM_byte-1 do
+    if pbyte(ina.Head+i)^<>0 then exit;
+  mask:=($FF shl (mantissa_digit mod 8)) and $FF;
+  if (pbyte(ina.Head+EM_byte)^ and (not mask)) <> 0 then exit;
+  if (pbyte(ina.Head+EM_byte)^ and mask) <> mask then exit;
+  for i:=EM_byte+1 to ina.size-2 do
+    if pbyte(ina.Head+i)^ <> $FF then exit;
+  if (pbyte(ina.Head+ina.size-1)^ and $7F) <> $7F then exit;
+  result:=true;
 end;
 
 procedure ARV_floating_make_notanumber(ina:TAufRamVar;negative:boolean=false);
@@ -1418,25 +1728,38 @@ begin
   FillByte(ina.Head^,ina.size,$ff);
   if not negative then pbyte(ina.Head+ina.size-1)^:=pbyte(ina.Head+ina.size-1)^ and $7f;
 end;
-
+//由Gemini生成
 procedure ARV_floating_scaling(var oup:TAufRamVar;const inp:TAufRamVar);
-var e1, m1, e2, m2:integer;
-//long | S E | E | E M
-//shrt | S E | E | E M
+var S:byte;
+    E_raw,M_raw:UInt64;
+    E_real:Int64;
+    in_E_bits,in_M_bits,out_E_bits,out_M_bits:integer;
+    in_Bias,out_Bias:Int64;
 begin
-  if oup.size=inp.size then begin
-    copyARV(inp,oup);
-    exit;
-  end;
-  e1:=ARV_floating_exponent_digits(inp.size);
-  m1:=inp.size*8 - e1 -1;
-  e2:=ARV_floating_exponent_digits(oup.size);
-  m2:=oup.size*8 - e2 -1;
-  if oup.size>inp.size then begin
-    //拓展
-  end else begin
-    //压缩
-  end;
+  M_raw:=0;
+  Move(inp.Head^,M_raw,inp.size);
+  in_E_bits:=ARV_floating_exponent_digits(inp.size);
+  in_M_bits:=(inp.size*8)-1-in_E_bits;
+  out_E_bits:=ARV_floating_exponent_digits(oup.size);
+  out_M_bits:=(oup.size*8)-1-out_E_bits;
+  S:=(M_raw shr (inp.size*8-1)) and 1;
+  E_raw:=(M_raw shr in_M_bits) and ((1 shl in_E_bits)-1);
+  M_raw:=M_raw and ((UInt64(1) shl in_M_bits)-1);
+  if E_raw<>0 then begin
+    in_Bias:=(1 shl (in_E_bits-1))-1;
+    out_Bias:=(1 shl (out_E_bits-1))-1;
+    E_real:=Int64(E_raw)-in_Bias+out_Bias;
+    if E_real>=(1 shl out_E_bits)-1 then E_real:=(1 shl out_E_bits)-1;
+    if E_real<=0 then E_real:=0;
+  end else E_real:=0;
+  if out_M_bits>in_M_bits then
+    M_raw:=M_raw shl (out_M_bits-in_M_bits)
+  else
+    M_raw:=M_raw shr (in_M_bits-out_M_bits);
+  M_raw:=M_raw or (UInt64(E_real) shl out_M_bits);
+  M_raw:=M_raw or (UInt64(S) shl (oup.size*8-1));
+  fillARV(0,oup);
+  Move(M_raw,oup.Head^,oup.size);
 end;
 
 procedure ARV_floating_add(var ina:TAufRamVar;const inb:TAufRamVar);
@@ -1797,7 +2120,8 @@ begin
   else
     begin
       //raise Exception.Create('警告：暂时不支持十六进制以外的整型数和浮点型');
-      dec_to_arv(DecimalStr(exp),arv);
+      //dec_to_arv(DecimalStr(exp),arv);
+      decimal_to_fixnum(exp,arv);
     end;
 end;
 
@@ -2019,7 +2343,7 @@ begin
   result:='';
   case ina.VarType of
     ARV_FixNum:begin
-                 result:=arv_to_dec(ina);
+                 result:=fixnum_to_decimal(ina);
                end;
     ARV_Float :begin
                  if not ARV_float_valid(ina) then raise Exception.Create('警告：ARV浮点型数值为NaN');
@@ -2104,6 +2428,54 @@ end;
 
 initialization
   MaxDivDigit:=240;
+  newARV(_arvconst_fixnum_0_,1);
+  newARV(_arvconst_fixnum_p1_,1);
+  newARV(_arvconst_fixnum_n1_,1);
+  newARV(_arvconst_fixnum_p10_,1);
+  newARV(_arvconst_fixnum_n10_,1);
+  newARV(_arvconst_float_0_,1);
+  newARV(_arvconst_float_p1_,1);
+  newARV(_arvconst_float_n1_,1);
+  newARV(_arvconst_float_p10_,2);
+  newARV(_arvconst_float_n10_,2);
+  newARV(_arvconst_float_pInf_,1);
+  newARV(_arvconst_float_nInf_,1);
+  newARV(_arvconst_string_empty_,1);
+  with _arvconst_fixnum_0_ do Head^:=$00;
+  with _arvconst_fixnum_p1_ do Head^:=$01;
+  with _arvconst_fixnum_n1_ do Head^:=$FF;
+  with _arvconst_fixnum_p10_ do Head^:=$0A;
+  with _arvconst_fixnum_n10_ do Head^:=$F6;
+  with _arvconst_float_0_ do Head^:=$00;
+  with _arvconst_float_p1_ do Head^:=$30;
+  with _arvconst_float_n1_ do Head^:=$B0;
+  with _arvconst_float_p10_ do begin
+    Head^:=$00;
+    (Head+1)^:=$49;
+  end;
+  with _arvconst_float_n10_ do begin
+    Head^:=$00;
+    (Head+1)^:=$C9;
+  end;
+  with _arvconst_float_pInf_ do Head^:=$60;
+  with _arvconst_float_nInf_ do Head^:=$E0;
+
+
+finalization
+
+  freeARV(_arvconst_fixnum_0_);
+  freeARV(_arvconst_fixnum_p1_);
+  freeARV(_arvconst_fixnum_n1_);
+  freeARV(_arvconst_fixnum_p10_);
+  freeARV(_arvconst_fixnum_n10_);
+  freeARV(_arvconst_float_0_);
+  freeARV(_arvconst_float_p1_);
+  freeARV(_arvconst_float_n1_);
+  freeARV(_arvconst_float_p10_);
+  freeARV(_arvconst_float_n10_);
+  freeARV(_arvconst_float_pInf_);
+  freeARV(_arvconst_float_nInf_);
+  freeARV(_arvconst_string_empty_);
 
 end.
 

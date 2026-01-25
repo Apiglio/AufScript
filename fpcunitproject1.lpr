@@ -84,9 +84,9 @@ begin
 
   //AufScpt.writeln('arv_to_dec_fraction:'+arv_to_dec_fraction(AufScpt.RamVar(AAuf.nargs[1])));
   if not AAuf.CheckArgs(2) then exit;
-  if not AAuf.TryArgToStrParam(1,['add','sub','mul','div','rem'],false,subcode) then exit;
-  if not AAuf.TryArgToARV(2,1,high(QWord),[ARV_FixNum],tmp) then exit;
-  if not AAuf.TryArgToARV(3,1,high(QWord),[ARV_FixNum],tmp2) then exit;
+  if not AAuf.TryArgToStrParam(1,['add','sub','mul','div','rem','fsc','fadd','fsub','fmul','fdiv'],false,subcode) then exit;
+  if not AAuf.TryArgToARV(2,1,high(QWord),[ARV_FixNum, ARV_Float],tmp) then exit;
+  if not AAuf.TryArgToARV(3,1,high(QWord),[ARV_FixNum, ARV_Float],tmp2) then exit;
 
   newARV(oup, tmp.size);
   newARV(oup2, tmp.size);
@@ -96,9 +96,15 @@ begin
     'mul':fixnum_mul(tmp,tmp2,oup);
     'div':fixnum_div(tmp,tmp2,oup,oup2);
     'rem':fixnum_div(tmp,tmp2,oup,oup2);
+    'fsc':ARV_floating_scaling(tmp,tmp2);
+    'fadd':float_add(tmp,tmp2,oup);
+    'fsub':float_sub(tmp,tmp2,oup);
+    'fmul':float_mul(tmp,tmp2,oup);
+    'fdiv':float_div(tmp,tmp2,oup);
   end;
   case lowercase(subcode) of
     'rem':copyARV(oup2, tmp);
+    'fsc':{do-nothing};
     else copyARV(oup, tmp);
   end;
   freeARV(oup);
