@@ -106,6 +106,7 @@ type
   procedure float_sub(ina,inb:TAufRamVar;var oup:TAufRamVar);
   procedure float_mul(ina,inb:TAufRamVar;var oup:TAufRamVar);
   procedure float_div(ina,inb:TAufRamVar;var oup:TAufRamVar);
+  function float_to_decimal(ina:TAufRamVar):string;
 
   function ARV_EqlZero(inp:TAufRamVar):boolean;
   function ARV_comp(ina,inb:TAufRamVar):smallint;//ina<=>inb
@@ -119,6 +120,7 @@ type
   function ARV_floating_is_infinity(const ina:TAufRamVar):boolean;
   procedure ARV_floating_make_notanumber(ina:TAufRamVar;negative:boolean=false);
   procedure ARV_floating_scaling(var oup:TAufRamVar;const inp:TAufRamVar);
+  function ARV_floating_comp(ina,inb:TAufRamVar):integer;
 
   procedure ARV_shl(var inp:TAufRamVar;bit:qword);
   procedure ARV_shr(var inp:TAufRamVar;bit:qword);
@@ -1508,6 +1510,10 @@ _cleanup:
   if MRes.Head <> nil then freeARV(MRes);
   if MRem.Head <> nil then freeARV(MRem);
 end;
+function float_to_decimal(ina:TAufRamVar):string;unimplemented;
+begin
+
+end;
 
 
 function ARV_EqlZero(inp:TAufRamVar):boolean;
@@ -1761,11 +1767,45 @@ begin
   fillARV(0,oup);
   Move(M_raw,oup.Head^,oup.size);
 end;
-
-procedure ARV_floating_add(var ina:TAufRamVar;const inb:TAufRamVar);
-//var
+function ARV_floating_comp(ina,inb:TAufRamVar):integer;
+var SA,SB:boolean;
+    EA,EB,MA,MB:TAufRamVar;
+    E_bits,M_bits:integer;
+    res:integer;
 begin
-
+  if ina.Head=inb.Head then exit(0);
+  if ARV_EqlZero(ina) and ARV_EqlZero(inb) then exit(0);
+  SA:=get_bit(ina,(ina.size*8)-1);
+  SB:=get_bit(inb,(inb.size*8)-1);
+  if SA<>SB then begin
+    if SA then exit(-1) else exit(1);
+  end;
+  E_bits:=ARV_floating_exponent_digits(ina.size);
+  M_bits:=(ina.size*8)-1-E_bits;
+  newARV(EA,ina.size);
+  newARV(EB,inb.size);
+  copyARV(ina,EA);
+  set_bit(EA,(ina.size*8)-1,false);
+  arv_shr(EA,M_bits);
+  copyARV(inb,EB);
+  set_bit(EB,(inb.size*8)-1,false);
+  arv_shr(EB,M_bits);
+  res:=fixnum_comp(EA,EB);
+  if res <> 0 then begin
+    if SA then exit(-res) else exit(res);
+  end;
+  newARV(MA,ina.size);
+  newARV(MB,inb.size);
+  copyARV(ina,MA);
+  arv_shl(MA,E_bits+1);
+  copyARV(inb,MB);
+  arv_shl(MB,E_bits+1);
+  res:=fixnum_comp(MA,MB);
+  freeARV(EA);
+  freeARV(EB);
+  freeARV(MA);
+  freeARV(MB);
+  if SA then exit(-res) else exit(res);
 end;
 
 procedure ARV_shl(var inp:TAufRamVar;bit:qword);

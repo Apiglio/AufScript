@@ -84,7 +84,7 @@ begin
 
   //AufScpt.writeln('arv_to_dec_fraction:'+arv_to_dec_fraction(AufScpt.RamVar(AAuf.nargs[1])));
   if not AAuf.CheckArgs(2) then exit;
-  if not AAuf.TryArgToStrParam(1,['add','sub','mul','div','rem','fsc','fadd','fsub','fmul','fdiv'],false,subcode) then exit;
+  if not AAuf.TryArgToStrParam(1,['add','sub','mul','div','rem','fsc','fadd','fsub','fmul','fdiv','fcmp'],false,subcode) then exit;
   if not AAuf.TryArgToARV(2,1,high(QWord),[ARV_FixNum, ARV_Float],tmp) then exit;
   if not AAuf.TryArgToARV(3,1,high(QWord),[ARV_FixNum, ARV_Float],tmp2) then exit;
 
@@ -101,10 +101,12 @@ begin
     'fsub':float_sub(tmp,tmp2,oup);
     'fmul':float_mul(tmp,tmp2,oup);
     'fdiv':float_div(tmp,tmp2,oup);
+    'fcmp':AufScpt.writeln(IntToStr(ARV_floating_comp(tmp,tmp2)));
   end;
   case lowercase(subcode) of
     'rem':copyARV(oup2, tmp);
     'fsc':{do-nothing};
+    'fcmp':{do-nothing};
     else copyARV(oup, tmp);
   end;
   freeARV(oup);
