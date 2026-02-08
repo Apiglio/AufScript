@@ -2186,16 +2186,13 @@ begin
       arv.VarType:=ARV_Char;
       if not assignedARV(arv) then raise Exception.Create('[initiate_arv_str]非临时性ARV地址有误');
     end;
-  while length(str)>arv.size do delete(str,1,1);
-  while length(str)<arv.size do str:=#0+str;
-  pi:=0;
-  while length(str)>0 do
-    begin
-      stmp:=str[length(str)];
-      delete(str,length(str),1);
-      (arv.Head+pi)^:=ord(stmp[1]);
-      inc(pi);
-    end;
+  if len<arv.size-1 then begin
+    move(str[1],arv.Head^,len);
+    FillByte((arv.Head+len)^,arv.size-len,0);
+  end else begin
+    move(str[1],arv.Head^,arv.size-1);
+    FillByte((arv.Head+arv.size)^,1,0);
+  end;
 end;
 
 function arv_to_hex(ina:TAufRamVar):string;
@@ -2378,7 +2375,7 @@ begin
   end;
 end;
 function arv_to_s(ina:TAufRamVar):string;
-var pi:dword;
+var idx,len:dword;
 begin
   result:='';
   case ina.VarType of
@@ -2394,11 +2391,13 @@ begin
                  end;
                end;
     ARV_Char  :begin
-                 for pi:=ina.size-1 downto 0 do
-                   begin
-                     result:=result+chr((ina.Head+pi)^);
-                   end;
-                 while length(result)>0 do if result[1]=#0 then delete(result,1,1) else break;
+                 idx:=0;
+                 result:='';
+                 while idx<ina.size do begin
+                   if (ina.Head+idx)^=0 then break;
+                   result:=result+chr((ina.Head+idx)^);
+                   inc(idx);
+                 end;
                  result:=wincptoutf8(result);
                end;
     else begin raise Exception.Create('错误的ARV类型，不能转换为字符串');result:='';exit end;
