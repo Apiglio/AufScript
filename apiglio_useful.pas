@@ -504,6 +504,8 @@ type
       function TryArgToObject(ArgNumber:byte;ObjectClass:TClass;out obj:TObject):boolean;
       function TryArgToAufArray(ArgNumber:byte;out arr:TAufArray):boolean;
 
+      function TellArgType(ArgNumber:byte):TAufRamVarType;
+
       function RangeCheck(target,min,max:int64):boolean;inline;
       //min<=target<=max时返回true否则返回false，并send_error
 
@@ -1830,6 +1832,69 @@ var AufScpt:TAufScript;
 begin
   AufScpt:=Sender as TAufScript;
   cj_mode((AufScpt.Auf as TAuf).nargs[0].arg,AufScpt);
+end;
+
+procedure _if(Sender:TObject); //if a = b jmp/call :label
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    sign:string;
+    condition_result:boolean;
+    pidx, plen:integer;
+
+    function compare_in:boolean;
+    var s1,s2:string;
+    begin
+      result:=false;
+      if not AAuf.TryArgToString(1,s1) then exit;
+      if not AAuf.TryArgToString(3,s2) then exit;
+      result:=pos(s1,s2)>0;
+    end;
+    function compare_reg:boolean;
+    var s1,s2:string;
+    begin
+      result:=false;
+      if not AAuf.TryArgToString(1,s1) then exit;
+      if not AAuf.TryArgToString(3,s2) then exit;
+      RegCalc.Expression:=s1;
+      try
+        result:=RegCalc.Exec(s2);
+      except
+        result:=false;
+      end;
+    end;
+    function compare_numeric:smallint;
+    begin
+      AufScpt.send_error('此处数值比较未完成。');
+      result:=0;
+    end;
+
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(6) then exit;
+  if not AAuf.TryArgToStrParam(2, ['==','eq','eql','<>','!=','≠','ne','neq','>','gt','<','lt','>=','≥','ge','<=','≤','le','in','~=','reg'], false, sign) then exit;
+  case sign of
+    '==','eq','eql':          condition_result:=compare_numeric()=0;
+    '<>','!=','≠','ne','neq': condition_result:=compare_numeric()<>0;
+    '>','gt':                 condition_result:=compare_numeric()>0;
+    '<','lt':                 condition_result:=compare_numeric()<0;
+    '>=','≥','ge':            condition_result:=compare_numeric()>=0;
+    '<=','≤','le':            condition_result:=compare_numeric()<=0;
+    'in':                     condition_result:=compare_in();
+    '~=','reg':               condition_result:=compare_reg();
+    else assert(false,'不应该出现这个分支');
+  end;
+
+  if condition_result then begin
+    //判断结果已经计算完成，直接将参数前移
+    plen:=AAuf.ArgsCount;
+    for pidx:=0 to plen-5 do begin
+      AAuf.nargs[pidx]:=AAuf.nargs[pidx+4];
+      AAuf.args[pidx]:=AAuf.args[pidx+4];
+    end;
+    dec(AAuf.ArgsCount,4);
+    AufScpt.run_func(AAuf.args[0]);
+  end;
 end;
 
 procedure jmp(Sender:TObject);//满足条件执行下一句，不满足条件跳过下一句  jmp ofs|:label
@@ -4222,6 +4287,15 @@ begin
     Script.send_error('警告：第'+IntToStr(ArgNumber)+'个参数无法正确解析为TAufArray实例，代码未执行。');
   end;
 end;
+function TAuf.TellArgType(ArgNumber:byte):TAufRamVarType;
+begin
+  case nargs[ArgNumber].pre of
+    '$','$"','$&"':result:=ARV_FixNum;
+    '~','~"','~&"':result:=ARV_Float;
+    '#','#"','#&"':result:=ARV_Char;
+    else result:=ARV_Raw;
+  end;
+end;
 function TAuf.RangeCheck(target,min,max:int64):boolean;
 begin
   if (target>max) or (target<min) then begin
@@ -5291,6 +5365,11 @@ begin
             else
               begin
                 //暂时保留原始的@0 ~32 $12的不带[]{}的表达
+                if (AAuf.nargs[i].arg='=') and (AAuf.nargs[i].post='') then begin
+                  //对于~=的特殊处理
+                  AAuf.nargs[i]:=narg('','reg','');
+                  AAuf.args[i]:='reg';
+                end;
               end;
           end;
         '@':
@@ -6096,6 +6175,8 @@ begin
   Self.add_func('fend',      @_fend,      '',                       '从加载的脚本文件中跳出');
   Self.add_func('halt',      @_halt,      '',                       '无条件结束');
   Self.add_func('end',       @_end,       '',                       '有条件结束，根据运行状态转译为ret, fend或halt');
+
+  Self.add_func('if',@_if,'v1 sign v2 jmp/call/load :label/ofs/fname',              '满足条件则执行条件之后的指令');
 
   Self.add_func('cje,cjec,ncje,ncjec',@cj,'v1,v2,:label/ofs',       '如果v1等于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
   Self.add_func('cjm,cjmc,ncjm,ncjmc',@cj,'v1,v2,:label/ofs',       '如果v1大于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
