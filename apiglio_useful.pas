@@ -3099,7 +3099,7 @@ begin
   if not AAuf.CheckArgs(3) then exit;
   if not AAuf.TryArgToString(2,filename) then exit;
   fsize:=FileSize(filename);
-  if not AAuf.TryArgToARV(1,fsize,fsize,ARV_AllType,arv) then exit;
+  if not AAuf.TryArgToARV(1,fsize,High(dword),ARV_AllType,arv) then exit;
   mem:=TMemoryStream.Create;
   try
     mem.LoadFromFile(filename);
