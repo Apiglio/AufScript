@@ -1834,12 +1834,17 @@ begin
   cj_mode((AufScpt.Auf as TAuf).nargs[0].arg,AufScpt);
 end;
 
+procedure nop(Sender:TObject); //用于else等无实际含义的函数/关键字跳转
+begin
+end;
+
 procedure _if(Sender:TObject); //if a = b jmp/call :label
 var AufScpt:TAufScript;
     AAuf:TAuf;
-    sign:string;
-    condition_result:boolean;
-    pidx, plen:integer;
+    sign, arg_0:string;
+    condition_result, is_error:boolean;
+    pidx, plen, pofs:integer;
+    if_level:integer;
 
     function compare_in:boolean;
     var s1,s2:string;
@@ -1863,9 +1868,45 @@ var AufScpt:TAufScript;
       end;
     end;
     function compare_numeric:smallint;
+    var t1,t2,tc:TAufRamVarType;
+        a1,a2:TAufRamVar;
     begin
-      AufScpt.send_error('此处数值比较未完成。');
+      //AufScpt.send_error('此处数值比较未完成。');
+      t1:=AAuf.TellArgType(1);
+      t2:=AAuf.TellArgType(3);
+      if t1=t2 then begin
+        tc:=t1;
+      end else if t1=ARV_Raw then begin
+        tc:=t2;
+      end else if t2=ARV_Raw then begin
+        tc:=t1;
+      end else begin
+        is_error:=true;
+        AufScpt.send_error('类型不同无法比较。');
+        exit;
+      end;
+      if tc=ARV_Raw then begin
+        is_error:=true;
+        AufScpt.send_error('立即数类型判断和比较暂未实现。');
+        exit;
+      end;
       result:=0;
+      is_error:=is_error or not AAuf.TryArgToARV(1,1,High(dword),[tc],a1);
+      is_error:=is_error or not AAuf.TryArgToARV(3,1,High(dword),[tc],a2);
+      if is_error then exit;
+      case tc of
+        ARV_FixNum:begin
+          result:=ARV_comp(a1,a2);
+        end;
+        ARV_Float: begin
+          result:=ARV_floating_comp(a1,a2); //自由位数浮点数提前开放用于测试
+        end;
+        ARV_Char:  begin
+          //result:=ARV_string_comp(a1,a2);
+          is_error:=true;
+          AufScpt.send_error('字符串排序对比功能暂未实现。');
+        end;
+      end;
     end;
 
 begin
@@ -1873,6 +1914,7 @@ begin
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(6) then exit;
   if not AAuf.TryArgToStrParam(2, ['==','eq','eql','<>','!=','≠','ne','neq','>','gt','<','lt','>=','≥','ge','<=','≤','le','in','~=','reg'], false, sign) then exit;
+  is_error:=false;
   case sign of
     '==','eq','eql':          condition_result:=compare_numeric()=0;
     '<>','!=','≠','ne','neq': condition_result:=compare_numeric()<>0;
@@ -1884,16 +1926,50 @@ begin
     '~=','reg':               condition_result:=compare_reg();
     else assert(false,'不应该出现这个分支');
   end;
+  if is_error then exit;
 
   if condition_result then begin
-    //判断结果已经计算完成，直接将参数前移
+    //判断结果为真，直接将参数前移，直到遇到与if不成对的else
     plen:=AAuf.ArgsCount;
-    for pidx:=0 to plen-5 do begin
-      AAuf.nargs[pidx]:=AAuf.nargs[pidx+4];
-      AAuf.args[pidx]:=AAuf.args[pidx+4];
+    if_level:=0;
+    pidx:=0;
+    pofs:=4;
+    while pidx<plen-pofs do begin
+      case lowercase(AAuf.args[pidx+pofs]) of
+        'if':   inc(if_level);
+        'else': begin
+          dec(if_level);
+          if if_level<0 then break;
+        end;
+      end;
+      AAuf.nargs[pidx]:=AAuf.nargs[pidx+pofs];
+      AAuf.args[pidx]:=AAuf.args[pidx+pofs];
+      inc(pidx);
     end;
-    dec(AAuf.ArgsCount,4);
+    AAuf.ArgsCount:=pidx;
     AufScpt.run_func(AAuf.args[0]);
+  end else begin
+    //判断结果为假，直接将与if不成对的else之后的参数前移，无参数则不run_func
+    plen:=AAuf.ArgsCount;
+    if_level:=1;
+    pidx:=0;
+    pofs:=4;
+    while pidx<plen-pofs do begin
+      arg_0:=lowercase(AAuf.args[pidx+pofs]);
+      case arg_0 of
+        'if':   inc(if_level);
+        'else': dec(if_level);
+      end;
+      if (if_level>0) or (if_level=0) and (arg_0='else') then begin
+        inc(pofs);
+        continue;
+      end;
+      AAuf.nargs[pidx]:=AAuf.nargs[pidx+pofs];
+      AAuf.args[pidx]:=AAuf.args[pidx+pofs];
+      inc(pidx);
+    end;
+    AAuf.ArgsCount:=pidx;
+    if AAuf.ArgsCount>0 then AufScpt.run_func(AAuf.args[0]);
   end;
 end;
 
@@ -4633,9 +4709,12 @@ begin
 end;
 
 function TAufScript.GetArgLine:string;
+var len:integer;
 begin
-  result:=(Self.Auf as TAuf).args[0];
-  for i:=1 to (Self.Auf as TAuf).ArgsCount-1 do
+  result:='';
+  len:=(Self.Auf as TAuf).ArgsCount;
+  if len=0 then exit;
+  for i:=0 to len-1 do
     begin
       result:=result+' '+(Self.Auf as TAuf).args[i];
     end;
@@ -5255,10 +5334,14 @@ begin
 end;
 procedure TAufScript.send_error(str:string);
 var ErrStr:string;
+    OriginLine, RuntimeLine, DisplayLine:string;
 begin
   //Self.writeln(''); 这个换行不受IO_fptr.error控制，换成换行符，不确定兼容性如何
+  OriginLine:=Self.ScriptLines[Self.currentline];
+  RuntimeLine:=Self.ArgLine;
+  if OriginLine<>RuntimeLine then DisplayLine:=OriginLine+CRLF+'[Runtime Line] '+RuntimeLine else DisplayLine:=OriginLine;
   ErrStr:=CRLF+'[In "'+Self.ScriptName+'" Line ' + IntToStr(Self.CurrentLine+1)+ '] '
-    +Self.ScriptLines[Self.currentline]+CRLF+str;
+    +DisplayLine+CRLF+str;
   if Self.IO_fptr.error<>nil then Self.IO_fptr.error(Self,ErrStr);
 
   if Self.PSW.run_parameter.error_raise then begin
@@ -6176,7 +6259,8 @@ begin
   Self.add_func('halt',      @_halt,      '',                       '无条件结束');
   Self.add_func('end',       @_end,       '',                       '有条件结束，根据运行状态转译为ret, fend或halt');
 
-  Self.add_func('if',@_if,'v1 sign v2 jmp/call/load :label/ofs/fname',              '满足条件则执行条件之后的指令');
+  Self.add_func('if',        @_if,        'v1 sign v2 jmp/call/load :label/ofs/fname',  '满足条件则执行条件之后的指令');
+  Self.add_func('else',      @nop,        '',                                           '仅跟随在if之后，单行首位执行无效');
 
   Self.add_func('cje,cjec,ncje,ncjec',@cj,'v1,v2,:label/ofs',       '如果v1等于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
   Self.add_func('cjm,cjmc,ncjm,ncjmc',@cj,'v1,v2,:label/ofs',       '如果v1大于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
