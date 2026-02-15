@@ -53,7 +53,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.7.0.1';
+  AufScript_Version='beta 2.7.0.2';
   {$if defined(cpu32)}
   AufScript_CPU='32bits';
   {$elseif defined(cpu64)}
@@ -500,6 +500,7 @@ type
       function TryArgToPRam(ArgNumber:byte;out res:pRam):boolean;
       function TryArgToARV(ArgNumber:byte;minsize,maxsize:dword;
         TypeAllowance:TAufRamVarTypeSet;out res:TAufRamVar):boolean;
+      function TryArgToDirectData(ArgNumber:byte;DataVarType:TAufRamVarType;out res:TAufRamVar):boolean;
       function TryArgToAddr(ArgNumber:byte;out res:pRam):boolean;
       function TryArgToObject(ArgNumber:byte;ObjectClass:TClass;out obj:TObject):boolean;
       function TryArgToAufArray(ArgNumber:byte;out arr:TAufArray):boolean;
@@ -1870,43 +1871,55 @@ var AufScpt:TAufScript;
     function compare_numeric:smallint;
     var t1,t2,tc:TAufRamVarType;
         a1,a2:TAufRamVar;
+        diff:double;
     begin
-      //AufScpt.send_error('此处数值比较未完成。');
       t1:=AAuf.TellArgType(1);
       t2:=AAuf.TellArgType(3);
       if t1=t2 then begin
-        tc:=t1;
-      end else if t1=ARV_Raw then begin
-        tc:=t2;
-      end else if t2=ARV_Raw then begin
-        tc:=t1;
+        if t1<>ARV_Raw then begin
+          tc:=t1;
+          is_error:=is_error or not AAuf.TryArgToARV(1,1,High(dword),[tc],a1);
+          is_error:=is_error or not AAuf.TryArgToARV(3,1,High(dword),[tc],a2);
+        end else begin
+          is_error:=true;
+          AufScpt.send_error('不支持两个立即数比较大小。');
+          exit;
+        end;
       end else begin
-        is_error:=true;
-        AufScpt.send_error('类型不同无法比较。');
-        exit;
-      end;
-      if tc=ARV_Raw then begin
-        is_error:=true;
-        AufScpt.send_error('立即数类型判断和比较暂未实现。');
-        exit;
+        if t1=ARV_Raw then begin
+          tc:=t2;
+          newARV(a1,8);
+          is_error:=is_error or not AAuf.TryArgToDirectData(1, tc, a1);
+          is_error:=is_error or not AAuf.TryArgToARV(3,1,High(dword),[tc],a2);
+        end else if t2=ARV_Raw then begin
+          tc:=t1;
+          newARV(a2,8);
+          is_error:=is_error or not AAuf.TryArgToARV(1,1,High(dword),[tc],a1);
+          is_error:=is_error or not AAuf.TryArgToDirectData(3, tc, a2);
+        end else begin
+          is_error:=true;
+          AufScpt.send_error('类型不同无法比较。');
+        end;
       end;
       result:=0;
-      is_error:=is_error or not AAuf.TryArgToARV(1,1,High(dword),[tc],a1);
-      is_error:=is_error or not AAuf.TryArgToARV(3,1,High(dword),[tc],a2);
+
       if is_error then exit;
       case tc of
         ARV_FixNum:begin
-          result:=ARV_comp(a1,a2);
+          result:=fixnum_comp(a1,a2);
         end;
         ARV_Float: begin
-          result:=ARV_floating_comp(a1,a2); //自由位数浮点数提前开放用于测试
+          //result:=ARV_floating_comp(a1,a2);
+          diff:=arv_to_double(a1)-arv_to_double(a2);
+          if diff=0 then result:=0 else if diff>0 then result:=1 else result:=-1;
         end;
         ARV_Char:  begin
-          //result:=ARV_string_comp(a1,a2);
-          is_error:=true;
-          AufScpt.send_error('字符串排序对比功能暂未实现。');
+          result:=ARV_string_comp(a1,a2);
         end;
       end;
+      if t1<>tc then freeARV(a1);
+      if t2<>tc then freeARV(a2);
+
     end;
 
 begin
@@ -1947,7 +1960,7 @@ begin
       inc(pidx);
     end;
     AAuf.ArgsCount:=pidx;
-    AufScpt.run_func(AAuf.args[0]);
+    if AAuf.ArgsCount>0 then AufScpt.run_func(AAuf.args[0]);
   end else begin
     //判断结果为假，直接将与if不成对的else之后的参数前移，无参数则不run_func
     plen:=AAuf.ArgsCount;
@@ -4318,6 +4331,45 @@ begin
   end;
   result:=true;
 end;
+
+function TAuf.TryArgToDirectData(ArgNumber:byte;DataVarType:TAufRamVarType;out res:TAufRamVar):boolean;
+var value_len:integer;
+    value_str:string;
+begin
+  Assert(ArgNumber in [1..args_range],'ArgNumber必须在[1..args_range]范围内。');
+  result:=false;
+  if not res.Is_Temporary then begin
+    raise Exception.Create('立即数必须保存在临时ARV中');
+  end;
+  case DataVarType of
+    ARV_Char:begin
+      value_str:=nargs[ArgNumber].arg;
+      value_str:=UTF8ToWinCP(value_str);
+      value_len:=length(value_str);
+      res.size:=value_len+1;
+      res.Stream.Clear;
+      res.Stream.Size:=res.size;
+      res.Stream.Position:=0;
+      res.Stream.Write(value_str[1],value_len);
+      res.Stream.WriteByte(0);
+      res.VarType:=ARV_Char;
+      result:=true;
+      exit;
+    end;
+    ARV_FixNum:begin
+      initiate_arv(args[ArgNumber],res);
+    end;
+    ARV_Float:begin
+      //临时规定为double
+      res.size:=8;
+      res.Stream.SetSize(8);
+      res.VarType:=ARV_Float;
+      initiate_arv_float(args[ArgNumber],res);
+    end;
+  end;
+  result:=true;
+end;
+
 function TAuf.TryArgToAddr(ArgNumber:byte;out res:pRam):boolean;
 begin
   Assert(ArgNumber in [1..args_range],'ArgNumber必须在[1..args_range]范围内。');

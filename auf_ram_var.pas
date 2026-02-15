@@ -122,6 +122,8 @@ type
   procedure ARV_floating_scaling(var oup:TAufRamVar;const inp:TAufRamVar);
   function ARV_floating_comp(ina,inb:TAufRamVar):integer;
 
+  function ARV_string_comp(ina,inb:TAufRamVar):smallint;
+
   procedure ARV_shl(var inp:TAufRamVar;bit:qword);
   procedure ARV_shr(var inp:TAufRamVar;bit:qword);
   procedure ARV_not(var inp:TAufRamVar);
@@ -166,6 +168,7 @@ type
   procedure double_to_arv(d:double;oup:TAufRamVar);
 
   procedure initiate_arv(exp:string;var arv:TAufRamVar);//根据字符串创建最大相似的ARV 应该改名initiate_arv_fixnum
+  procedure initiate_arv_float(exp:string;var arv:TAufRamVar);
   procedure initiate_arv_str(exp:RawByteString;var arv:TAufRamVar);//根据字符串创建字符串的ARV
 
   function arv_clip(src:TAufRamVar;idx,len:longint):TAufRamVar;
@@ -1527,6 +1530,7 @@ begin
     end;
   result:=true;
 end;
+
 function ARV_comp(ina,inb:TAufRamVar):smallint;//ina<=>inb
 var ia,ib:dword;
 begin
@@ -1806,6 +1810,22 @@ begin
   freeARV(MA);
   freeARV(MB);
   if SA then exit(-res) else exit(res);
+end;
+
+function ARV_string_comp(ina,inb:TAufRamVar):smallint;
+var idx,len:integer;
+    tpa,tpb:byte;
+    compare:integer;
+begin
+  if (ina.VarType<>ARV_Char) or (inb.VarType<>ARV_Char) then raise Exception.Create('[ARV_string_comp]无法比较非字符串类型。');
+  if ina.size>inb.size then len:=ina.size else len:=inb.size;
+  for idx:=0 to len-1 do begin
+    if idx<ina.size then tpa:=(ina.Head+idx)^ else tpa:=0;
+    if idx<inb.size then tpb:=(inb.Head+idx)^ else tpb:=0;
+    compare:=tpa-tpb;
+    if compare>0 then exit(1) else if compare<0 then exit(-1);
+  end;
+  exit(0);
 end;
 
 procedure ARV_shl(var inp:TAufRamVar;bit:qword);
@@ -2161,8 +2181,23 @@ begin
     begin
       //raise Exception.Create('警告：暂时不支持十六进制以外的整型数和浮点型');
       //dec_to_arv(DecimalStr(exp),arv);
+      if arv.Is_Temporary then begin
+        arv.size:=trunc(length(exp)*0.41524101186092034)+1; // >log_256(10)
+        arv.Stream.SetSize(arv.size);
+      end;
       decimal_to_fixnum(exp,arv);
     end;
+end;
+
+procedure initiate_arv_float(exp:string;var arv:TAufRamVar);
+var dtmp:double;
+begin
+  dtmp:=StrToFloat(exp);
+  case arv.size of
+    4:psingle(arv.Head)^:=dtmp;
+    8:pdouble(arv.Head)^:=dtmp;
+    else raise Exception.Create('[initiate_arv_float]暂不支持binary32和binary64以外的浮点数类型。');
+  end;
 end;
 
 procedure initiate_arv_str(exp:RawByteString;var arv:TAufRamVar);//根据字符串创建字符串的ARV，非临时性ARV位数按规定赋值，临时性以参数位数为准
