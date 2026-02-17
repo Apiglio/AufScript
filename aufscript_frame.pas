@@ -187,12 +187,16 @@ procedure frm_renew_writeln(Sender:TObject;str:string);
 var Frame:TFrame_AufScript;
     AufScpt:TAufScript;
     str_list:TStrings;
+    n_lines:integer;
 begin
   AufScpt:=Sender as TAufScript;
   Frame:=AufScpt.Owner as TFrame_AufScript;
   if AufScpt.PSW.print_mode.is_screen then str_list:=Frame.Memo_out.Lines
   else str_list:=AufScpt.PSW.print_mode.str_list;
-  str_list.Text:=str_list.Text+str+#13#10;
+  //str_list.Text:=str_list.Text+str+#13#10;
+  n_lines:=str_list.Count;
+  if n_lines=0 then str_list.Add(str) else str_list[n_lines-1]:=str_list[n_lines-1]+str;
+  str_list.Add('');
   if AufScpt.PSW.print_mode.is_screen then Application.ProcessMessages;
 
 end;
@@ -200,12 +204,15 @@ procedure frm_renew_write(Sender:TObject;str:string);
 var Frame:TFrame_AufScript;
     AufScpt:TAufScript;
     str_list:TStrings;
+    n_lines:integer;
 begin
   AufScpt:=Sender as TAufScript;
   Frame:=AufScpt.Owner as TFrame_AufScript;
   if AufScpt.PSW.print_mode.is_screen then str_list:=Frame.Memo_out.Lines
   else str_list:=AufScpt.PSW.print_mode.str_list;
-  str_list.Text:=str_list.Text+str;
+  //str_list.Text:=str_list.Text+str;
+  n_lines:=str_list.Count;
+  if n_lines=0 then str_list.Add(str) else str_list[n_lines-1]:=str_list[n_lines-1]+str;
   if AufScpt.PSW.print_mode.is_screen then Application.ProcessMessages;
 end;
 procedure frm_renew_readln(Sender:TObject);
