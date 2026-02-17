@@ -2945,6 +2945,20 @@ begin
   str:=StringReplace(str,old,new,[rfReplaceAll]);
   initiate_arv_str(str,tmp);
 end;
+procedure text_strLength(Sender:TObject);//len str,num
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    tmp,len:TAufRamVar;
+    str:string;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToARV(1,High(dword),0,[ARV_Char],tmp) then exit;
+  if not AAuf.TryArgToARV(2, 1, High(dword), [ARV_FixNum], len) then exit;
+  str:=arv_to_s(tmp);
+  dword_to_arv(length(str),len);
+end;
 procedure text_strMid(Sender:TObject);//mid @str pos,len
 var AufScpt:TAufScript;
     AAuf:TAuf;
@@ -3107,7 +3121,7 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if AAuf.ArgsCount>2 then begin
-    if not AAuf.TryArgToString(2,fmt) then exit;
+    if not AAuf.TryArgToStrParam(2,['-f','-filename','-F','-FILENAME','-d','-display','-D','-DISPLAY'],true,fmt) then exit;
     case fmt of
       '-f','-filename':tmp:=TimeToStr(Now,fmtsFile);
       '-F','-FILENAME':tmp:=DateTimeToStr(Now,fmtsFile);
@@ -3127,7 +3141,7 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if AAuf.ArgsCount>2 then begin
-    if not AAuf.TryArgToString(2,fmt) then exit;
+    if not AAuf.TryArgToStrParam(2,['-f','-filename','-F','-FILENAME','-d','-display','-D','-DISPLAY'],true,fmt) then exit;
     case fmt of
       '-f','-filename':tmp:=DateToStr(Now,fmtsFile);
       '-F','-FILENAME':tmp:=DateTimeToStr(Now,fmtsFile);
@@ -5520,6 +5534,7 @@ begin
                 case at_expr of
                   'ram_zero':AAuf.nargs[i]:=narg('',IntToStr(pRam(Self.PSW.run_parameter.ram_zero)),'');
                   'ram_size':AAuf.nargs[i]:=narg('',IntToStr(Self.PSW.run_parameter.ram_size),'');
+                  'ram_all':AAuf.nargs[i]:=narg('$"',pRamToRawStr(0)+'|'+pRamToRawStr(pRam(Self.PSW.run_parameter.ram_size)),'"');
                   'error_raise':AAuf.nargs[i]:=narg('',BoolToStr(Self.PSW.run_parameter.error_raise),'');
                   else begin
                     if pos('line[',at_expr) = 1 then begin
@@ -6295,8 +6310,8 @@ begin
   Self.add_func('div',       @div_,       'v1,v2',          '将v1和v2的值相除并返回给v1');
   Self.add_func('mod',       @mod_,       'v1,v2',          '将v1和v2的值求余并返回给v1');
   Self.add_func('rand',      @rand,       'v1,v2',          '将不大于v2的随机整数返回给v1');
-  Self.add_func('swap',      @_swap,      'v1',             '将v1字节倒序');
   Self.add_func('fill',      @_fillbyte,  'var,byte',       '用byte填充var');
+  Self.add_func('swap',      @_swap,      'v1',             '将v1字节倒序');
   Self.add_func('getbytes',  @_getbytes,  'mem,seg,idx',    '从mem中读取值片段');
   Self.add_func('setbytes',  @_setbytes,  'mem,seg,idx',    '向mem中覆盖值片段');
 
@@ -6370,6 +6385,7 @@ procedure TAufScript.AdditionFuncDefine_Text;
 begin
   Self.add_func('str',       @text_str,              '#[],var',       '将var转化成字符串存入#[]');
   Self.add_func('val',       @text_val,              '$[],str',       '将str转化成数值存入$[]');
+  Self.add_func('len',       @text_strLength,        '#[],$[]',       '将str的长度存入$[]');
   Self.add_func('srp',       @text_strReplace,       '#[],old,new',   '将#[]中的old替换成new');
   Self.add_func('mid',       @text_strMid,           '#[],pos,len',   '将#[]从pos处截取len位字符');
   Self.add_func('cat',       @text_strCat,           '#[],str[,-r]',  '将str加在#[]的末尾或开头(-r)');
