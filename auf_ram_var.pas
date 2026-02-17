@@ -2225,8 +2225,8 @@ begin
     move(str[1],arv.Head^,len);
     FillByte((arv.Head+len)^,arv.size-len,0);
   end else begin
-    move(str[1],arv.Head^,arv.size-1);
-    FillByte((arv.Head+arv.size)^,1,0);
+    move(str[1],arv.Head^,arv.size);
+    //末尾"\0"对于定长字符串不是必须的
   end;
 end;
 
