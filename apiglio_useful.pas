@@ -28,7 +28,9 @@ INTERFACE
 //{$UNITPATH ./aufkernel}
 uses
   {$IFDEF UNIX}
-  cthreads,
+    {$ifndef ANDROID}
+    cthreads,
+    {$endif}
   {$ENDIF}
   {$IFDEF WINDOWS}
   Windows, WinCrt, Interfaces, Dos,

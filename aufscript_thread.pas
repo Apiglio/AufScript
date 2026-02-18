@@ -6,7 +6,9 @@ interface
 
 uses
   {$ifdef UNIX}
-  cthreads,
+    {$ifndef ANDROID}
+    cthreads,
+    {$endif}
   {$endif}
   Classes, SysUtils;
 
