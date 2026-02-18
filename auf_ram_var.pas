@@ -2493,7 +2493,7 @@ begin
     PQWORD(arv.Head)^:=QWORD(obj);
   {$else}
     {$ifdef cpu32}
-      PDWORD(arv.Head)^:=PDWORD(obj);
+      PDWORD(arv.Head)^:=DWORD(obj);
     {$else}
       raise Exception.Create('cpu位数不支持。');
     {$endif}

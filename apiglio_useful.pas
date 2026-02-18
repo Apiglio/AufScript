@@ -10,12 +10,14 @@ UNIT Apiglio_Useful;
   {$define MsgTimerMode}
   {$define SynEditMode}
 {$elseif defined(UNIX)}
-  {$define SynEditMode}
+  {$ifndef ANDROID}
+    {$define SynEditMode}
+  {$endif}
 {$endif}
 
 {$if defined(MsgTimerMode)}
 {$else}
-'Windows下的多线程会卡死AufFrame'
+  {$warns 'Windows下的多线程会卡死AufFrame'}
 {$endif}
 
 //{$define TEST_MODE}//开启这个模式会导致没有命令行的GUI报错
@@ -1066,7 +1068,7 @@ procedure inspect(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
     stmp:string;
-    qtmp:qword;
+    qtmp:pRam;
     btmp:byte;
     ltmp:longint;
     ftmp:double;
@@ -1089,7 +1091,7 @@ begin
   if AAuf.TryArgToPRam(1,qtmp) then AufScpt.writeln('  pram = '+IntToStr(qtmp));
   if AAuf.TryArgToDouble(1,ftmp) then AufScpt.writeln('  double = '+FloatToStr(ftmp));
   if AAuf.TryArgToARV(1,0,High(dword),ARV_AllType,atmp) then begin
-    qtmp:=dword(atmp.Head-AufScpt.PSW.run_parameter.ram_zero);
+    qtmp:=pRam(atmp.Head-AufScpt.PSW.run_parameter.ram_zero);
     case atmp.VarType of
       ARV_FixNum:AufScpt.writeln(Format('  arv = {type:fixnum, head:%d, size:%d}',[qtmp,atmp.size]));
       ARV_Float:AufScpt.writeln(Format('  arv = {type:float, head:%d, size:%d}',[qtmp,atmp.size]));
@@ -2806,10 +2808,14 @@ begin
   if not AAuf.TryArgToARV(2, 0, High(dword), ARV_AllType, arv) then exit;
   uuid:=StringToGUID(stmp);
   send_to:=GlobalMultiTaskList.FindTask(uuid);
+  {$ifdef MsgTimerMode}
   if send_to<>nil then
     AufScpt.SendTaskMessage(send_to, arv, mcNormal)
   else
     AufScpt.send_error('未找到任务：'+stmp+'，协同消息未发出。');
+  {$else}
+  AufScpt.send_error('线程模式跨任务协同功能未实现。');
+  {$endif}
 end;
 
 procedure task_read(Sender:TObject);
