@@ -57,7 +57,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.7.0.2';
+  AufScript_Version='beta 2.7.0.3';
   {$if defined(cpu32)}
   AufScript_CPU='32bits';
   {$elseif defined(cpu64)}
@@ -185,7 +185,7 @@ type
   public
     function Find(AKey:string):TAufExpressionUnit;
     function Translate(AKey:string):Tnargs;
-    function TryAddExp(AKey:string;AValue:Tnargs):boolean;
+    function TryAddExp(AKey:string;AValue:Tnargs;readonly:boolean=false):boolean;
     function TryRenameExp(OldKey,NewKey:string):boolean;
     function TryDeleteExp(Key:string):boolean;
   end;
@@ -396,6 +396,7 @@ type
 
       function Pointer(Iden:string;Index:pRam):Pointer;
       function TmpExpRamVar(arg:Tnargs):TAufRamVar;
+      procedure DefineNameDecode(var nargs:TNargs);//原先line_transfer的变量解析
       function RamVar(arg:Tnargs):TAufRamVar;//将标准变量形式转化成ARV
       function RamVarToNargs(arv:TAufRamVar;not_offset:boolean=false):Tnargs;
       function RamVarClipToNargs(arv:TAufRamVar;idx,len:pRam;not_offset:boolean=false):Tnargs;
@@ -506,6 +507,7 @@ type
         TypeAllowance:TAufRamVarTypeSet;out res:TAufRamVar):boolean;
       function TryArgToDirectData(ArgNumber:byte;DataVarType:TAufRamVarType;out res:TAufRamVar):boolean;
       function TryArgToAddr(ArgNumber:byte;out res:pRam):boolean;
+      function TryArgToDefName(ArgNumber:byte;out res:string):boolean;
       function TryArgToObject(ArgNumber:byte;ObjectClass:TClass;out obj:TObject):boolean;
       function TryArgToAufArray(ArgNumber:byte;out arr:TAufArray):boolean;
 
@@ -1162,7 +1164,7 @@ begin
       pb^:=btmp;
     end;
 end;
-
+{
 procedure _getbytes(Sender:TObject);//getbytes mem,seg,idx
 var AufScpt:TAufScript;
     AAuf:TAuf;
@@ -1203,6 +1205,7 @@ begin
   end;
   move(arv2.Head^,(arv1.Head+idx)^,len);
 end;
+}
 
 procedure movb(Sender:TObject);deprecated;
 var a:byte;
@@ -1340,7 +1343,7 @@ begin
     '~':movd(Sender);
     '##':movs(Sender);
     '#':movs(Sender);
-    '$"','~"','$&"','~&"','#"','#&"':mov_arv(AufScpt);
+    '$"','~"','$&"','~&"','#"','#&"','':mov_arv(AufScpt);
     else begin AufScpt.send_error('警告：mov的第一个参数有误，赋值未成功。');exit end;
   end;
 end;
@@ -2184,6 +2187,7 @@ procedure _define(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
     global:boolean;
+    defname:string;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
@@ -2193,21 +2197,19 @@ begin
     begin
       if lowercase(AAuf.args[3])='-global' then global:=true;
     end;
-  case AAuf.nargs[1].arg[1] of
-    'a'..'z','A'..'Z','_':;
-    else begin AufScpt.send_error('警告：第一个参数的第一个字符需要是字母或下划线，该语句未执行。');exit end;
-  end;
+  if not AAuf.TryArgToDefName(1, defname) then exit;
   try
-    if global then AufScpt.Expression.Global.TryAddExp(AAuf.nargs[1].arg,AAuf.nargs[2])
-    else AufScpt.Expression.Local.TryAddExp(AAuf.nargs[1].arg,AAuf.nargs[2]);
+    if global then AufScpt.Expression.Global.TryAddExp(defname,AAuf.nargs[2])
+    else AufScpt.Expression.Local.TryAddExp(defname,AAuf.nargs[2]);
   except
-    AufScpt.send_error('警告：define参数有误，未正确执行')
+    AufScpt.send_error('警告：创建宏定义名'+defname+'时出错')
   end;
 end;
 procedure _rendef(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
     global:boolean;
+    dn1,dn2:string;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
@@ -2217,25 +2219,49 @@ begin
     begin
       if lowercase(AAuf.args[3])='-global' then global:=true;
     end;
-  case AAuf.nargs[1].arg[1] of
-    'a'..'z','A'..'Z','_':;
-    else begin AufScpt.send_error('警告：第一个参数的第一个字符需要是字母或下划线，该语句未执行。');exit end;
-  end;
-  case AAuf.nargs[2].arg[1] of
-    'a'..'z','A'..'Z','_':;
-    else begin AufScpt.send_error('警告：第二个参数的第一个字符需要是字母或下划线，该语句未执行。');exit end;
-  end;
+  if not AAuf.TryArgToDefName(1, dn1) then exit;
+  if not AAuf.TryArgToDefName(2, dn2) then exit;
   try
-    if global then AufScpt.Expression.Global.TryRenameExp(AAuf.nargs[1].arg,AAuf.nargs[2].arg)
-    else AufScpt.Expression.Local.TryRenameExp(AAuf.nargs[1].arg,AAuf.nargs[2].arg);
+    if global then AufScpt.Expression.Global.TryRenameExp(dn1,dn2)
+    else AufScpt.Expression.Local.TryRenameExp(dn1,dn2);
   except
-    AufScpt.send_error('警告：rendef参数有误，未正确执行')
+    AufScpt.send_error('警告：重命名宏定义名'+dn1+'为'+dn2+'时出错')
+  end;
+end;
+procedure _dupdef(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    global:boolean;
+    dn1,dn2:string;
+    tmpAEU:TAufExpressionUnit;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  global:=false;
+  if AAuf.ArgsCount>=4 then
+    begin
+      if lowercase(AAuf.args[3])='-global' then global:=true;
+    end;
+  if not AAuf.TryArgToDefName(1, dn1) then exit;
+  if not AAuf.TryArgToDefName(2, dn2) then exit;
+  try
+    if global then begin
+      tmpAEU:=AufScpt.Expression.Global.Find(dn1);
+      if tmpAEU<>nil then AufScpt.Expression.Global.TryAddExp(dn2,tmpAEU.value);
+    end else begin
+      tmpAEU:=AufScpt.Expression.Local.Find(dn1);
+      if tmpAEU<>nil then AufScpt.Expression.Local.TryAddExp(dn2,tmpAEU.value);
+    end;
+  except
+    AufScpt.send_error('警告：创建宏定义'+dn1+'的副本'+dn2+'时出错')
   end;
 end;
 procedure _deldef(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
     global:boolean;
+    defname:string;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
@@ -2245,89 +2271,54 @@ begin
     begin
       if lowercase(AAuf.args[2])='-global' then global:=true;
     end;
-  case AAuf.nargs[1].arg[1] of
-    'a'..'z','A'..'Z','_':;
-    else begin AufScpt.send_error('警告：参数的第一个字符需要是字母或下划线，该语句未执行。');exit end;
-  end;
+  if not AAuf.TryArgToDefName(1, defname) then exit;
   try
-    if global then AufScpt.Expression.Global.TryDeleteExp(AAuf.nargs[1].arg)
-    else AufScpt.Expression.Local.TryDeleteExp(AAuf.nargs[1].arg);
+    if global then AufScpt.Expression.Global.TryDeleteExp(defname)
+    else AufScpt.Expression.Local.TryDeleteExp(defname);
   except
-    AufScpt.send_error('警告：表达式不存在或者为只读状态，未成功删除。')
+    AufScpt.send_error('警告：删除宏定义'+defname+'时出错，该定义属于只读定义或变量')
   end;
 end;
-procedure _ifdef(Sender:TObject);
+procedure _ifdef_or_ifndef(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
     addr:pRam;
     global:boolean;
     tmpExprList:TAufExpressionList;
+    code:string;
+    jump_if_so:boolean;
+    defname:string;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToStrParam(0,['ifdef', 'ifndef'],false, code) then exit;
+  case code of
+    'ifdef':jump_if_so:=true;
+    'ifndef':jump_if_so:=false;
+  end;
   global:=false;
   if AAuf.ArgsCount>=4 then
     begin
       if lowercase(AAuf.args[3])='-global' then global:=true;
     end;
-  case AAuf.nargs[1].arg[1] of
-    'a'..'z','A'..'Z','_':;
-    else begin AufScpt.send_error('警告：参数的第一个字符需要是字母或下划线，该语句未执行。');exit end;
-  end;
+  if not AAuf.TryArgToDefName(1,defname) then exit;
   if not AAuf.TryArgToAddr(2,addr) then exit;
   if global then tmpExprList:=AufScpt.Expression.Global
   else tmpExprList:=AufScpt.Expression.Local;
-  if tmpExprList.Find(AAuf.nargs[1].arg)<>nil then
+  if tmpExprList.Find(defname)<>nil then
     begin
-      AufScpt.jump_addr(addr);
+      if jump_if_so then AufScpt.jump_addr(addr);
     end
-  else if tmpExprList.Find(AAuf.nargs[1].arg)<>nil then
+  else if tmpExprList.Find(defname)<>nil then
     begin
-      AufScpt.jump_addr(addr);
-    end
-  else
-    begin
-      //
-    end;
-end;
-procedure _ifndef(Sender:TObject);
-var AufScpt:TAufScript;
-    AAuf:TAuf;
-    addr:pRam;
-    global:boolean;
-    tmpExprList:TAufExpressionList;
-begin
-  AufScpt:=Sender as TAufScript;
-  AAuf:=AufScpt.Auf as TAuf;
-  if not AAuf.CheckArgs(3) then exit;
-  global:=false;
-  if AAuf.ArgsCount>=4 then
-    begin
-      if lowercase(AAuf.args[3])='-global' then global:=true;
-    end;
-  case AAuf.nargs[1].arg[1] of
-    'a'..'z','A'..'Z','_':;
-    else begin AufScpt.send_error('警告：参数的第一个字符需要是字母或下划线，该语句未执行。');exit end;
-  end;
-  if not AAuf.TryArgToAddr(2,addr) then exit;
-  if global then tmpExprList:=AufScpt.Expression.Global
-  else tmpExprList:=AufScpt.Expression.Local;
-  if tmpExprList.Find(AAuf.nargs[1].arg)<>nil then
-    begin
-      //
-    end
-  else if tmpExprList.Find(AAuf.nargs[1].arg)<>nil then
-    begin
-      //
+      if jump_if_so then AufScpt.jump_addr(addr);
     end
   else
     begin
-      AufScpt.jump_addr(addr);
+      if not jump_if_so then AufScpt.jump_addr(addr);
     end;
 end;
-
-
 
 procedure _var(Sender:TObject);//var type name size
 var AufScpt:TAufScript;
@@ -2348,10 +2339,7 @@ begin
     'object'       :exp.pre:='$"';
     else exp.pre:='$"';
   end;
-  if not AAuf.TryArgToString(2,var_name) then exit;
-  case var_name[1] of 'a'..'z','A'..'Z','_':;
-    else begin AufScpt.send_error('警告：第二个参数作为变量名需要以字母或下划线开头，该语句未执行。');exit end;
-  end;
+  if not AAuf.TryArgToDefName(2,var_name) then exit;
   if AufScpt.Expression.Local.Find(var_name)<>nil then
     begin
       AufScpt.send_error('警告：变量已存在，该语句未执行。');
@@ -2364,9 +2352,9 @@ begin
   exp.arg:=pRamToRawStr(head)+'|'+pRamToRawStr(size);
   exp.post:='"';
   try
-    AufScpt.Expression.Local.TryAddExp(AAuf.nargs[2].arg,exp);
+    AufScpt.Expression.Local.TryAddExp(var_name,exp,true);
   except
-    AufScpt.send_error('警告：var参数有误，未正确执行')
+    AufScpt.send_error('警告：创建变量'+var_name+'时出错')
   end;
   AufScpt.RamOccupation[head,size]:=true;
 
@@ -2392,24 +2380,21 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(2) then exit;
-  if not AAuf.TryArgToString(1,var_name) then exit;
-  case var_name[1] of 'a'..'z','A'..'Z','_':;
-    else begin AufScpt.send_error('警告：参数的第一个字符需要是字母或下划线，该语句未执行。');exit end;
-  end;
+  if not AAuf.TryArgToDefName(1,var_name) then exit;
   tmp:=AufScpt.Expression.Local.Find(var_name);
   if tmp=nil then begin
-    AufScpt.send_error('警告：找不到'+AAuf.nargs[1].arg+'的定义，该语句未执行。');
+    AufScpt.send_error('警告：找不到'+var_name+'的定义，该语句未执行。');
     exit;
   end;
   arv:=AufScpt.RamVar(tmp.value);
   if arv.size=0 then begin
-    AufScpt.send_error('警告：'+AAuf.nargs[1].arg+'不是ARV变量，该语句未执行。');
+    AufScpt.send_error('警告：'+var_name+'不是ARV变量，该语句未执行。');
     exit
   end;
   try
     AufScpt.Expression.Local.Remove(tmp);
   except
-    AufScpt.send_error('警告：unvar参数有误，未正确执行')
+    AufScpt.send_error('警告：删除变量'+var_name+'时出错')
   end;
   AufScpt.RamOccupation[arv.head-AufScpt.var_stream.Memory,arv.size]:=false;
 end;
@@ -3271,7 +3256,7 @@ begin
   end;
 end;
 
-procedure ptr_shift_or_offset(Sender:TObject);//pshl|pshr|pofl|pofr|pexl|pexr|pcpl|pcpr var,byte
+procedure ptr_shift_or_offset(Sender:TObject);//pshl|pshr|pofl|pofr|pexl|pexr|pcpl|pcpr|ptrml|ptrmr var,byte
 label ErrOver_L,ErrOver_R,ErrOver_O;
 var AufScpt:TAufScript;
     AAuf:TAuf;
@@ -3279,21 +3264,25 @@ var AufScpt:TAufScript;
     hh,ss,hhh,sss:pRam;
     idx:longint;
     exprname,func:string;
-    expr:Tnargs;
+    tmpAEU:TAufExpressionUnit;
 
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
-  if not AAuf.TryArgToString(1,exprname) then exit;
+  if not AAuf.TryArgToDefName(1,exprname) then exit;
   if not AAuf.TryArgToLong(2,idx) then exit;
 
-  expr:=AufScpt.Expression.Local.Translate(exprname);
-  if expr.arg[1]='~' then begin
+  tmpAEU:=AufScpt.Expression.Local.Find(exprname);
+  if tmpAEU=nil then begin
     AufScpt.send_error('警告：变量未找到，该语句未执行。');
     exit;
   end;
-  arv:=AufScpt.RamVar(expr);
+  if tmpAEU.readonly then begin
+    AufScpt.send_error('警告：变量为只读变量，不能进行指向修改。');
+    exit;
+  end;
+  arv:=AufScpt.RamVar(tmpAEU.value);
   if arv.size=0 then begin
     AufScpt.send_error('警告：变量不是合法指针类型，该语句未执行。');
     exit;
@@ -3358,6 +3347,18 @@ begin
         if AufScpt.PSW.run_parameter.ram_size-ss<hh+idx then goto ErrOver_R;
         hhh:=hh;
         sss:=ss-idx;
+      end;
+    'ptrml':
+      begin
+        if hh-idx+1<0 then goto ErrOver_L;
+        hhh:=hh+ss-idx;
+        sss:=idx;
+      end;
+    'ptrmr':
+      begin
+        if AufScpt.PSW.run_parameter.ram_size<hh+idx then goto ErrOver_R;
+        hhh:=hh;
+        sss:=idx;
       end;
     else
       begin
@@ -4262,7 +4263,8 @@ var stmp,list:string;
     len,idx:integer;
 begin
   result:=false;
-  if not TryArgToString(ArgNumber,stmp) then exit;
+  //if not TryArgToString(ArgNumber,stmp) then exit; //ToDefName和ToString分离后原本的字符参数应该取消读取变量
+  stmp:=args[ArgNumber];
   len:=Length(paramAllowance);
   if len<1 then exit;
   list:='';
@@ -4391,7 +4393,17 @@ begin
   end;
   result:=true;
 end;
-
+function TAuf.TryArgToDefName(ArgNumber:byte;out res:string):boolean;
+begin
+  Assert(ArgNumber in [1..args_range],'ArgNumber必须在[1..args_range]范围内。');
+  result:=false;
+  res:=nargs[ArgNumber].arg;
+  if res='' then res:='0';
+  if not (res[1] in ['_','A'..'Z','a'..'z']) then begin
+    Script.send_error('警告：第'+IntToStr(ArgNumber)+'个宏定义名的第1个字符需要是字母或下划线，该语句未执行。');
+    result:=false;
+  end else result:=true;
+end;
 function TAuf.TryArgToAddr(ArgNumber:byte;out res:pRam):boolean;
 begin
   Assert(ArgNumber in [1..args_range],'ArgNumber必须在[1..args_range]范围内。');
@@ -4827,12 +4839,23 @@ begin
   result.Stream:=nil;
 end;
 
+procedure TAufScript.DefineNameDecode(var nargs:TNargs);
+var tmp_nargs:Tnargs;
+begin
+  if (nargs.pre = '') or (nargs.pre = '@') then begin
+    tmp_nargs:=Self.Expression.Local.Translate(nargs.arg);
+    if tmp_nargs.arg='~Error' then tmp_nargs:=Self.Expression.Global.Translate(nargs.arg);
+    if tmp_nargs.arg<>'~Error' then nargs:=tmp_nargs;
+  end;
+end;
+
 function TAufScript.RamVar(arg:Tnargs):TAufRamVar;//将标准变量形式转化成ARV  相对地址$"@@BB|@A"  绝对地址$&"@@BB|@A"
 var s_addr,s_size:string;
     is_ref:boolean;
     AAuf:TAuf;
 begin
   AAuf:=Self.Auf as TAuf;
+  DefineNameDecode(arg);
   case arg.pre of
     '$"':begin result.VarType:=ARV_FixNum;is_ref:=false end;
     '~"':begin result.VarType:=ARV_Float;is_ref:=false end;
@@ -4842,7 +4865,6 @@ begin
     '#&"':begin result.VarType:=ARV_Char;is_ref:=true end;
     '@','$','~':begin result:=TmpExpRamVar(arg);exit end;
     else begin
-      //Self.send_error('未知的变量前缀："'+arg.pre+'"，无法解析为变量！');
       result.size:=0;
       exit;
     end;
@@ -5111,6 +5133,7 @@ function TAufScript.TryToDouble(arg:Tnargs):double;
 var AAuf:TAuf;
 begin
   AAuf:=Self.Auf as TAuf;
+  DefineNameDecode(arg);
   case arg.pre of
     '~&"','~"','#&"','#"','$"','$&"':begin result:=arv_to_double(Self.RamVar(arg));exit end;
     '~','@','$':begin result:=TmpExpToDouble(arg);exit end;
@@ -5121,6 +5144,7 @@ function TAufScript.TryToDWord(arg:Tnargs):dword;
 var AAuf:TAuf;
 begin
   AAuf:=Self.Auf as TAuf;
+  DefineNameDecode(arg);
   case arg.pre of
     '~&"','~"','#&"','#"','$"','$&"':begin result:=arv_to_dword(Self.RamVar(arg));exit end;
     '~','@','$':begin result:=TmpExpToDword(arg);exit end;
@@ -5131,6 +5155,7 @@ function TAufScript.TryToLong(arg:Tnargs):longint;
 var AAuf:TAuf;
 begin
   AAuf:=Self.Auf as TAuf;
+  DefineNameDecode(arg);
   case arg.pre of
     '~&"','~"','#&"','#"','$"','$&"':begin result:=longint(arv_to_dword(Self.RamVar(arg)));exit end;
     '~','@','$':begin result:=longint(TmpExpToDWord(arg));exit end;
@@ -5141,6 +5166,7 @@ function TAufScript.TryToString(arg:Tnargs):string;
 var AAuf:TAuf;
 begin
   AAuf:=Self.Auf as TAuf;
+  DefineNameDecode(arg);
   case arg.pre of
     '~&"','~"','#&"','#"','$"','$&"':begin result:=arv_to_s(Self.RamVar(arg));exit end;
     '~','@','$':begin result:=TmpExpToString(arg);exit end;
@@ -5557,9 +5583,12 @@ begin
                       end;
                       AAuf.nargs[i]:=narg('&"',pRamToRawStr(pRam(Self.PSW.run_parameter.current_line_number+at_ofs)),'"');
                     end else begin
+                      //变量名不再硬解析
+                      {
                       tmp_nargs:=Self.Expression.Local.Translate(at_expr);
                       if tmp_nargs.arg='~Error' then tmp_nargs:=Self.Expression.Global.Translate(at_expr);
                       if tmp_nargs.arg<>'~Error' then AAuf.nargs[i]:=tmp_nargs;
+                      }
                     end;
                   end;
                 end;
@@ -5977,13 +6006,13 @@ begin
   if tmp=nil then result:=narg('','~Error','')
   else result:=tmp.value;
 end;
-function TAufExpressionList.TryAddExp(AKey:string;AValue:Tnargs):boolean;
+function TAufExpressionList.TryAddExp(AKey:string;AValue:Tnargs;readonly:boolean=false):boolean;
 var tmp:TAufExpressionUnit;
 begin
   tmp:=Self.Find(AKey);
   if tmp=nil then
     begin
-      tmp:=TAufExpressionUnit.Create(AKey,AValue,false);
+      tmp:=TAufExpressionUnit.Create(AKey,AValue,readonly);
       Self.Add(tmp);
     end
   else
@@ -6320,8 +6349,8 @@ begin
   Self.add_func('rand',      @rand,       'v1,v2',          '将不大于v2的随机整数返回给v1');
   Self.add_func('fill',      @_fillbyte,  'var,byte',       '用byte填充var');
   Self.add_func('swap',      @_swap,      'v1',             '将v1字节倒序');
-  Self.add_func('getbytes',  @_getbytes,  'mem,seg,idx',    '从mem中读取值片段');
-  Self.add_func('setbytes',  @_setbytes,  'mem,seg,idx',    '向mem中覆盖值片段');
+  //Self.add_func('getbytes',  @_getbytes,  'mem,seg,idx',    '从mem中读取值片段');
+  //Self.add_func('setbytes',  @_setbytes,  'mem,seg,idx',    '向mem中覆盖值片段');
 
 
 
@@ -6349,11 +6378,12 @@ begin
 
   Self.add_func('define',    @_define,    'name,expr',              '定义一个以@开头的局部宏定义');
   Self.add_func('rendef',    @_rendef,    'old,new',                '修改一个局部宏定义的名称');
+  Self.add_func('dupdef',    @_dupdef,    'old,new',                '为一个宏定义创建局部宏定义副本');
   Self.add_func('deldef',    @_deldef,    'name',                   '删除一个局部宏定义的名称');
-  Self.add_func('ifdef',     @_ifdef,     'name',                   '如果有定义则跳转');
-  Self.add_func('ifndef',    @_ifndef,    'name',                   '如果没有定义则跳转');
+  Self.add_func('ifdef',     @_ifdef_or_ifndef,     'name',         '如果有定义则跳转');
+  Self.add_func('ifndef',    @_ifdef_or_ifndef,     'name',         '如果没有定义则跳转');
   Self.add_func('var',       @_var,       'type,name,size',         '创建一个ARV变量');
-  Self.add_func('unvar',     @_unvar,     'name',                   '释放一个ARV变量');
+  Self.add_func('unvar',     @_unvar,               'name',         '释放一个ARV变量');
 
   Self.add_func('pshl',     @ptr_shift_or_offset,   '@var, byte',  '定义指针左位移byte个字节');
   Self.add_func('pshr',     @ptr_shift_or_offset,   '@var, byte',  '定义指针右位移byte个字节');
@@ -6363,6 +6393,8 @@ begin
   Self.add_func('pexr',     @ptr_shift_or_offset,   '@var, byte',  '定义指针向右拓展byte个字节');
   Self.add_func('pcpl',     @ptr_shift_or_offset,   '@var, byte',  '定义指针向左压缩byte个字节');
   Self.add_func('pcpr',     @ptr_shift_or_offset,   '@var, byte',  '定义指针向右压缩byte个字节');
+  Self.add_func('ptrml',    @ptr_shift_or_offset,   '@var, byte',  '定义指针向左压缩至byte个字节');
+  Self.add_func('ptrmr',    @ptr_shift_or_offset,   '@var, byte',  '定义指针向右压缩至byte个字节');
 
   Self.add_func('=',        @_syntax_assign,        'method, result',   '赋值语法糖');
   Self.add_func('.',        @_syntax_property,      'method, subject',  '成员语法糖');
