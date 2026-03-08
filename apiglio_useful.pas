@@ -57,7 +57,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.7.0.3';
+  AufScript_Version='beta 2.7.0.4';
   {$if defined(cpu32)}
   AufScript_CPU='32bits';
   {$elseif defined(cpu64)}
@@ -4450,8 +4450,11 @@ begin
   end;
 end;
 function TAuf.TellArgType(ArgNumber:byte):TAufRamVarType;
+var narg:Tnargs;
 begin
-  case nargs[ArgNumber].pre of
+  narg:=nargs[ArgNumber];
+  Script.DefineNameDecode(narg);
+  case narg.pre of
     '$','$"','$&"':result:=ARV_FixNum;
     '~','~"','~&"':result:=ARV_Float;
     '#','#"','#&"':result:=ARV_Char;
@@ -4842,10 +4845,11 @@ end;
 procedure TAufScript.DefineNameDecode(var nargs:TNargs);
 var tmp_nargs:Tnargs;
 begin
-  if (nargs.pre = '') or (nargs.pre = '@') then begin
+  while (nargs.pre = '') or (nargs.pre = '@') do begin
     tmp_nargs:=Self.Expression.Local.Translate(nargs.arg);
     if tmp_nargs.arg='~Error' then tmp_nargs:=Self.Expression.Global.Translate(nargs.arg);
-    if tmp_nargs.arg<>'~Error' then nargs:=tmp_nargs;
+    if tmp_nargs.arg<>'~Error' then nargs:=tmp_nargs
+    else exit;
   end;
 end;
 
@@ -5583,12 +5587,8 @@ begin
                       end;
                       AAuf.nargs[i]:=narg('&"',pRamToRawStr(pRam(Self.PSW.run_parameter.current_line_number+at_ofs)),'"');
                     end else begin
-                      //变量名不再硬解析
-                      {
-                      tmp_nargs:=Self.Expression.Local.Translate(at_expr);
-                      if tmp_nargs.arg='~Error' then tmp_nargs:=Self.Expression.Global.Translate(at_expr);
-                      if tmp_nargs.arg<>'~Error' then AAuf.nargs[i]:=tmp_nargs;
-                      }
+                      //以@开头的变量名依然进行硬解析
+                      DefineNameDecode(AAuf.nargs[i]);
                     end;
                   end;
                 end;
