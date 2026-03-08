@@ -12,7 +12,9 @@ program fpcunitproject1;
 
 uses
   {$ifdef UNIX}
-  cthreads,
+    {$ifndef ANDROID}
+    cthreads,
+    {$endif}
   {$endif}
   {$ifdef WINDOWS}
   Windows,

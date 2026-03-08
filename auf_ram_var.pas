@@ -6,7 +6,9 @@ interface
 
 uses
   {$ifdef UNIX}
-  cthreads,
+    {$ifndef ANDROID}
+    cthreads,
+    {$endif}
   {$endif}
   Classes, SysUtils, LazUTF8;
 
@@ -2493,7 +2495,7 @@ begin
     PQWORD(arv.Head)^:=QWORD(obj);
   {$else}
     {$ifdef cpu32}
-      PDWORD(arv.Head)^:=PDWORD(obj);
+      PDWORD(arv.Head)^:=DWORD(obj);
     {$else}
       raise Exception.Create('cpu位数不支持。');
     {$endif}
