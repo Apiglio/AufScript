@@ -85,7 +85,7 @@ const
   ram_range=$20000{4096}{32};//变量区大小
   stack_range=32;//行数堆栈区大小，最多支持256个
   func_range=1024;//256;//函数区大小，最多支持65536个
-  args_range=16;//函数参数最大数量
+  args_range=64;//16;//函数参数最大数量
   task_range=128;//跨任务消息存储条数限制
 
   {$IFDEF MsgTimerMode}
@@ -4169,6 +4169,7 @@ begin
           if tps[tpi] in c_divi then
             begin
               {}if (nargs[tpm].arg<>'')or(nargs[tpm].pre<>'')or(nargs[tpm].post<>'') then {}inc(tpm);
+              if tpm>=args_range-1 then break;
               is_post:=false;
               divi:=divi+tps[tpi];
               toto:=toto+tps[tpi];
