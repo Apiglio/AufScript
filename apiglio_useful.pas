@@ -57,7 +57,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.7.0.4';
+  AufScript_Version='beta 2.8.0.1';
   {$if defined(cpu32)}
   AufScript_CPU='32bits';
   {$elseif defined(cpu64)}
@@ -228,8 +228,6 @@ type
   pFuncAuf   = procedure(Sender:TObject);
   pFuncAufStr= procedure(Sender:TObject;str:string);
   PAufScript = ^TAufScript;
-  EAufScriptSyntaxError = class(Exception)
-  end;
 
   TAufScript = class
     protected
@@ -395,7 +393,7 @@ type
       procedure ClearScreen;
 
       function Pointer(Iden:string;Index:pRam):Pointer;
-      function TmpExpRamVar(arg:Tnargs):TAufRamVar;
+      //function TmpExpRamVar(arg:Tnargs):TAufRamVar;
       procedure DefineNameDecode(var nargs:TNargs);//原先line_transfer的变量解析
       function RamVar(arg:Tnargs):TAufRamVar;//将标准变量形式转化成ARV
       function RamVarToNargs(arv:TAufRamVar;not_offset:boolean=false):Tnargs;
@@ -519,6 +517,14 @@ type
   end;
 
 
+  EAufScriptSyntaxError = class(Exception)
+  end;
+  EAufScriptRuntimerError = class(Exception)
+    constructor Create(Sender:TAufScript; const msg: string);
+  end;
+
+
+
 var
 
   i:byte;
@@ -638,6 +644,8 @@ var bit:byte;
 begin
   result:=0;
   len:=length(str);
+  if len=0 then exit;
+  if str[1] in ['~','V'] then exit;
   for bit:=0 to len-1 do begin
     result:=result shl 4;
     result:=result or ((ord(str[bit+1])-64));
@@ -1164,187 +1172,55 @@ begin
       pb^:=btmp;
     end;
 end;
-{
-procedure _getbytes(Sender:TObject);//getbytes mem,seg,idx
+
+procedure mov(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
-    arv1,arv2:TAufRamVar;
-    idx,len:pRam;
-begin
-  AufScpt:=Sender as TAufScript;
-  AAuf:=AufScpt.Auf as TAuf;
-  if not AAuf.CheckArgs(4) then exit;
-  if not AAuf.TryArgToARV(1,0,High(longint),[ARV_Char,ARV_FixNum],arv1) then exit;
-  if not AAuf.TryArgToARV(2,0,High(longint),[ARV_Char,ARV_FixNum],arv2) then exit;
-  if not AAuf.TryArgToPRam(3,idx) then exit;
-  if idx+arv2.size>arv1.size then begin
-    len:=arv1.size-idx;
-    FillByte((arv2.Head+len)^,arv2.size-len,0);
-  end else begin
-    len:=arv2.size;
-  end;
-  move((arv1.Head+idx)^,arv2.Head^,len);
-end;
-
-procedure _setbytes(Sender:TObject);//setbytes mem,seg,idx
-var AufScpt:TAufScript;
-    AAuf:TAuf;
-    arv1,arv2:TAufRamVar;
-    idx,len:pRam;
-begin
-  AufScpt:=Sender as TAufScript;
-  AAuf:=AufScpt.Auf as TAuf;
-  if not AAuf.CheckArgs(4) then exit;
-  if not AAuf.TryArgToARV(1,0,High(longint),[ARV_Char,ARV_FixNum],arv1) then exit;
-  if not AAuf.TryArgToARV(2,0,High(longint),[ARV_Char,ARV_FixNum],arv2) then exit;
-  if not AAuf.TryArgToPRam(3,idx) then exit;
-  if idx+arv2.size>arv1.size then begin
-    len:=arv1.size-idx;
-  end else begin
-    len:=arv2.size;
-  end;
-  move(arv2.Head^,(arv1.Head+idx)^,len);
-end;
-}
-
-procedure movb(Sender:TObject);deprecated;
-var a:byte;
-    AufScpt:TAufScript;
-    AAuf:TAuf;
-begin
-  AufScpt:=Sender as TAufScript;
-  AAuf:=AufScpt.Auf as TAuf;
-  if not AAuf.CheckArgs(3) then exit;
-  if not (AAuf.nargs[1].pre='$') then begin AAuf.Script.send_error('警告：movb的一个参数需要是byte变量，赋值未成功。');exit end;
-  case AAuf.nargs[2].pre of
-    '$':a:=pByte(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^;
-    '@':a:=pLongint(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^;
-    '~':a:=round(pDouble(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^);
-    '##':a:=round(Usf.to_f(pString(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^));
-    '#':a:=round(Usf.to_f(pString(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^));
-    '':a:=round(Usf.to_f(AAuf.nargs[2].arg));
-    else begin AufScpt.send_error('警告：movb的第二个参数有误，赋值未成功。');exit end;
-  end;
-  PByte(AufScpt.Pointer(AAuf.nargs[1].pre,Usf.to_i(AAuf.nargs[1].arg)))^:=a;
-end;
-procedure movl(Sender:TObject);deprecated;
-var a:longint;
-    AufScpt:TAufScript;
-    AAuf:TAuf;
-begin
-  AufScpt:=Sender as TAufScript;
-  AAuf:=AufScpt.Auf as TAuf;
-  if not AAuf.CheckArgs(3) then exit;
-  //if AAuf.ArgsCount<3 then begin AufScpt.send_error('警告：movl需要两个参数，赋值未成功。');exit end;
-  if not (AAuf.nargs[1].pre='@') then begin AufScpt.send_error('警告：movl的一个参数需要是byte变量，赋值未成功。');exit end;
-  case AAuf.nargs[2].pre of
-    '$':a:=pByte(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^;
-    '@':a:=pLongint(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^;
-    '~':a:=round(pDouble(AAuf.Script.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^);
-    '##':a:=round(Usf.to_f(pString(AAuf.Script.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^));
-    '#':a:=round(Usf.to_f(pString(AAuf.Script.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^));
-    '':a:=round(Usf.to_f(AAuf.nargs[2].arg));
-    else begin AufScpt.send_error('警告：movl的第二个参数有误，赋值未成功。');exit end;
-  end;
-  PLongint(AufScpt.Pointer(AAuf.nargs[1].pre,Usf.to_i(AAuf.nargs[1].arg)))^:=a;
-end;
-procedure movd(Sender:TObject);deprecated;
-var a:double;
-    AufScpt:TAufScript;
-    AAuf:TAuf;
-begin
-  AufScpt:=Sender as TAufScript;
-  AAuf:=AufScpt.Auf as TAuf;
-  if not AAuf.CheckArgs(3) then exit;
-  //if AAuf.ArgsCount<3 then begin AufScpt.send_error('警告：movd需要两个参数，赋值未成功。');exit end;
-  if not (AAuf.nargs[1].pre='~') then begin AufScpt.send_error('警告：movd的一个参数需要是byte变量，赋值未成功。');exit end;
-  case AAuf.nargs[2].pre of
-    '$':a:=pByte(AAuf.Script.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^;
-    '@':a:=pLongint(AAuf.Script.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^;
-    '~':a:=pDouble(AAuf.Script.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^;
-    '##':a:=Usf.to_f(pString(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^);
-    '#':a:=Usf.to_f(pString(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^);
-    '':a:=Usf.to_f(AAuf.nargs[2].arg);
-    else begin AufScpt.send_error('警告：movl的第二个参数有误，赋值未成功。');exit end;
-  end;
-  PDouble(AufScpt.Pointer(AAuf.nargs[1].pre,Usf.to_i(AAuf.nargs[1].arg)))^:=a;
-end;
-procedure movs(Sender:TObject);deprecated;
-var a:string;
-    AufScpt:TAufScript;
-    AAuf:TAuf;
-begin
-  AufScpt:=Sender as TAufScript;
-  AAuf:=AufScpt.Auf as TAuf;
-  if not AAuf.CheckArgs(3) then exit;
-  //if AAuf.ArgsCount<3 then begin AufScpt.send_error('警告：movs需要两个参数，赋值未成功。');exit end;
-  if (AAuf.nargs[1].pre<>'#') and (AAuf.nargs[1].pre<>'##') then begin AufScpt.send_error('警告：movs的一个参数需要是str或substr变量，赋值未成功。');exit end;
-  case AAuf.nargs[2].pre of
-    '##':a:=pString(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^;
-    '#':a:=pString(AufScpt.Pointer(AAuf.nargs[2].pre,Usf.to_i(AAuf.nargs[2].arg)))^;
-    '':a:=AAuf.nargs[2].arg;
-    else begin AufScpt.send_error('警告：movs的第二个参数有误，赋值未成功。');exit end;
-  end;
-  if AAuf.nargs[1].pre='#' then delete(a,7,999);
-  PString(AufScpt.Pointer(AAuf.nargs[1].pre,Usf.to_i(AAuf.nargs[1].arg)))^:=a;
-end;
-procedure mov_arv(Sender:TObject);
-var a:longint;
+    AVarType:TAufRamVarType;
     tmp,tmp_src:TAufRamVar;
-    AufScpt:TAufScript;
-    AAuf:TAuf;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
   if not AAuf.TryArgToARV(1,1,High(dword),ARV_AllType,tmp) then exit;
-  tmp_src:=AufScpt.RamVar(AAuf.nargs[2]);
-  if tmp_src.size>0 then begin
-    if tmp.VarType = tmp_src.VarType then begin
-      copyARV(tmp_src,tmp);
-    end else begin
-      //arv 类型转换
-      AufScpt.send_error('暂不支持不同类型arv之间的直接转换。');
-    end;
-    exit;
-  end;
-  case tmp.VarType of
-    ARV_Char:
-      begin
-        initiate_arv_str(AufScpt.TryToString(AAuf.nargs[2]),tmp);
-      end;
-    ARV_FixNum:
-      begin
-        try
-          initiate_arv(AAuf.nargs[2].arg,tmp);
-        except
-          AufScpt.send_error('整数解析出错。');
+  AVarType:=AAuf.TellArgType(1);
+  case AVarType of
+    ARV_FixNum, ARV_Float, ARV_Char:
+      BEGIN
+        tmp_src:=AufScpt.RamVar(AAuf.nargs[2]);
+        if tmp_src.size>0 then begin
+          if tmp.VarType = tmp_src.VarType then begin
+            copyARV(tmp_src,tmp);
+          end else begin
+            //arv 类型转换
+            AufScpt.send_error('暂不支持不同类型arv之间的直接转换。');
+          end;
+          exit;
         end;
-      end;
-    ARV_Float:
-      begin
-        case tmp.size of
-          4:psingle(tmp.Head)^:=AufScpt.TryToDouble(AAuf.nargs[2]);
-          8:pdouble(tmp.Head)^:=AufScpt.TryToDouble(AAuf.nargs[2]);
-          else AufScpt.send_error('暂不支持4bytes和8bytes以外的浮点数赋值。');
+        case tmp.VarType of
+          ARV_Char:
+            begin
+              initiate_arv_str(AufScpt.TryToString(AAuf.nargs[2]),tmp);
+            end;
+          ARV_FixNum:
+            begin
+              try
+                initiate_arv(AufScpt.TryToString(AAuf.nargs[2]),tmp);
+              except
+                AufScpt.send_error('整数解析出错。');
+              end;
+            end;
+          ARV_Float:
+            begin
+              case tmp.size of
+                4:psingle(tmp.Head)^:=AufScpt.TryToDouble(AAuf.nargs[2]);
+                8:pdouble(tmp.Head)^:=AufScpt.TryToDouble(AAuf.nargs[2]);
+                else AufScpt.send_error('暂不支持4bytes和8bytes以外的浮点数赋值。');
+              end;
+            end;
         end;
-      end;
-  end;
-end;
-procedure mov(Sender:TObject);
-var AufScpt:TAufScript;
-    AAuf:TAuf;
-begin
-  AufScpt:=Sender as TAufScript;
-  AAuf:=AufScpt.Auf as TAuf;
-  case AAuf.nargs[1].pre of
-    '$':movb(Sender);
-    '@':movl(Sender);
-    '~':movd(Sender);
-    '##':movs(Sender);
-    '#':movs(Sender);
-    '$"','~"','$&"','~&"','#"','#&"','':mov_arv(AufScpt);
-    else begin AufScpt.send_error('警告：mov的第一个参数有误，赋值未成功。');exit end;
+      END;
+    ELSE AufScpt.send_error('警告：mov的第一个参数有误，赋值未成功。');
   end;
 end;
 procedure add_arv(Sender:TObject);
@@ -1390,10 +1266,12 @@ var a,b:double;
     tmp,arg1,arg2:TAufRamVar;
     AufScpt:TAufScript;
     AAuf:TAuf;
+
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
+
   //if AAuf.ArgsCount<3 then begin AufScpt.send_error('警告：add需要两个参数，赋值未成功。');exit end;
   {=begin 临时增加}
   arg1:=AufScpt.RamVar(AAuf.nargs[1]);
@@ -1932,7 +1810,7 @@ var AufScpt:TAufScript;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
-  if not AAuf.CheckArgs(6) then exit;
+  if not AAuf.CheckArgs(5) then exit;
   if not AAuf.TryArgToStrParam(2, ['==','eq','eql','<>','!=','≠','ne','neq','>','gt','<','lt','>=','≥','ge','<=','≤','le','in','~=','reg'], false, sign) then exit;
   is_error:=false;
   case sign of
@@ -2255,6 +2133,47 @@ begin
     end;
   except
     AufScpt.send_error('警告：创建宏定义'+dn1+'的副本'+dn2+'时出错')
+  end;
+end;
+procedure _castdef(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    global:boolean;
+    defname, dn_type:string;
+    tmpAEU:TAufExpressionUnit;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  global:=false;
+  if AAuf.ArgsCount>=4 then
+    begin
+      if lowercase(AAuf.args[3])='-global' then global:=true;
+    end;
+  if not AAuf.TryArgToDefName(1, defname) then exit;
+  if not AAuf.TryArgToStrParam(2, ['fixnum','int','char','string','float','real','object'], false, dn_type) then exit;
+  try
+    if global then begin
+      tmpAEU:=AufScpt.Expression.Global.Find(defname);
+    end else begin
+      tmpAEU:=AufScpt.Expression.Local.Find(defname);
+    end;
+    if tmpAEU=nil then begin
+      AufScpt.send_error('警告：找不到宏定义'+defname);
+    end else begin
+      case tmpAEU.value.pre of
+        '$"','~"','#"':case dn_type of
+          'fixnum','int' :tmpAEU.value.pre:='$"';
+          'char','string':tmpAEU.value.pre:='#"';
+          'float','real' :tmpAEU.value.pre:='~"';
+          'object'       :tmpAEU.value.pre:='$"';
+          else tmpAEU.value.pre:='$"';
+        end;
+        else AufScpt.send_error('警告：宏定义'+defname+'不是内存地址，无法修改内存类型');;
+      end;
+    end;
+  except
+    AufScpt.send_error('警告：创建宏定义'+defname+'的副本时出错')
   end;
 end;
 procedure _deldef(Sender:TObject);
@@ -3180,6 +3099,22 @@ begin
       else AufScpt.jump_addr(addr);
     end;
 
+end;
+
+procedure file_size(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    filename:string;
+    fsize:QWord;
+    arv:TAufRamVar;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToString(2,filename) then exit;
+  if not AAuf.TryArgToARV(1,4,High(dword),[ARV_FixNum],arv) then exit;
+  fsize:=FileSize(filename);
+  qword_to_arv(fsize, arv);
 end;
 
 procedure file_read(Sender:TObject);
@@ -4368,7 +4303,7 @@ begin
   end;
   case DataVarType of
     ARV_Char:begin
-      value_str:=nargs[ArgNumber].arg;
+      value_str:=Script.TryToString(nargs[ArgNumber]);
       value_str:=UTF8ToWinCP(value_str);
       value_len:=length(value_str);
       res.size:=value_len+1;
@@ -4382,14 +4317,14 @@ begin
       exit;
     end;
     ARV_FixNum:begin
-      initiate_arv(args[ArgNumber],res);
+      initiate_arv(Script.TryToString(nargs[ArgNumber]),res);
     end;
     ARV_Float:begin
       //临时规定为double
       res.size:=8;
       res.Stream.SetSize(8);
       res.VarType:=ARV_Float;
-      initiate_arv_float(args[ArgNumber],res);
+      initiate_arv_float(Script.TryToString(nargs[ArgNumber]),res);
     end;
   end;
   result:=true;
@@ -4671,7 +4606,6 @@ var Rec:^SearchRec;
 {$endif}
 
 constructor TUsf.Create;
-var i:byte;
 begin
   inherited Create;
 end;
@@ -4826,7 +4760,7 @@ procedure TAufScript.SetScriptName(AName:string);
 begin
   Self.PSW.stack[Self.PSW.stack_ptr].scriptname:=AName;
 end;
-
+{
 function TAufScript.TmpExpRamVar(arg:Tnargs):TAufRamVar;
 var codee:byte;
     value:dword;
@@ -4842,33 +4776,35 @@ begin
   result.Is_Temporary:=false;
   result.Stream:=nil;
 end;
-
+}
 procedure TAufScript.DefineNameDecode(var nargs:TNargs);
-var tmp_nargs:Tnargs;
+var tmp_nargs, old_nargs:TNargs;
 begin
-  while (nargs.pre = '') or (nargs.pre = '@') do begin
-    tmp_nargs:=Self.Expression.Local.Translate(nargs.arg);
-    if tmp_nargs.arg='~Error' then tmp_nargs:=Self.Expression.Global.Translate(nargs.arg);
-    if tmp_nargs.arg<>'~Error' then nargs:=tmp_nargs
-    else exit;
+  tmp_nargs:=nargs;
+  old_nargs:=nargs;
+  case tmp_nargs.pre of '$"','~"','#"','&"':exit;end;
+  while true do begin
+    tmp_nargs:=Self.Expression.Local.Translate(tmp_nargs.arg);
+    if tmp_nargs.arg='~Error' then tmp_nargs:=Self.Expression.Global.Translate(tmp_nargs.arg);
+    if tmp_nargs.arg='~Error' then begin
+      nargs:=old_nargs;
+      exit;
+    end;
+    old_nargs:=tmp_nargs;
   end;
 end;
 
 function TAufScript.RamVar(arg:Tnargs):TAufRamVar;//将标准变量形式转化成ARV  相对地址$"@@BB|@A"  绝对地址$&"@@BB|@A"
 var s_addr,s_size:string;
-    is_ref:boolean;
     AAuf:TAuf;
+    tmp_nargs:Tnargs;
 begin
   AAuf:=Self.Auf as TAuf;
   DefineNameDecode(arg);
   case arg.pre of
-    '$"':begin result.VarType:=ARV_FixNum;is_ref:=false end;
-    '~"':begin result.VarType:=ARV_Float;is_ref:=false end;
-    '#"':begin result.VarType:=ARV_Char;is_ref:=false end;
-    '$&"':begin result.VarType:=ARV_FixNum;is_ref:=true end;
-    '~&"':begin result.VarType:=ARV_Float;is_ref:=true end;
-    '#&"':begin result.VarType:=ARV_Char;is_ref:=true end;
-    '@','$','~':begin result:=TmpExpRamVar(arg);exit end;
+    '$"':result.VarType:=ARV_FixNum;
+    '~"':result.VarType:=ARV_Float;
+    '#"':result.VarType:=ARV_Char;
     else begin
       result.size:=0;
       exit;
@@ -4879,16 +4815,33 @@ begin
   s_size:=arg.arg;
   delete(s_size,1,pos('|',s_size));
   delete(s_addr,pos('|',s_addr),999);
-  result.size:=RawStrToPRam(s_size);
-  if result.size=0 then result.size:=4;
-  result.head:=pbyte(RawStrToPRam(s_addr));
-
-  if is_ref then
-    begin
-      result.Head:=pbyte(pdword(result.Head+pRam(Self.PSW.run_parameter.ram_zero))^);
+  if s_size = '' then result.size:=0
+  else if s_size[1] = 'V' then begin
+    delete(s_size,1,1);
+    tmp_nargs:=narg('',s_size,'');
+    DefineNameDecode(tmp_nargs);
+    if (tmp_nargs.pre = '') or (tmp_nargs.pre = '$"') then begin
+      result.size:=TryToDWord(tmp_nargs)
+    end else begin
+      result.size:=0;
+      //raise EAufScriptRuntimerError.Create(Self, '地址解析错误：'+arg.pre+arg.arg+arg.post+'不能正确解析成整数。');
     end;
+  end else result.size:=RawStrToPRam(s_size);
+  if result.size=0 then result.size:=4;
 
-  {if arg.post[length(arg.post)]<>arg.pre[1] then }
+  if s_addr = '' then result.head:=pbyte(0)
+  else if s_addr[1] = 'V' then begin
+    delete(s_addr,1,1);
+    tmp_nargs:=narg('',s_addr,'');
+    DefineNameDecode(tmp_nargs);
+    if (tmp_nargs.pre = '') or (tmp_nargs.pre = '$"') then begin
+      result.head:=pbyte(TryToDWord(tmp_nargs));
+    end else begin
+      result.head:=pbyte(0);
+      //raise EAufScriptRuntimerError.Create(Self, '地址解析错误：'+arg.pre+arg.arg+arg.post+'不能正确解析成整数。');
+    end;
+  end else result.head:=pbyte(RawStrToPRam(s_addr));
+
   result.head:=result.head+pRam(Self.PSW.run_parameter.ram_zero);//dword() failed in deepin(linux) test
 
   result.Is_Temporary:=false;
@@ -5491,7 +5444,7 @@ end;
 procedure TAufScript.line_transfer;//将当前行代码转译成标准形式
 var i:0..args_range;
     line:dword;
-    ts1,ts2,at_expr,at_num:string;
+    ts1,ts2,ta1,ta2,at_expr,at_num:string;
     idx1,idx2,at_len,at_ofs:integer;
     AAuf:TAuf;
     tmp_nargs:Tnargs;
@@ -5525,9 +5478,8 @@ begin
           end;
         '~','$','#':
           begin
-            //$4[0] $2[64] ~8[64] ~8{0} $4{16} -> $"@@@@@@@@|@D" $"@@@@@@B@|@B" ~"@@@@@@B@|@H" ~&"@@@@@@@@|@H" $&"@@@@@@@P|@D"
+            //$4[0] $2[64] ~8[64] -> $"@@@@@@@@|@D" $"@@@@@@B@|@B" ~"@@@@@@B@|@H"
             idx1:=pos('[',AAuf.nargs[i].arg);
-            idx2:=pos('{',AAuf.nargs[i].arg);
             if idx1>0 then
               begin
                 AAuf.nargs[i].pre:=AAuf.nargs[i].pre+'"';
@@ -5537,18 +5489,34 @@ begin
                 delete(ts1,idx1,9999);
                 delete(ts2,1,idx1);
                 if ts2[length(ts2)]=']' then delete(ts2,length(ts2),1);
-                AAuf.nargs[i].arg:=pRamToRawStr(ExpToPRam(ts2))+'|'+pRamToRawStr(ExpToPRam(ts1){ mod (High(pRam)+1){256}(wth was that)});
-              end
-            else if idx2>0 then
-              begin
-                AAuf.nargs[i].pre:=AAuf.nargs[i].pre+'&"';
-                AAuf.nargs[i].post:='"';
-                ts1:=AAuf.nargs[i].arg;
-                ts2:=AAuf.nargs[i].arg;
-                delete(ts1,idx2,9999);
-                delete(ts2,1,idx2);
-                if ts2[length(ts2)]='}' then delete(ts2,length(ts2),1);
-                AAuf.nargs[i].arg:=pRamToRawStr(ExpToPRam(ts2))+'|'+pRamToRawStr(ExpToPRam(ts1){ mod (High(pRam)+1){256}(wth was that)});
+                //_ts1[ts2] -> _"ts2|ts1"
+                if ts1='' then ta1:='~Error' else
+                case ts1[1] of
+                  '@':
+                    begin
+                      delete(ts1,1,1);
+                      tmp_nargs:=narg('@',ts1,'');
+                      DefineNameDecode(tmp_nargs);
+                      with tmp_nargs do ta1:='V'+pre+arg+post; //魔法首字母V，用来判断是不是变量
+                    end;
+                  '_','a'..'z','A'..'Z': ta1:='V'+ts1; //魔法首字母V，用来判断是不是变量
+                  '0'..'9': ta1:=pRamToRawStr(ExpToPRam(ts1));
+                  else ta1:='~Error';
+                end;
+                if ts2='' then ta2:='~Error' else
+                case ts2[1] of
+                  '@':
+                    begin
+                      delete(ts2,1,1);
+                      tmp_nargs:=narg('@',ts2,'');
+                      DefineNameDecode(tmp_nargs);
+                      with tmp_nargs do ta2:='V'+pre+arg+post; //魔法首字母V，用来判断是不是变量
+                    end;
+                  '_','a'..'z','A'..'Z': ta2:='V'+ts2; //魔法首字母V，用来判断是不是变量
+                  '0'..'9': ta2:=pRamToRawStr(ExpToPRam(ts2));
+                  else ta2:='~Error';
+                end;
+                AAuf.nargs[i].arg:=ta2+'|'+ta1;
               end
             else
               begin
@@ -6377,10 +6345,11 @@ begin
 
   Self.add_func('taichi',    @taichi_call,'value,chaos_width,chaos_addr[,addr ...]', '根据value的值跳转到相应的地址，并将当前地址压栈，可用于RGB九色划分');
 
-  Self.add_func('define',    @_define,    'name,expr',              '定义一个以@开头的局部宏定义');
-  Self.add_func('rendef',    @_rendef,    'old,new',                '修改一个局部宏定义的名称');
-  Self.add_func('dupdef',    @_dupdef,    'old,new',                '为一个宏定义创建局部宏定义副本');
-  Self.add_func('deldef',    @_deldef,    'name',                   '删除一个局部宏定义的名称');
+  Self.add_func('define',    @_define,    'name,expr,[-global]',    '定义宏定义');
+  Self.add_func('rendef',    @_rendef,    'old,new,[-global]',      '修改宏定义名称');
+  Self.add_func('dupdef',    @_dupdef,    'old,new,[-global]',      '创建宏定义副本');
+  Self.add_func('castdef',   @_castdef,   'name,type,[-global]',    '修改宏定义的类型');
+  Self.add_func('deldef',    @_deldef,    'name,[-global]',         '删除宏定义');
   Self.add_func('ifdef',     @_ifdef_or_ifndef,     'name',         '如果有定义则跳转');
   Self.add_func('ifndef',    @_ifdef_or_ifndef,     'name',         '如果没有定义则跳转');
   Self.add_func('var',       @_var,       'type,name,size',         '创建一个ARV变量');
@@ -6447,6 +6416,7 @@ end;
 procedure TAufScript.AdditionFuncDefine_File;
 begin
   Self.add_func('file.exist?', @file_exist,  'addr,filename,mode',   '如果存在文件filename则跳转至addr，mode="[N][C]"');
+  Self.add_func('file.size',   @file_size,   'var,filename',         '返回文件filename的大小');
   Self.add_func('file.read',   @file_read,   'var,filename',         '读取文件并保存至var');
   Self.add_func('file.write',  @file_write,  'var,filename',         '将var保存至文件');
   Self.add_func('file.list',   @file_list,   'array,path,filter',    '遍历路径中的每一个文件(filter为过滤器)，文件名赋值给数组@array', TAufArray);
@@ -6544,6 +6514,19 @@ procedure TAufScript.AdditionFuncDefine_SVO;
 begin
   Self.add_func('svo',@svo_load,'svo_script','运行svo指令');
 end;
+
+
+{ EAufScriptRuntimerError }
+
+constructor EAufScriptRuntimerError.Create(Sender:TAufScript; const msg: string);
+begin
+  //if Sender.PSW.run_parameter.error_raise then Sender.Stop;
+  Sender.send_error(msg);
+  Application.ProcessMessages;
+  Sender.Stop;
+  inherited Create(msg);
+end;
+
 
 //////Class Methods end
 
