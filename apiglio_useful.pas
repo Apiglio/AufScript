@@ -57,7 +57,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.8.0.1';
+  AufScript_Version='beta 2.8.0.2';
   {$if defined(cpu32)}
   AufScript_CPU='32bits';
   {$elseif defined(cpu64)}
@@ -227,6 +227,7 @@ type
   pFuncVarStr= procedure(var str:string);
   pFuncAuf   = procedure(Sender:TObject);
   pFuncAufStr= procedure(Sender:TObject;str:string);
+  pFuncOper  = function(Sender:TObject;var is_error:boolean):boolean;
   PAufScript = ^TAufScript;
 
   TAufScript = class
@@ -377,6 +378,8 @@ type
         OnPause,OnResume:pFuncAuf;         //暂停和继续时的额外过程
         OnRaise:pFuncAuf;                  //在error_raise=true时报错退出前执行
         Setting:pFuncAuf;                  //用于set语句的继承，set的定义分别在frame和command中
+        OperatorCompare:TStringList{of pFuncComp}; //用于if语句中第2参数的自定义对比
+        OperatorArray:array of string;     //用于配合TryArgToStrParam
       end;
 
       FSVOKernel:TAufKernel;
@@ -418,6 +421,8 @@ type
 
 
     published
+      procedure add_operator(operator_name:string; func_ptr:pFuncOper);
+      function run_operator(operator_name:string;var is_error:boolean):boolean;
       procedure add_func(func_name:ansistring;func_ptr:pFuncAuf;func_param,helper:string;arv_type:TClass=nil);
       procedure run_func(func_name:ansistring);
       function have_func(func_name:ansistring):boolean;
@@ -442,6 +447,7 @@ type
       procedure arv_ram_import(arv:TAufRamVar;filename:string);//从文件中读取arv变量的内存
       procedure func_helper(func_name:string);
       procedure helper;
+      procedure operators_helper;
       procedure define_helper;
 
       procedure EnableTaskMessage;
@@ -826,6 +832,14 @@ begin
   AAuf:=AufScpt.Auf as TAuf;
   if AAuf.ArgsCount=1 then AufScpt.helper
   else AufScpt.func_helper(AAuf.args[1]);
+end;
+procedure _operator_helper(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  AufScpt.operators_helper;
 end;
 procedure _define_helper(Sender:TObject);
 var AufScpt:TAufScript;
@@ -1732,100 +1746,15 @@ var AufScpt:TAufScript;
     pidx, plen, pofs:integer;
     if_level:integer;
 
-    function compare_in:boolean;
-    var s1,s2:string;
-    begin
-      result:=false;
-      if not AAuf.TryArgToString(1,s1) then exit;
-      if not AAuf.TryArgToString(3,s2) then exit;
-      result:=pos(s1,s2)>0;
-    end;
-    function compare_reg:boolean;
-    var s1,s2:string;
-    begin
-      result:=false;
-      if not AAuf.TryArgToString(1,s1) then exit;
-      if not AAuf.TryArgToString(3,s2) then exit;
-      RegCalc.Expression:=s1;
-      try
-        result:=RegCalc.Exec(s2);
-      except
-        result:=false;
-      end;
-    end;
-    function compare_numeric:smallint;
-    var t1,t2,tc:TAufRamVarType;
-        a1,a2:TAufRamVar;
-        diff:double;
-    begin
-      t1:=AAuf.TellArgType(1);
-      t2:=AAuf.TellArgType(3);
-      if t1=t2 then begin
-        if t1<>ARV_Raw then begin
-          tc:=t1;
-          is_error:=is_error or not AAuf.TryArgToARV(1,1,High(dword),[tc],a1);
-          is_error:=is_error or not AAuf.TryArgToARV(3,1,High(dword),[tc],a2);
-        end else begin
-          is_error:=true;
-          AufScpt.send_error('不支持两个立即数比较大小。');
-          exit;
-        end;
-      end else begin
-        if t1=ARV_Raw then begin
-          tc:=t2;
-          newARV(a1,8);
-          is_error:=is_error or not AAuf.TryArgToDirectData(1, tc, a1);
-          is_error:=is_error or not AAuf.TryArgToARV(3,1,High(dword),[tc],a2);
-        end else if t2=ARV_Raw then begin
-          tc:=t1;
-          newARV(a2,8);
-          is_error:=is_error or not AAuf.TryArgToARV(1,1,High(dword),[tc],a1);
-          is_error:=is_error or not AAuf.TryArgToDirectData(3, tc, a2);
-        end else begin
-          is_error:=true;
-          AufScpt.send_error('类型不同无法比较。');
-        end;
-      end;
-      result:=0;
-
-      if is_error then exit;
-      case tc of
-        ARV_FixNum:begin
-          result:=fixnum_comp(a1,a2);
-        end;
-        ARV_Float: begin
-          //result:=ARV_floating_comp(a1,a2);
-          diff:=arv_to_double(a1)-arv_to_double(a2);
-          if diff=0 then result:=0 else if diff>0 then result:=1 else result:=-1;
-        end;
-        ARV_Char:  begin
-          result:=ARV_string_comp(a1,a2);
-        end;
-      end;
-      if t1<>tc then freeARV(a1);
-      if t2<>tc then freeARV(a2);
-
-    end;
-
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(5) then exit;
-  if not AAuf.TryArgToStrParam(2, ['==','eq','eql','<>','!=','≠','ne','neq','>','gt','<','lt','>=','≥','ge','<=','≤','le','in','~=','reg'], false, sign) then exit;
+  if not AAuf.TryArgToStrParam(2, AufScpt.Func_process.OperatorArray, false, sign) then exit;
   is_error:=false;
-  case sign of
-    '==','eq','eql':          condition_result:=compare_numeric()=0;
-    '<>','!=','≠','ne','neq': condition_result:=compare_numeric()<>0;
-    '>','gt':                 condition_result:=compare_numeric()>0;
-    '<','lt':                 condition_result:=compare_numeric()<0;
-    '>=','≥','ge':            condition_result:=compare_numeric()>=0;
-    '<=','≤','le':            condition_result:=compare_numeric()<=0;
-    'in':                     condition_result:=compare_in();
-    '~=','reg':               condition_result:=compare_reg();
-    else assert(false,'不应该出现这个分支');
-  end;
-  if is_error then exit;
+  condition_result:=AufScpt.run_operator(sign, is_error);
 
+  if is_error then exit;
   if condition_result then begin
     //判断结果为真，直接将参数前移，直到遇到与if不成对的else
     plen:=AAuf.ArgsCount;
@@ -3074,33 +3003,6 @@ begin
     end;
 end;
 
-procedure file_exist(Sender:TObject);
-var AufScpt:TAufScript;
-    AAuf:TAuf;
-    filename,jm_str:string;
-    addr:pRam;
-    jmode:TJumpModeSet;
-begin
-  AufScpt:=Sender as TAufScript;
-  AAuf:=AufScpt.Auf as TAuf;
-  if not AAuf.CheckArgs(3) then exit;
-  if not AAuf.TryArgToAddr(1,addr) then exit;
-  if not AAuf.TryArgToString(2,filename) then exit;
-  jmode:=[];
-  if AAuf.ArgsCount>3 then begin
-    if not AAuf.TryArgToString(3,jm_str) then exit;
-    jm_str:=lowercase(jm_str);
-    if pos('c',jm_str)>=0 then jmode:=jmode+[jmCall];
-    if pos('n',jm_str)>=0 then jmode:=jmode+[jmNot];
-  end;
-  if FileExists(filename) xor (jmNot in jmode) then
-    begin
-      if jmCall in jmode then AufScpt.push_addr(addr)
-      else AufScpt.jump_addr(addr);
-    end;
-
-end;
-
 procedure file_size(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
@@ -4045,6 +3947,142 @@ begin
       img:=img_rest;
     end;
   until img_out=nil;
+end;
+
+
+function operator_compare_numeric(Sender:TObject;var is_error:boolean):smallint;
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    t1,t2,tc:TAufRamVarType;
+    a1,a2:TAufRamVar;
+    diff:double;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  t1:=AAuf.TellArgType(1);
+  t2:=AAuf.TellArgType(3);
+  if t1=t2 then begin
+    if t1<>ARV_Raw then begin
+      tc:=t1;
+      is_error:=is_error or not AAuf.TryArgToARV(1,1,High(dword),[tc],a1);
+      is_error:=is_error or not AAuf.TryArgToARV(3,1,High(dword),[tc],a2);
+    end else begin
+      is_error:=true;
+      AufScpt.send_error('不支持两个立即数比较大小。');
+      exit;
+    end;
+  end else begin
+    if t1=ARV_Raw then begin
+      tc:=t2;
+      newARV(a1,8);
+      is_error:=is_error or not AAuf.TryArgToDirectData(1, tc, a1);
+      is_error:=is_error or not AAuf.TryArgToARV(3,1,High(dword),[tc],a2);
+    end else if t2=ARV_Raw then begin
+      tc:=t1;
+      newARV(a2,8);
+      is_error:=is_error or not AAuf.TryArgToARV(1,1,High(dword),[tc],a1);
+      is_error:=is_error or not AAuf.TryArgToDirectData(3, tc, a2);
+    end else begin
+      is_error:=true;
+      AufScpt.send_error('类型不同无法比较。');
+    end;
+  end;
+  result:=0;
+
+  if is_error then exit;
+  case tc of
+    ARV_FixNum:begin
+      result:=fixnum_comp(a1,a2);
+    end;
+    ARV_Float: begin
+      //result:=ARV_floating_comp(a1,a2);
+      diff:=arv_to_double(a1)-arv_to_double(a2);
+      if diff=0 then result:=0 else if diff>0 then result:=1 else result:=-1;
+    end;
+    ARV_Char:  begin
+      result:=ARV_string_comp(a1,a2);
+    end;
+  end;
+  if t1<>tc then freeARV(a1);
+  if t2<>tc then freeARV(a2);
+
+end;
+
+function operator_equal(Sender:TObject;var is_error:boolean):boolean;
+begin
+  result:=operator_compare_numeric(Sender,is_error)=0;
+end;
+
+function operator_not_equal(Sender:TObject;var is_error:boolean):boolean;
+begin
+  result:=operator_compare_numeric(Sender,is_error)<>0;
+end;
+
+function operator_greater(Sender:TObject;var is_error:boolean):boolean;
+begin
+  result:=operator_compare_numeric(Sender,is_error)>0;
+end;
+
+function operator_less(Sender:TObject;var is_error:boolean):boolean;
+begin
+  result:=operator_compare_numeric(Sender,is_error)<0;
+end;
+
+function operator_greater_or_equal(Sender:TObject;var is_error:boolean):boolean;
+begin
+  result:=operator_compare_numeric(Sender,is_error)>=0;
+end;
+
+function operator_less_or_equal(Sender:TObject;var is_error:boolean):boolean;
+begin
+  result:=operator_compare_numeric(Sender,is_error)<=0;
+end;
+
+function operator_in(Sender:TObject;var is_error:boolean):boolean;
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    s1,s2:string;
+begin
+  result:=false;
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.TryArgToString(1,s1) then exit;
+  if not AAuf.TryArgToString(3,s2) then exit;
+  result:=pos(s1,s2)>0;
+end;
+
+function operator_reg(Sender:TObject;var is_error:boolean):boolean;
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    s1,s2:string;
+begin
+  result:=false;
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.TryArgToString(1,s1) then exit;
+  if not AAuf.TryArgToString(3,s2) then exit;
+  RegCalc.Expression:=s1;
+  try
+    result:=RegCalc.Exec(s2);
+  except
+    result:=false;
+  end;
+end;
+
+function operator_file(Sender:TObject;var is_error:boolean):boolean;
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    filename, mode:string;
+begin
+  result:=false;
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(4) then exit;
+  if not AAuf.TryArgToString(1, filename) then exit;
+  if not AAuf.TryArgToStrParam(3, ['exists'], false, mode) then exit;
+  case mode of
+    'exists':result:=FileExists(filename);
+  end;
 end;
 
 procedure svo_load(Sender:TObject); //svo_load script
@@ -5226,6 +5264,36 @@ begin
   fs.Free;
 end;
 
+procedure TAufScript.add_operator(operator_name:string; func_ptr:pFuncOper);
+var index, len:integer;
+begin
+  with Self.Func_process.OperatorCompare do begin
+    if Find(operator_name, index) then send_error('错误：已有运算符"'+operator_name+'"，不能覆盖定义！')
+    else begin
+      AddObject(operator_name, TObject(func_ptr));
+      len:=Length(Func_process.OperatorArray);
+      SetLength(Func_process.OperatorArray,len+1);
+      Func_process.OperatorArray[len]:=operator_name;
+    end;
+  end;
+end;
+
+function TAufScript.run_operator(operator_name:string;var is_error:boolean):boolean;
+var index:integer;
+    pfunc:pFuncOper;
+begin
+  with Self.Func_process.OperatorCompare do begin
+    if Find(operator_name, index) then begin
+      pfunc:=pFuncOper(Objects[index]);
+      result:=pfunc(Self, is_error);
+    end else begin
+      send_error('错误：无效运算符"'+operator_name+'"，对比结果默认返回false！');
+      is_error:=true;
+      result:=false;
+    end;
+  end;
+end;
+
 procedure TAufScript.add_func(func_name:ansistring;func_ptr:pFuncAuf;func_param,helper:string;arv_type:TClass=nil);
 var i:word;
 begin
@@ -5314,6 +5382,16 @@ begin
     //until tmo<=0;
     res:=res+line_break+Usf.left_adjust(tmp+' '+Self.func[i].parameter,16)+' '+Usf.left_adjust(Self.func[i].helper,16);
   end;
+  Self.writeln(res);
+end;
+procedure TAufScript.operators_helper;
+const line_break = {$ifdef WINDOWS}#13#10{$else}#10{$endif};
+var tmp,res:string;
+begin
+  Self.writeln('运算符列表:');
+  res:='';
+  for tmp in Func_process.OperatorCompare do
+    res:=res+line_break+Usf.left_adjust(tmp,8)+' '+Usf.left_adjust('',16);
   Self.writeln(res);
 end;
 procedure TAufScript.define_helper;
@@ -6250,6 +6328,8 @@ begin
   Func_process.OnResume  := nil;             //默认的恢复过程
   Func_process.OnRaise   := nil;             //默认的报错退出过程
   Func_process.Setting   := nil;             //默认的set语句
+  Func_process.OperatorCompare := TStringList.Create;
+  Func_process.OperatorCompare.Sorted := true;
 
 
   var_stream:=TMemoryStream.Create;
@@ -6278,6 +6358,7 @@ end;
 
 destructor TAufScript.Destroy;
 begin
+  Func_process.OperatorCompare.Free;
   var_stream.Free;
   var_occupied.Free;
   Expression.Local.Free;
@@ -6290,6 +6371,7 @@ procedure TAufScript.InternalFuncDefine;
 begin
   Self.add_func('version',   @_version,   '',               '显示解释器版本号');
   Self.add_func('help',      @_helper,    '',               '显示帮助');
+  Self.add_func('operators', @_operator_helper,     '',     '显示运算符');
   Self.add_func('deflist',   @_define_helper,       '',     '显示定义列表');
   Self.add_func('ramex',     @ramex,      '-option/arv,filename',     '将内存导出到ram.var');
   Self.add_func('ramim',     @ramim,      'filename [,var [,-f]]',    '从文件中载入数据到内存');
@@ -6378,6 +6460,33 @@ begin
   AdditionFuncDefine_AufBase;
   AdditionFuncDefine_Image;
   AdditionFuncDefine_SVO;
+
+  //整个InternalFuncDefine不应该在create以外自行调用，运算符创建也不应该在这里
+  Self.add_operator('==',    @operator_equal);
+  Self.add_operator('eq',    @operator_equal);
+  Self.add_operator('eql',   @operator_equal);
+  Self.add_operator('<>',    @operator_not_equal);
+  Self.add_operator('!=',    @operator_not_equal);
+  Self.add_operator('≠',     @operator_not_equal);
+  Self.add_operator('ne',    @operator_not_equal);
+  Self.add_operator('neq',   @operator_not_equal);
+  Self.add_operator('>',     @operator_greater);
+  Self.add_operator('gt',    @operator_greater);
+  Self.add_operator('<',     @operator_less);
+  Self.add_operator('lt',    @operator_less);
+  Self.add_operator('>=',    @operator_greater_or_equal);
+  Self.add_operator('≥',     @operator_greater_or_equal);
+  Self.add_operator('ge',    @operator_greater_or_equal);
+  Self.add_operator('<=',    @operator_less_or_equal);
+  Self.add_operator('≤',     @operator_less_or_equal);
+  Self.add_operator('le',    @operator_less_or_equal);
+
+  Self.add_operator('in',    @operator_in);
+  Self.add_operator('reg',   @operator_reg);
+  Self.add_operator('~=',    @operator_reg);
+  Self.add_operator('file',  @operator_file);
+
+
 end;
 
 procedure TAufScript.AdditionFuncDefine_Task;
@@ -6415,7 +6524,6 @@ begin
 end;
 procedure TAufScript.AdditionFuncDefine_File;
 begin
-  Self.add_func('file.exist?', @file_exist,  'addr,filename,mode',   '如果存在文件filename则跳转至addr，mode="[N][C]"');
   Self.add_func('file.size',   @file_size,   'var,filename',         '返回文件filename的大小');
   Self.add_func('file.read',   @file_read,   'var,filename',         '读取文件并保存至var');
   Self.add_func('file.write',  @file_write,  'var,filename',         '将var保存至文件');

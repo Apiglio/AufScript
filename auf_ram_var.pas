@@ -2237,7 +2237,8 @@ var idx:dword;
 begin
   result:='';
   if assignedARV(ina) then begin
-    for idx:=ina.size-1 downto 0 do begin
+    //for idx:=ina.size-1 downto 0 do begin
+    for idx:=0 to ina.size-1 do begin
       result:=result+IntToHex((ina.Head+idx)^,2);
     end;
   end else
