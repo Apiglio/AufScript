@@ -1177,7 +1177,7 @@ begin
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(2) then exit;
   if not AAuf.TryArgToARV(1,High(dword),0,[ARV_FixNum,ARV_Char,ARV_Float,ARV_Raw],tmp) then exit;
-  for pi:=0 to (tmp.size div 2) do
+  for pi:=0 to (tmp.size div 2-1) do
     begin
       pa:=tmp.Head+pi;
       pb:=tmp.Head+tmp.size-pi-1;
