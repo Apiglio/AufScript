@@ -2647,8 +2647,8 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
-  if not AAuf.TryArgToString(1, stmp) then exit;
-  if not AAuf.TryArgToARV(2, 0, High(dword), ARV_AllType, arv) then exit;
+  if not AAuf.TryArgToARV(1, 0, High(dword), ARV_AllType, arv) then exit;
+  if not AAuf.TryArgToString(2, stmp) then exit;
   uuid:=StringToGUID(stmp);
   send_to:=GlobalMultiTaskList.FindTask(uuid);
   {$ifdef MsgTimerMode}
@@ -6522,13 +6522,13 @@ end;
 
 procedure TAufScript.AdditionFuncDefine_Task;
 begin
-  Self.add_func('task.enable',    @task_enable,        '@var',          '开始多任务协同，并将当前TaskID返回给var');
-  Self.add_func('task.disable',   @task_disable,       '',              '结束多任务协同，并将当前TaskID置空');
+  Self.add_func('task.enable',    @task_enable,        '[@var]',        '开始多任务协同，并将当前TaskID返回给var');
+  Self.add_func('task.disable',   @task_disable,       '',              '结束多任务协同');
   Self.add_func('task.list',      @task_list,          '',              '调试查看多任务协同消息队列');
-  Self.add_func('task.send',      @task_send,          'taskId, @var',  '向其他任务发送协同消息');
-  Self.add_func('task.read',      @task_read,          'taskId, @var',  '直接读取跨任务协同消息');
-  Self.add_func('task.broadcast', @task_broadcast,     '@var',          '向其他任务发送协同消息');
-  Self.add_func('task.wait,wjmc', @task_wait,          'taskId, @var, :addr',   '等待读取一个跨任务协同消息后压栈跳转');
+  Self.add_func('task.send',      @task_send,          '@var, taskId',          '向其他任务发送协同消息');
+  Self.add_func('task.read',      @task_read,          '@var[, taskId]',        '直接读取跨任务协同消息');
+  Self.add_func('task.broadcast', @task_broadcast,     '@var',                  '向所有任务广播协同消息');
+  Self.add_func('task.wait,wjmc', @task_wait,          ':addr[, dura[, intv]]', '在dura毫秒时间内每intv毫秒检查是否有跨任务协同消息，有则压栈跳转');
 
 end;
 procedure TAufScript.AdditionFuncDefine_Text;
