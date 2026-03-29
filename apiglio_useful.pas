@@ -201,6 +201,7 @@ type
   TAufTaskMessageQueue = class
   private
     FUUID:TMsgUuid;
+    FUUID_Stored:TMsgUuid;
     FQueue:array[0..task_range-1] of TMsgItem;
     FFirst:Integer;
     FCount:Integer;
@@ -213,6 +214,7 @@ type
     constructor Create;
     destructor Destroy; override;
     property UUID:TMsgUuid read FUUID;
+    property UUID_Stored:TMsgUuid read FUUID_Stored; //在重新启用时不创建新的ID
     property Count:Integer read FCount;
     property First:Integer read FFirst;
     property Items[Index:Integer]:TMsgItem read GetQueueItem;
@@ -2594,10 +2596,16 @@ var AufScpt:TAufScript;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
-  if not AAuf.CheckArgs(2) then exit;
-  if not AAuf.TryArgToARV(1,38,38,[ARV_Char],tmp) then exit;
-  AufScpt.EnableTaskMessage;
-  initiate_arv_str(GUIDToString(AufScpt.PSW.message.UUID), tmp);
+  if not AAuf.CheckArgs(1) then exit;
+  if AAuf.ArgsCount>1 then begin
+    if not AAuf.TryArgToARV(1,38,High(DWord),[ARV_Char],tmp) then exit;
+    AufScpt.EnableTaskMessage;
+    initiate_arv_str(GUIDToString(AufScpt.PSW.message.UUID), tmp);
+  end else begin
+    AufScpt.EnableTaskMessage;
+    //AufScpt.writeln('跨任务启用 ID='+GUIDToString(AufScpt.PSW.message.UUID));
+    //如果有这个提示，选择只在调用函数是启用跨任务消息就会每次调用函数都打印一行，不太好
+  end;
 end;
 
 procedure task_disable(Sender:TObject);
@@ -2664,7 +2672,7 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
-  if not AAuf.TryArgToARV(1, 38, 38, [ARV_Char], arv_uuid) then exit;
+  if not AAuf.TryArgToARV(1, 38, High(DWord), [ARV_Char], arv_uuid) then exit;
   if not AAuf.TryArgToARV(2, 0, High(dword), ARV_AllType, arv_data) then exit;
   aufs_from:=nil;
   AufScpt.ReadTaskMessage(aufs_from, arv_data, msg_code);
@@ -5617,10 +5625,18 @@ begin
               'a'..'z','A'..'Z','_':
               begin
                 case at_expr of
+                  //静态替换的魔法
                   'ram_zero':AAuf.nargs[i]:=narg('',IntToStr(pRam(Self.PSW.run_parameter.ram_zero)),'');
                   'ram_size':AAuf.nargs[i]:=narg('',IntToStr(Self.PSW.run_parameter.ram_size),'');
                   'ram_all':AAuf.nargs[i]:=narg('$"',pRamToRawStr(0)+'|'+pRamToRawStr(pRam(Self.PSW.run_parameter.ram_size)),'"');
                   'error_raise':AAuf.nargs[i]:=narg('',BoolToStr(Self.PSW.run_parameter.error_raise),'');
+                  'self_id':begin
+                    if IsEqualGUID(PSW.message.FUUID_Stored, GUID_NULL) then begin
+                      EnableTaskMessage;
+                      DisableTaskMessage; //取号但是保持消息关闭
+                    end;
+                    AAuf.nargs[i]:=narg('"',GUIDToString(PSW.message.UUID_Stored),'"');
+                  end
                   else begin
                     if pos('line[',at_expr) = 1 then begin
                       at_num:=at_expr;
@@ -5943,6 +5959,8 @@ begin
   IF Self.Time.Synthesis_Mode=SynMoTimer THEN BEGIN
     Self.Time.TimerPause:=false;
     Self.Time.Timer.Enabled:=false;
+    Self.Time.MultiTaskTimerPause:=false;
+    Self.Time.MultiTaskTimer.Enabled:=false;
   END;
   {$endif}
   if (not PSW.print_mode.is_screen) and (PSW.print_mode.resume_when_run_close) then EndOF;
@@ -6101,9 +6119,14 @@ var new_guid:TGUID;
 begin
   result:=false;
   if not IsEqualGUID(AufScpt.PSW.message.UUID, GUID_NULL) then exit;
-  if CreateGUID(new_guid) <> 0 then exit; //如果UUID没有创建成功，就不会加入TaskList
+  if IsEqualGUID(AufScpt.PSW.message.UUID_Stored, GUID_NULL) then begin
+    if CreateGUID(new_guid) <> 0 then exit; //如果UUID没有创建成功，就不会加入TaskList
+  end else begin
+    new_guid:=AufScpt.PSW.message.UUID_Stored;
+  end;
   AddObject(GUIDToString(new_guid), AufScpt);
   AufScpt.PSW.message.FUUID:=new_guid;
+  AufScpt.PSW.message.FUUID_Stored:=new_guid;
   result:=true;
 end;
 
@@ -6158,14 +6181,16 @@ begin
 end;
 
 function TAufTaskMessageQueue.Pop:TMsgItem;
+var vLast:Integer;
 begin
   result.From:=nil;
   if FCount<=0 then exit;
-  copyARV(FQueue[FFirst].Data, result.Data);
-  freeARV(FQueue[FFirst].Data);
-  result.Code:=FQueue[FFirst].Code;
-  result.From:=FQueue[FFirst].From;
-  FFirst:=(FFirst+task_range-1) mod task_range;
+  vLast:=FFirst-FCount+1;
+  if vLast<0 then vLast:=vLast+task_range;
+  copyARV(FQueue[vLast].Data, result.Data);
+  freeARV(FQueue[vLast].Data);
+  result.Code:=FQueue[vLast].Code;
+  result.From:=FQueue[vLast].From;
   dec(FCount);
 end;
 
