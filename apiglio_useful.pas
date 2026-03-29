@@ -345,10 +345,10 @@ type
           timer:longint;            //用于Time模块的settimer和gettimer
         end;
         message:TAufTaskMessageQueue;      //用于跨线程信息处理
-        message_stored:record
-          uuid:TAufRamVar;
-          data:TAufRamVar;
-        end;                               //用于task.wait/wmjc的返回值记录
+        message_info:record
+          addr:pRam;
+          timeout:TDateTime;
+        end;                               //用于task.wait/wmjc的跳转设置
         print_mode:record
           target_file:string;
           is_screen:boolean;
@@ -2671,14 +2671,18 @@ var AufScpt:TAufScript;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
-  if not AAuf.CheckArgs(3) then exit;
-  if not AAuf.TryArgToARV(1, 38, High(DWord), [ARV_Char], arv_uuid) then exit;
-  if not AAuf.TryArgToARV(2, 0, High(dword), ARV_AllType, arv_data) then exit;
+  if not AAuf.CheckArgs(2) then exit;
+  if not AAuf.TryArgToARV(1, 0, High(dword), ARV_AllType, arv_data) then exit;
+  if AAuf.ArgsCount>2 then begin
+    if not AAuf.TryArgToARV(2, 38, High(DWord), [ARV_Char], arv_uuid) then exit;
+  end else begin
+    arv_uuid.size:=0;
+  end;
   aufs_from:=nil;
   AufScpt.ReadTaskMessage(aufs_from, arv_data, msg_code);
   if aufs_from<>nil then begin
     str_uuid:=GUIDToString(aufs_from.PSW.message.UUID);
-    initiate_arv_str(str_uuid, arv_uuid);
+    if arv_uuid.size>0 then initiate_arv_str(str_uuid, arv_uuid);
   end else {AufScpt.send_error('协同消息队列中无条目。')};
 end;
 
@@ -2707,7 +2711,7 @@ end;
 procedure task_wait(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
-    arv_uuid, arv_data:TAufRamVar;
+    duration,interval:integer;
     addr:pRam;
     {$ifdef MsgTimerMode}{$else}
     message_received:boolean;
@@ -2715,19 +2719,31 @@ var AufScpt:TAufScript;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
-  if not AAuf.CheckArgs(4) then exit;
-  if not AAuf.TryArgToARV(1, 38, 38, [ARV_Char], arv_uuid) then exit;
-  if not AAuf.TryArgToARV(2, 0, High(dword), ARV_AllType, arv_data) then exit;
-  if not AAuf.TryArgToAddr(3, addr) then exit;
+  if not AAuf.CheckArgs(2) then exit;
+  if not AAuf.TryArgToAddr(1, addr) then exit;
+  if AAuf.ArgsCount>2 then begin
+    if not AAuf.TryArgToLong(2, duration) then exit;
+    if AAuf.ArgsCount>3 then begin
+      if not AAuf.TryArgToLong(3, interval) then exit;
+    end else interval:=50;
+  end else begin
+    interval:=50;
+    duration:=-1;
+  end;
+  if duration>=0 then begin
+    if interval>=(duration div 5) then interval:=duration div 5;
+    if interval<0 then interval:=duration div 5;
+  end;
   //需要处理预设消息，并且SendMultiTaskMessage需要避免阻塞。
   IF AufScpt.Time.Synthesis_Mode=SynMoTimer THEN BEGIN
     {$ifdef MsgTimerMode}
-    AufScpt.Time.MultiTaskTimer.Interval:=50; //暂时将跨任务协同监听间隔定为50ms
+    AufScpt.Time.MultiTaskTimer.Interval:=interval;
     AufScpt.Time.MultiTaskTimer.Enabled:=true;
     AufScpt.Time.MultiTaskTimerPause:=true;
-    AufScpt.PSW.message_stored.data:=arv_data;
-    AufScpt.PSW.message_stored.uuid:=arv_uuid;
-    AufScpt.push_addr(addr);
+    AufScpt.PSW.message_info.addr:=addr;
+    if duration<0 then AufScpt.PSW.message_info.timeout:=Now+1000
+    else AufScpt.PSW.message_info.timeout:=Now+duration/86400000;
+    //AufScpt.push_addr(addr);
     {$else}
     //多线程模式还未测试
     message_received:=false;
@@ -2736,14 +2752,10 @@ begin
         message_received:=true;
         break;
       end;
+      sleep(interval);
+      if Now>AufScpt.PSW.message_info.timeout then break;
     end;
-    if message_received then begin
-      AufScpt.PSW.message_stored.data:=arv_data;
-      AufScpt.PSW.message_stored.uuid:=arv_uuid;
-    end else begin
-      //AufScpt.offs_addr(0);
-      //没有接收到消息时通过手动的方法恢复运行时，直接执行下一行
-    end;
+    if message_received then AufScpt.push_addr(AufScpt.PSW.message_info.addr);
     {$endif}
   END ELSE BEGIN
     AufScpt.send_error('SynMoDelay时间模式不支持跨任务协同。');
@@ -5516,14 +5528,6 @@ begin
   Self.PSW.pause:=false;
   Self.PSW.inRunNext:=false;;
   Self.PSW.calc.YC:=false;
-  with Self.PSW.message_stored do begin
-    uuid.Head:=pbyte(0);
-    uuid.size:=0;
-    uuid.VarType:=ARV_Raw;
-    data.Head:=pbyte(0);
-    data.size:=0;
-    data.VarType:=ARV_Raw;
-  end;
 
 end;
 
@@ -6246,9 +6250,11 @@ begin
   auf:=(Sender as TAufMultiTaskTimer).AufScript as TAufScript;
   msgQueue:=auf.PSW.message;
   if msgQueue.Count>0 then begin
-    tmpMsg.Data:=auf.PSW.message_stored.data;
-    tmpMsg:=msgQueue.Pop;
-    initiate_arv_str(GUIDToString(tmpMsg.From.PSW.message.UUID),auf.PSW.message_stored.uuid);
+    auf.Time.MultiTaskTimerPause:=false;
+    Self.Enabled:=false;
+    auf.push_addr(auf.PSW.message_info.addr);
+    auf.send(AufProcessControl_RunNext);
+  end else if Now>=auf.PSW.message_info.timeout then begin
     auf.Time.MultiTaskTimerPause:=false;
     Self.Enabled:=false;
     auf.send(AufProcessControl_RunNext);
