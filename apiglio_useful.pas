@@ -4400,6 +4400,10 @@ begin
   try
     case Self.nargs[ArgNumber].pre of
       '&"':res:=RawStrToPRam(Self.nargs[ArgNumber].arg);
+      ':':begin
+        Script.send_error('警告：第'+IntToStr(ArgNumber)+'个参数的标签'+nargs[ArgNumber].arg+'未找到，代码未执行。');
+        exit
+      end;
       else res:=Self.Script.TryToDword(Self.nargs[ArgNumber])+Self.Script.PSW.run_parameter.current_line_number;
     end;
   except
@@ -5103,8 +5107,8 @@ begin
   AAuf:=Self.Auf as TAuf;
   DefineNameDecode(arg);
   case arg.pre of
-    '~&"','~"','#&"','#"','$"','$&"':begin result:=arv_to_double(Self.RamVar(arg));exit end;
-    '"':raise Exception.Create('TryToDouble不能转换字符串立即数');
+    '~"','#"','$"':begin result:=arv_to_double(Self.RamVar(arg));exit end;
+    '"':raise EAufScriptSyntaxError.Create('TryToDouble不能转换字符串立即数');
     else begin result:=SharpToDouble(arg);exit end;
   end;
 end;
@@ -5114,8 +5118,8 @@ begin
   AAuf:=Self.Auf as TAuf;
   DefineNameDecode(arg);
   case arg.pre of
-    '~&"','~"','#&"','#"','$"','$&"':begin result:=arv_to_dword(Self.RamVar(arg));exit end;
-    '"':raise Exception.Create('TryToDWord不能转换字符串立即数');
+    '~"','#"','$"':begin result:=arv_to_dword(Self.RamVar(arg));exit end;
+    '"':raise EAufScriptSyntaxError.Create('TryToDWord不能转换字符串立即数');
     else begin result:=SharpToDword(arg);exit end;
   end;
 end;
@@ -5125,8 +5129,8 @@ begin
   AAuf:=Self.Auf as TAuf;
   DefineNameDecode(arg);
   case arg.pre of
-    '~&"','~"','#&"','#"','$"','$&"':begin result:=longint(arv_to_dword(Self.RamVar(arg)));exit end;
-    '"':raise Exception.Create('TryToLong不能转换字符串立即数');
+    '~"','#"','$"':begin result:=longint(arv_to_dword(Self.RamVar(arg)));exit end;
+    '"':raise EAufScriptSyntaxError.Create('TryToLong不能转换字符串立即数');
     else begin result:=SharpToLong(arg);exit end;
   end;
 end;
@@ -5136,7 +5140,7 @@ begin
   AAuf:=Self.Auf as TAuf;
   DefineNameDecode(arg);
   case arg.pre of
-    '~&"','~"','#&"','#"','$"','$&"':begin result:=arv_to_s(Self.RamVar(arg));exit end;
+    '~"','#"','$"':begin result:=arv_to_s(Self.RamVar(arg));exit end;
     '"':begin result:=arg.arg;exit end;
     else begin result:=SharpToString(arg);exit end;
   end;
@@ -5499,7 +5503,7 @@ begin
           begin
             //:loo :a :aaa
             line:=0;
-            while line < Self.PSW.run_parameter.current_strings.Count-1 do
+            while line < Self.PSW.run_parameter.current_strings.Count do
               begin
                 if non_space(Self.PSW.run_parameter.current_strings.Strings[line]) = AAuf.nargs[i].arg+':' then break;
                 inc(line);
@@ -5509,13 +5513,6 @@ begin
                 AAuf.nargs[i].pre:='&"';
                 AAuf.nargs[i].post:='"';
                 AAuf.nargs[i].arg:=pRamToRawStr(line);
-              end
-            else
-              begin
-                //这个没用到过感觉，因为?要作为函数名，这个部分需要去除
-                AAuf.nargs[i].pre:='?"';
-                AAuf.nargs[i].post:='"';
-                AAuf.nargs[i].arg:='~Error';
               end;
           end;
         '~','$','#':
