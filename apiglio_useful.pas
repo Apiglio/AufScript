@@ -5505,7 +5505,7 @@ begin
             line:=0;
             while line < Self.PSW.run_parameter.current_strings.Count do
               begin
-                if non_space(Self.PSW.run_parameter.current_strings.Strings[line]) = AAuf.nargs[i].arg+':' then break;
+                if lowercase(non_space(Self.PSW.run_parameter.current_strings.Strings[line])) = lowercase(AAuf.nargs[i].arg)+':' then break;
                 inc(line);
               end;
             if line <> Self.PSW.run_parameter.current_strings.Count then
@@ -5991,7 +5991,7 @@ end;
 constructor TAufExpressionUnit.Create(AKey:string;AValue:Tnargs;AReadOnly:boolean=false);
 begin
   inherited Create;
-  Self.key:=AKey;
+  Self.key:=lowercase(AKey);
   Self.value:=AValue;
   Self.readonly:=AReadOnly;
 end;
@@ -6004,33 +6004,38 @@ begin
   end;
 end;
 function TAufExpressionList.Find(AKey:string):TAufExpressionUnit;
-var tmp:TAufExpressionUnit;
-    i:integer;
+var lowkey:string;
+    idx:integer;
 begin
   if Self.Count = 0 then begin result:=nil;exit end;
-  i:=0;
-  while i<Self.Count do
+  lowkey:=lowercase(AKey);
+  idx:=0;
+  while idx<Self.Count do
     begin
-      if TAufExpressionUnit(Self.Items[i]).key=AKey then break;
-      inc(i);
+      if TAufExpressionUnit(Self.Items[idx]).key=AKey then break;
+      inc(idx);
     end;
-  if i<Self.Count then result:=TAufExpressionUnit(Self.Items[i])
+  if idx<Self.Count then result:=TAufExpressionUnit(Self.Items[idx])
   else result:=nil;
 end;
 function TAufExpressionList.Translate(AKey:string):Tnargs;
 var tmp:TAufExpressionUnit;
+    lowkey:string;
 begin
-  tmp:=Self.Find(AKey);
+  lowkey:=lowercase(AKey);
+  tmp:=Self.Find(lowkey);
   if tmp=nil then result:=narg('','~Error','')
   else result:=tmp.value;
 end;
 function TAufExpressionList.TryAddExp(AKey:string;AValue:Tnargs;readonly:boolean=false):boolean;
 var tmp:TAufExpressionUnit;
+    lowkey:string;
 begin
-  tmp:=Self.Find(AKey);
+  lowkey:=lowercase(AKey);
+  tmp:=Self.Find(lowkey);
   if tmp=nil then
     begin
-      tmp:=TAufExpressionUnit.Create(AKey,AValue,readonly);
+      tmp:=TAufExpressionUnit.Create(lowkey,AValue,readonly);
       Self.Add(tmp);
     end
   else
@@ -6041,22 +6046,27 @@ begin
 end;
 function TAufExpressionList.TryRenameExp(OldKey,NewKey:string):boolean;
 var tmp:TAufExpressionUnit;
+    oldLowKey, newLowKey:string;
 begin
   result:=false;
-  tmp:=Self.Find(OldKey);
+  oldLowKey:=lowercase(OldKey);
+  newLowKey:=lowercase(NewKey);
+  tmp:=Self.Find(oldLowKey);
   if tmp=nil then begin
     raise EAufScriptSyntaxError.Create('不能给不存在的表达式更名')
   end else begin
     if tmp.readonly then raise EAufScriptSyntaxError.Create('不能修改只读表达式')
-    else tmp.key:=NewKey;
+    else tmp.key:=newLowKey;
   end;
   result:=true;
 end;
 function TAufExpressionList.TryDeleteExp(Key:string):boolean;
 var tmp:TAufExpressionUnit;
+    lowkey:string;
 begin
   result:=false;
-  tmp:=Self.Find(Key);
+  lowkey:=lowercase(Key);
+  tmp:=Self.Find(lowkey);
   if tmp=nil then begin
     raise EAufScriptSyntaxError.Create('不存在指定表达式')
   end else begin
