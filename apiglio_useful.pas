@@ -57,7 +57,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.8.0.2';
+  AufScript_Version='beta 2.9.0.1';
   {$if defined(cpu32)}
   AufScript_CPU='32bits';
   {$elseif defined(cpu64)}
@@ -2155,6 +2155,7 @@ begin
     else exp.pre:='$"';
   end;
   if not AAuf.TryArgToDefName(2,var_name) then exit;
+  var_name:=lowercase(var_name);
   if AufScpt.Expression.Local.Find(var_name)<>nil then
     begin
       AufScpt.send_error('警告：变量已存在，该语句未执行。');
@@ -2196,6 +2197,7 @@ begin
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(2) then exit;
   if not AAuf.TryArgToDefName(1,var_name) then exit;
+  var_name:=lowercase(var_name);
   tmp:=AufScpt.Expression.Local.Find(var_name);
   if tmp=nil then begin
     AufScpt.send_error('警告：找不到'+var_name+'的定义，该语句未执行。');
@@ -5160,7 +5162,14 @@ end;
 procedure TAufScript.run_func(func_name:ansistring);
 var i:word;
     stmp:string;
+    pCode:pFuncAuf;
 begin
+  pCode:=pFuncAuf(PSW.run_parameter.current_strings.Objects[PSW.run_parameter.current_line_number]);
+  if pCode<>nil then begin
+    if pCode<>@nop then pCode(Self);
+    exit;
+  end;
+
   func_name:=lowercase(func_name);
   if func_name='' then exit;
   stmp:=','+func_name+',';
@@ -5822,6 +5831,7 @@ begin
       {tmp}cmd:=str.Strings[line_tmp];
       if IO_fptr.command_decode<>nil then IO_fptr.command_decode({tmp}cmd);
       Self.ScriptLines.Add({tmp}cmd);
+      str.Objects[line_tmp]:=nil;//存指令地址，run_func时如果不为nil就直接执行
     end;
 
   {$ifdef MsgTimerMode}
@@ -6278,7 +6288,7 @@ begin
 
   Self.add_func('if',        @_if,        'v1 sign v2 jmp/call/load :label/ofs/fname',  '满足条件则执行条件之后的指令');
   Self.add_func('else',      @nop,        '',                                           '仅跟随在if之后，单行首位执行无效');
-
+  {
   Self.add_func('cje,cjec,ncje,ncjec',@cj,'v1,v2,:label/ofs',       '如果v1等于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
   Self.add_func('cjm,cjmc,ncjm,ncjmc',@cj,'v1,v2,:label/ofs',       '如果v1大于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
   Self.add_func('cjl,cjlc,ncjl,ncjlc',@cj,'v1,v2,:label/ofs',       '如果v1小于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
@@ -6286,7 +6296,7 @@ begin
   Self.add_func('cjs,cjsc,ncjs,ncjsc',@cj,'s1,s2,:label/ofs',       '如果s1相等s2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
   Self.add_func('cjsub,cjsubc,ncjsub,ncjsubc',     @cj,'sub,str,:label/ofs',         '如果str包含sub则跳转,前加"n"表示否定,后加"c"表示压栈调用');
   Self.add_func('cjsreg,cjsregc,ncjsreg,ncjsregc', @cj,'reg,str,:label/ofs',         '如果str符合reg则跳转,前加"n"表示否定,后加"c"表示压栈调用');
-
+  }
   Self.add_func('taichi',    @taichi_call,'value,chaos_width,chaos_addr[,addr ...]', '根据value的值跳转到相应的地址，并将当前地址压栈，可用于RGB九色划分');
 
   Self.add_func('define',    @_define,    'name,expr,[-global]',    '定义宏定义');
