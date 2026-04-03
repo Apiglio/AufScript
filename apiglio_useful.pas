@@ -239,22 +239,6 @@ type
       Version:string;
 
     protected
-      procedure SetByte(Index:pRam;byt:byte);
-      procedure SetLong(Index:pRam;lng:longint);
-      procedure SetDouble(Index:pRam;dbl:double);
-      procedure SetStr(Index:pRam;str:string);
-      procedure SetSubStr(Index:pRam;str:string);
-      function GetByte(Index:pRam):byte;
-      function GetLong(Index:pRam):longint;
-      function GetDouble(Index:pRam):double;
-      function GetStr(Index:pRam):string;
-      function GetSubStr(Index:pRam):string;
-      function PtrByte(Index:pRam):pbyte;
-      function PtrLong(Index:pRam):plongint;
-      function PtrDouble(Index:pRam):pdouble;
-      function PtrStr(Index:pRam):pstring;
-      function PtrSubStr(Index:pRam):pstring;
-
       procedure SetRamOccupation(head,size:pRam;boo:boolean);
       function GetRamOccupation(head,size:pRam):boolean;
       function FindRamVacant(size:pRam):pRam;
@@ -272,18 +256,6 @@ type
       property ScriptLines:TStrings read GetScriptLines write SetScriptLines;
       property ScriptName:string read GetScriptName write SetScriptName;
       property ArgLine:string read GetArgLine;
-
-      property poByte[Index:pRam]:pbyte read PtrByte;
-      property poLong[Index:pRam]:plongint read PtrLong;
-      property poDouble[Index:pRam]:pdouble read PtrDouble;
-      property poStr[Index:pRam]:pstring read PtrStr;
-      property poSubStr[Index:pRam]:pstring read PtrSubStr;
-
-      property vByte[Index:pRam]:byte read GetByte write SetByte;
-      property vLong[Index:pRam]:longint read GetLong write SetLong;
-      property vDouble[Index:pRam]:double read GetDouble write SetDouble;
-      property vStr[Index:pRam]:string read GetStr write SetStr;
-      property vSubStr[Index:pRam]:string read GetSubStr write SetSubStr;
 
       property RamOccupation[head,size:pRam]:boolean read GetRamOccupation write SetRamOccupation;
 
@@ -397,8 +369,6 @@ type
       procedure readln;inline;
       procedure ClearScreen;
 
-      function Pointer(Iden:string;Index:pRam):Pointer;
-      //function TmpExpRamVar(arg:Tnargs):TAufRamVar;
       procedure DefineNameDecode(var nargs:TNargs);//原先line_transfer的变量解析
       function RamVar(arg:Tnargs):TAufRamVar;//将标准变量形式转化成ARV
       function RamVarToNargs(arv:TAufRamVar;not_offset:boolean=false):Tnargs;
@@ -4670,31 +4640,6 @@ end;
 
 { TAufScript }
 
-function TAufScript.PtrByte(Index:pRam):pbyte;
-var dv,md:byte;
-begin
-  result:=var_stream.Memory+index;
-end;
-
-function TAufScript.PtrLong(Index:pRam):plongint;
-var dv,md:byte;
-begin
-  result:=var_stream.Memory+Index;
-end;
-function TAufScript.PtrDouble(Index:pRam):pdouble;
-var dv,md:byte;
-begin
-  result:=var_stream.Memory+Index;
-end;
-function TAufScript.PtrStr(Index:pRam):pstring;deprecated;
-begin
-  result:=var_stream.Memory+Index;
-end;
-function TAufScript.PtrSubStr(Index:pRam):pstring;deprecated;
-var dv,md:byte;
-begin
-  result:=var_stream.Memory+Index;
-end;
 function TAufScript.GetLine:dword;
 begin
   result:=Self.PSW.stack[Self.PSW.stack_ptr].line
@@ -4702,46 +4647,6 @@ end;
 procedure TAufScript.SetLine(l:dword);
 begin
   Self.PSW.stack[Self.PSW.stack_ptr].line:=l;
-end;
-function TAufScript.GetByte(Index:pRam):byte;inline;
-begin
-  result:=PtrByte(index)^;
-end;
-procedure TAufScript.SetByte(Index:pRam;byt:byte);inline;
-begin
-  PtrByte(index)^:=byt;
-end;
-function TAufScript.GetLong(Index:pRam):longint;inline;
-begin
-  result:=PtrLong(index)^;
-end;
-procedure TAufScript.SetLong(Index:pRam;lng:longint);inline;
-begin
-  PtrLong(index)^:=lng;
-end;
-function TAufScript.GetDouble(Index:pRam):double;inline;
-begin
-  result:=PtrDouble(index)^;
-end;
-procedure TAufScript.SetDouble(Index:pRam;dbl:double);inline;
-begin
-  PtrDouble(index)^:=dbl;
-end;
-function TAufScript.GetStr(Index:pRam):string;inline;deprecated;
-begin
-  result:=PtrStr(index)^;
-end;
-procedure TAufScript.SetStr(Index:pRam;str:string);inline;deprecated;
-begin
-  PtrStr(index)^:=str;
-end;
-function TAufScript.GetSubStr(Index:pRam):string;inline;deprecated;
-begin
-  result:=PtrSubStr(index)^;
-end;
-procedure TAufScript.SetSubStr(Index:pRam;str:string);inline;deprecated;
-begin
-  PtrSubStr(index)^:=str;
 end;
 
 procedure TAufScript.SetRamOccupation(head,size:pRam;boo:boolean);
@@ -4817,23 +4722,7 @@ procedure TAufScript.SetScriptName(AName:string);
 begin
   Self.PSW.stack[Self.PSW.stack_ptr].scriptname:=AName;
 end;
-{
-function TAufScript.TmpExpRamVar(arg:Tnargs):TAufRamVar;
-var codee:byte;
-    value:dword;
-begin
-  case arg.pre of
-    '@':begin result.VarType:=ARV_FixNum;result.size:=4 end;
-    '~':begin result.VarType:=ARV_Float;result.size:=8 end;
-    '$':begin result.VarType:=ARV_FixNum;result.size:=1 end;
-  end;
-  val(arg.arg,value,codee);
-  if codee<>0 then begin raise EAufScriptSyntaxError.Create('没有中部');exit end;
-  result.head:=pbyte(value)+pRam(Self.PSW.run_parameter.ram_zero);
-  result.Is_Temporary:=false;
-  result.Stream:=nil;
-end;
-}
+
 procedure TAufScript.DefineNameDecode(var nargs:TNargs);
 var tmp_nargs, old_nargs:TNargs;
 begin
@@ -5143,23 +5032,6 @@ begin
     '~"','#"','$"':begin result:=arv_to_s(Self.RamVar(arg));exit end;
     '"':begin result:=arg.arg;exit end;
     else begin result:=SharpToString(arg);exit end;
-  end;
-end;
-
-function TAufScript.Pointer(Iden:string;Index:pRam):Pointer;//这里要注意pointer类型的可变
-begin
-  case Iden of
-    '$':result:=Self.poByte[Index];
-    '@':result:=Self.poLong[Index];
-    '~':result:=Self.poDouble[Index];
-    '##':result:=Self.poStr[Index];
-    '#':result:=Self.poSubStr[Index];
-    else
-      begin
-        Self.send_error('警告：无效的指针类型，返回nil！');
-        //result:=@(Self.var_list);
-        result:=var_stream.Memory;
-      end;
   end;
 end;
 
@@ -6610,7 +6482,7 @@ end;
 
 procedure TAufScript.AdditionFuncDefine_SVO;
 begin
-  Self.add_func('svo',@svo_load,'svo_script','运行svo指令');
+  //Self.add_func('svo',@svo_load,'svo_script','运行svo指令');
 end;
 
 
