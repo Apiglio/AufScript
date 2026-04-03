@@ -416,11 +416,6 @@ type
       function SharpToLong(sharp:Tnargs):longint;
       function SharpToString(sharp:Tnargs):string;
 
-      function TmpexpToDouble(tmpexp:Tnargs):double;deprecated;
-      function TmpexpToDword(tmpexp:Tnargs):dword;deprecated;
-      function TmpexpToString(tmpexp:Tnargs):string;deprecated;
-
-
 
     published
       procedure add_operator(operator_name:string; func_ptr:pFuncOper);
@@ -5102,49 +5097,6 @@ begin
   result:=sharp.arg;
 end;
 
-function TAufScript.TmpexpToDouble(tmpexp:Tnargs):double;deprecated;
-var index,codee:byte;
-begin
-  val(tmpexp.arg,index,codee);
-  if codee<>0 then begin
-    Self.send_error('TmpexpToDouble error: @n/$n/~n index invalid');
-    raise EAufScriptSyntaxError.Create('TmpexpToDouble error: @n/$n/~n index invalid');
-  end;
-  case tmpexp.pre of
-    '@':result:=Self.vLong[index];
-    '$':result:=Self.vByte[index];
-    '~':result:=Self.vDouble[index];
-  end;
-end;
-function TAufScript.TmpexpToDword(tmpexp:Tnargs):dword;deprecated;
-var index,codee:byte;
-begin
-  val(tmpexp.arg,index,codee);
-  if codee<>0 then begin
-    Self.send_error('TmpexpToDword error: @n/$n/~n index invalid');
-    raise EAufScriptSyntaxError.Create('TmpexpToDword error: @n/$n/~n index invalid');
-  end;
-  case tmpexp.pre of
-    '@':result:=Self.vLong[index];
-    '$':result:=Self.vByte[index];
-    '~':result:=trunc(Self.vDouble[index]);
-  end;
-end;
-function TAufScript.TmpexpToString(tmpexp:Tnargs):string;deprecated;
-var index,codee:byte;
-begin
-  val(tmpexp.arg,index,codee);
-  if codee<>0 then begin
-    Self.send_error('TmpexpToString error: @n/$n/~n index invalid');
-    raise EAufScriptSyntaxError.Create('TmpexpToString error: @n/$n/~n index invalid');
-  end;
-  case tmpexp.pre of
-    '@':result:=IntToStr(Self.vLong[index]);
-    '$':result:=IntToStr(Self.vByte[index]);
-    '~':result:=FloatToStr(Self.vDouble[index]);
-  end;
-end;
-
 function TAufScript.TryToDouble(arg:Tnargs):double;
 var AAuf:TAuf;
 begin
@@ -5152,7 +5104,7 @@ begin
   DefineNameDecode(arg);
   case arg.pre of
     '~&"','~"','#&"','#"','$"','$&"':begin result:=arv_to_double(Self.RamVar(arg));exit end;
-    '~','@','$':begin result:=TmpExpToDouble(arg);exit end;
+    '"':raise Exception.Create('TryToDouble不能转换字符串立即数');
     else begin result:=SharpToDouble(arg);exit end;
   end;
 end;
@@ -5163,7 +5115,7 @@ begin
   DefineNameDecode(arg);
   case arg.pre of
     '~&"','~"','#&"','#"','$"','$&"':begin result:=arv_to_dword(Self.RamVar(arg));exit end;
-    '~','@','$':begin result:=TmpExpToDword(arg);exit end;
+    '"':raise Exception.Create('TryToDWord不能转换字符串立即数');
     else begin result:=SharpToDword(arg);exit end;
   end;
 end;
@@ -5174,7 +5126,7 @@ begin
   DefineNameDecode(arg);
   case arg.pre of
     '~&"','~"','#&"','#"','$"','$&"':begin result:=longint(arv_to_dword(Self.RamVar(arg)));exit end;
-    '~','@','$':begin result:=longint(TmpExpToDWord(arg));exit end;
+    '"':raise Exception.Create('TryToLong不能转换字符串立即数');
     else begin result:=SharpToLong(arg);exit end;
   end;
 end;
@@ -5185,7 +5137,7 @@ begin
   DefineNameDecode(arg);
   case arg.pre of
     '~&"','~"','#&"','#"','$"','$&"':begin result:=arv_to_s(Self.RamVar(arg));exit end;
-    '~','@','$':begin result:=TmpExpToString(arg);exit end;
+    '"':begin result:=arg.arg;exit end;
     else begin result:=SharpToString(arg);exit end;
   end;
 end;
