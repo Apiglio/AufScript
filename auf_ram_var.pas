@@ -2237,7 +2237,8 @@ var idx:dword;
 begin
   result:='';
   if assignedARV(ina) then begin
-    for idx:=ina.size-1 downto 0 do begin
+    //for idx:=ina.size-1 downto 0 do begin
+    for idx:=0 to ina.size-1 do begin
       result:=result+IntToHex((ina.Head+idx)^,2);
     end;
   end else
@@ -2422,8 +2423,8 @@ begin
     ARV_Float :begin
                  if not ARV_float_valid(ina) then raise Exception.Create('警告：ARV浮点型数值为NaN');
                  case ina.size of
-                   4:result:=FloatToStrF(psingle(ina.Head)^,ffFixed,6,6);
-                   8:result:=FloatToStrF(pdouble(ina.Head)^,ffFixed,15,15);
+                   4:result:=FloatToStr(psingle(ina.Head)^);
+                   8:result:=FloatToStr(pdouble(ina.Head)^);
                    else raise Exception.Create('暂不支持4和8字节以外的浮点型字符串转换，请使用to_hex');
                  end;
                end;
