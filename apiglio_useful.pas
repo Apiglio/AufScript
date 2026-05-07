@@ -2204,28 +2204,32 @@ var AufScpt:TAufScript;
     arv:TAufRamVar;
     tmp:TAufExpressionUnit;
     var_name:string;
+    arg_idx:integer;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(2) then exit;
-  if not AAuf.TryArgToDefName(1,var_name) then exit;
-  var_name:=lowercase(var_name);
-  tmp:=AufScpt.Expression.Local.Find(var_name);
-  if tmp=nil then begin
-    AufScpt.send_error('警告：找不到'+var_name+'的定义，该语句未执行。');
-    exit;
+  for arg_idx:=1 to AAuf.ArgsCount-1 do begin
+    if not AAuf.TryArgToDefName(arg_idx, var_name) then exit;
+    var_name:=lowercase(var_name);
+    tmp:=AufScpt.Expression.Local.Find(var_name);
+    if tmp=nil then begin
+      AufScpt.send_error('警告：找不到'+var_name+'的定义，该语句未执行。');
+      exit;
+    end;
+    arv:=AufScpt.RamVar(tmp.value);
+    if arv.size=0 then begin
+      AufScpt.send_error('警告：'+var_name+'不是ARV变量，该语句未执行。');
+      exit
+    end;
+    try
+      AufScpt.Expression.Local.Remove(tmp);
+    except
+      AufScpt.send_error('警告：删除变量'+var_name+'时出错')
+    end;
+    AufScpt.RamOccupation[arv.head-AufScpt.var_stream.Memory,arv.size]:=false;
+
   end;
-  arv:=AufScpt.RamVar(tmp.value);
-  if arv.size=0 then begin
-    AufScpt.send_error('警告：'+var_name+'不是ARV变量，该语句未执行。');
-    exit
-  end;
-  try
-    AufScpt.Expression.Local.Remove(tmp);
-  except
-    AufScpt.send_error('警告：删除变量'+var_name+'时出错')
-  end;
-  AufScpt.RamOccupation[arv.head-AufScpt.var_stream.Memory,arv.size]:=false;
 end;
 
 procedure math_pow(Sender:TObject);
