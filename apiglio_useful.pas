@@ -1018,6 +1018,12 @@ begin
     end;
   end;
 
+  //println ""
+  if new_lined and (AAuf.ArgsCount=1) then begin
+    AufScpt.writeln('');
+    exit;
+  end;
+
   if not AAuf.CheckArgs(2) then exit;
   arg_count:=AAuf.ArgsCount;
   for arg_index:=1 to arg_count-1 do begin
