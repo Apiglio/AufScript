@@ -2059,7 +2059,7 @@ begin
       if lowercase(AAuf.args[3])='-global' then global:=true;
     end;
   if not AAuf.TryArgToDefName(1, defname) then exit;
-  if not AAuf.TryArgToStrParam(2, ['fixnum','int','char','string','float','real','object'], false, dn_type) then exit;
+  if not AAuf.TryArgToStrParam(2, ['fixnum','int','integer','long','char','string','str','float','real','object','obj'], false, dn_type) then exit;
   try
     if global then begin
       tmpAEU:=AufScpt.Expression.Global.Find(defname);
@@ -2071,10 +2071,10 @@ begin
     end else begin
       case tmpAEU.value.pre of
         '$"','~"','#"':case dn_type of
-          'fixnum','int' :tmpAEU.value.pre:='$"';
-          'char','string':tmpAEU.value.pre:='#"';
-          'float','real' :tmpAEU.value.pre:='~"';
-          'object'       :tmpAEU.value.pre:='$"';
+          'fixnum','int','integer','long' :tmpAEU.value.pre:='$"';
+          'char','string','str'           :tmpAEU.value.pre:='#"';
+          'float','real'                  :tmpAEU.value.pre:='~"';
+          'object','obj'                  :tmpAEU.value.pre:='$"';
           else tmpAEU.value.pre:='$"';
         end;
         else AufScpt.send_error('警告：宏定义'+defname+'不是内存地址，无法修改内存类型');;
@@ -2158,12 +2158,12 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
-  if not AAuf.TryArgToStrParam(1,['fixnum','int','char','string','float','real','object'],false,exp_type) then exit;
+  if not AAuf.TryArgToStrParam(1,['fixnum','int','integer','long','char','string','str','float','real','object','obj'],false,exp_type) then exit;
   case lowercase(exp_type) of
-    'fixnum','int' :exp.pre:='$"';
-    'char','string':exp.pre:='#"';
-    'float','real' :exp.pre:='~"';
-    'object'       :exp.pre:='$"';
+    'fixnum','int','integer','long' :exp.pre:='$"';
+    'char','string','str'           :exp.pre:='#"';
+    'float','real'                  :exp.pre:='~"';
+    'object','obj'                  :exp.pre:='$"';
     else exp.pre:='$"';
   end;
   if not AAuf.TryArgToDefName(2,var_name) then exit;
