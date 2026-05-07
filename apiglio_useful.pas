@@ -1961,17 +1961,23 @@ procedure _define(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
     global:boolean;
-    defname:string;
+    defname, mode:string;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
   global:=false;
-  if AAuf.ArgsCount>=4 then
-    begin
-      if lowercase(AAuf.args[3])='-global' then global:=true;
-    end;
+  if AAuf.ArgsCount>=4 then begin
+    if not AAuf.TryArgToStrParam(3,['-global', '-local'], false, mode) then exit;
+    if mode='-global' then global:=true;
+  end else global:=false;
   if not AAuf.TryArgToDefName(1, defname) then exit;
+  if global then begin
+    case AAuf.nargs[2].pre of '$"','~"','#"','&"':begin
+      AufScpt.send_error('警告：不能将内存地址或行地址定义为全局宏定义');
+      exit;
+    end;end;
+  end;
   try
     if global then AufScpt.Expression.Global.TryAddExp(defname,AAuf.nargs[2])
     else AufScpt.Expression.Local.TryAddExp(defname,AAuf.nargs[2]);
@@ -4732,8 +4738,8 @@ begin
   old_nargs:=nargs;
   case tmp_nargs.pre of '$"','~"','#"','&"':exit;end;
   while true do begin
-    tmp_nargs:=Self.Expression.Local.Translate(tmp_nargs.arg);
-    if tmp_nargs.arg='~Error' then tmp_nargs:=Self.Expression.Global.Translate(tmp_nargs.arg);
+    tmp_nargs:=Self.Expression.Local.Translate(old_nargs.arg);
+    if tmp_nargs.arg='~Error' then tmp_nargs:=Self.Expression.Global.Translate(old_nargs.arg);
     if tmp_nargs.arg='~Error' then begin
       nargs:=old_nargs;
       exit;
