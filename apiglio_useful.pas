@@ -57,7 +57,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.8.0.2';
+  AufScript_Version='beta 2.9.0.2';
   {$if defined(cpu32)}
   AufScript_CPU='32bits';
   {$elseif defined(cpu64)}
@@ -239,22 +239,6 @@ type
       Version:string;
 
     protected
-      procedure SetByte(Index:pRam;byt:byte);
-      procedure SetLong(Index:pRam;lng:longint);
-      procedure SetDouble(Index:pRam;dbl:double);
-      procedure SetStr(Index:pRam;str:string);
-      procedure SetSubStr(Index:pRam;str:string);
-      function GetByte(Index:pRam):byte;
-      function GetLong(Index:pRam):longint;
-      function GetDouble(Index:pRam):double;
-      function GetStr(Index:pRam):string;
-      function GetSubStr(Index:pRam):string;
-      function PtrByte(Index:pRam):pbyte;
-      function PtrLong(Index:pRam):plongint;
-      function PtrDouble(Index:pRam):pdouble;
-      function PtrStr(Index:pRam):pstring;
-      function PtrSubStr(Index:pRam):pstring;
-
       procedure SetRamOccupation(head,size:pRam;boo:boolean);
       function GetRamOccupation(head,size:pRam):boolean;
       function FindRamVacant(size:pRam):pRam;
@@ -272,18 +256,6 @@ type
       property ScriptLines:TStrings read GetScriptLines write SetScriptLines;
       property ScriptName:string read GetScriptName write SetScriptName;
       property ArgLine:string read GetArgLine;
-
-      property poByte[Index:pRam]:pbyte read PtrByte;
-      property poLong[Index:pRam]:plongint read PtrLong;
-      property poDouble[Index:pRam]:pdouble read PtrDouble;
-      property poStr[Index:pRam]:pstring read PtrStr;
-      property poSubStr[Index:pRam]:pstring read PtrSubStr;
-
-      property vByte[Index:pRam]:byte read GetByte write SetByte;
-      property vLong[Index:pRam]:longint read GetLong write SetLong;
-      property vDouble[Index:pRam]:double read GetDouble write SetDouble;
-      property vStr[Index:pRam]:string read GetStr write SetStr;
-      property vSubStr[Index:pRam]:string read GetSubStr write SetSubStr;
 
       property RamOccupation[head,size:pRam]:boolean read GetRamOccupation write SetRamOccupation;
 
@@ -397,8 +369,6 @@ type
       procedure readln;inline;
       procedure ClearScreen;
 
-      function Pointer(Iden:string;Index:pRam):Pointer;
-      //function TmpExpRamVar(arg:Tnargs):TAufRamVar;
       procedure DefineNameDecode(var nargs:TNargs);//原先line_transfer的变量解析
       function RamVar(arg:Tnargs):TAufRamVar;//将标准变量形式转化成ARV
       function RamVarToNargs(arv:TAufRamVar;not_offset:boolean=false):Tnargs;
@@ -415,11 +385,6 @@ type
       function SharpToDword(sharp:Tnargs):dword;
       function SharpToLong(sharp:Tnargs):longint;
       function SharpToString(sharp:Tnargs):string;
-
-      function TmpexpToDouble(tmpexp:Tnargs):double;deprecated;
-      function TmpexpToDword(tmpexp:Tnargs):dword;deprecated;
-      function TmpexpToString(tmpexp:Tnargs):string;deprecated;
-
 
 
     published
@@ -1051,6 +1016,12 @@ begin
       AufScpt.send_error('未知函数，需要print或println。');
       exit;
     end;
+  end;
+
+  //println ""
+  if new_lined and (AAuf.ArgsCount=1) then begin
+    AufScpt.writeln('');
+    exit;
   end;
 
   if not AAuf.CheckArgs(2) then exit;
@@ -1996,17 +1967,23 @@ procedure _define(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
     global:boolean;
-    defname:string;
+    defname, mode:string;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
   global:=false;
-  if AAuf.ArgsCount>=4 then
-    begin
-      if lowercase(AAuf.args[3])='-global' then global:=true;
-    end;
+  if AAuf.ArgsCount>=4 then begin
+    if not AAuf.TryArgToStrParam(3,['-global', '-local'], false, mode) then exit;
+    if mode='-global' then global:=true;
+  end else global:=false;
   if not AAuf.TryArgToDefName(1, defname) then exit;
+  if global then begin
+    case AAuf.nargs[2].pre of '$"','~"','#"','&"':begin
+      AufScpt.send_error('警告：不能将内存地址或行地址定义为全局宏定义');
+      exit;
+    end;end;
+  end;
   try
     if global then AufScpt.Expression.Global.TryAddExp(defname,AAuf.nargs[2])
     else AufScpt.Expression.Local.TryAddExp(defname,AAuf.nargs[2]);
@@ -2082,7 +2059,7 @@ begin
       if lowercase(AAuf.args[3])='-global' then global:=true;
     end;
   if not AAuf.TryArgToDefName(1, defname) then exit;
-  if not AAuf.TryArgToStrParam(2, ['fixnum','int','char','string','float','real','object'], false, dn_type) then exit;
+  if not AAuf.TryArgToStrParam(2, ['fixnum','int','integer','long','char','string','str','float','real','object','obj'], false, dn_type) then exit;
   try
     if global then begin
       tmpAEU:=AufScpt.Expression.Global.Find(defname);
@@ -2094,10 +2071,10 @@ begin
     end else begin
       case tmpAEU.value.pre of
         '$"','~"','#"':case dn_type of
-          'fixnum','int' :tmpAEU.value.pre:='$"';
-          'char','string':tmpAEU.value.pre:='#"';
-          'float','real' :tmpAEU.value.pre:='~"';
-          'object'       :tmpAEU.value.pre:='$"';
+          'fixnum','int','integer','long' :tmpAEU.value.pre:='$"';
+          'char','string','str'           :tmpAEU.value.pre:='#"';
+          'float','real'                  :tmpAEU.value.pre:='~"';
+          'object','obj'                  :tmpAEU.value.pre:='$"';
           else tmpAEU.value.pre:='$"';
         end;
         else AufScpt.send_error('警告：宏定义'+defname+'不是内存地址，无法修改内存类型');;
@@ -2181,15 +2158,16 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
-  if not AAuf.TryArgToStrParam(1,['fixnum','int','char','string','float','real','object'],false,exp_type) then exit;
+  if not AAuf.TryArgToStrParam(1,['fixnum','int','integer','long','char','string','str','float','real','object','obj'],false,exp_type) then exit;
   case lowercase(exp_type) of
-    'fixnum','int' :exp.pre:='$"';
-    'char','string':exp.pre:='#"';
-    'float','real' :exp.pre:='~"';
-    'object'       :exp.pre:='$"';
+    'fixnum','int','integer','long' :exp.pre:='$"';
+    'char','string','str'           :exp.pre:='#"';
+    'float','real'                  :exp.pre:='~"';
+    'object','obj'                  :exp.pre:='$"';
     else exp.pre:='$"';
   end;
   if not AAuf.TryArgToDefName(2,var_name) then exit;
+  var_name:=lowercase(var_name);
   if AufScpt.Expression.Local.Find(var_name)<>nil then
     begin
       AufScpt.send_error('警告：变量已存在，该语句未执行。');
@@ -2226,27 +2204,32 @@ var AufScpt:TAufScript;
     arv:TAufRamVar;
     tmp:TAufExpressionUnit;
     var_name:string;
+    arg_idx:integer;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(2) then exit;
-  if not AAuf.TryArgToDefName(1,var_name) then exit;
-  tmp:=AufScpt.Expression.Local.Find(var_name);
-  if tmp=nil then begin
-    AufScpt.send_error('警告：找不到'+var_name+'的定义，该语句未执行。');
-    exit;
+  for arg_idx:=1 to AAuf.ArgsCount-1 do begin
+    if not AAuf.TryArgToDefName(arg_idx, var_name) then exit;
+    var_name:=lowercase(var_name);
+    tmp:=AufScpt.Expression.Local.Find(var_name);
+    if tmp=nil then begin
+      AufScpt.send_error('警告：找不到'+var_name+'的定义，该语句未执行。');
+      exit;
+    end;
+    arv:=AufScpt.RamVar(tmp.value);
+    if arv.size=0 then begin
+      AufScpt.send_error('警告：'+var_name+'不是ARV变量，该语句未执行。');
+      exit
+    end;
+    try
+      AufScpt.Expression.Local.Remove(tmp);
+    except
+      AufScpt.send_error('警告：删除变量'+var_name+'时出错')
+    end;
+    AufScpt.RamOccupation[arv.head-AufScpt.var_stream.Memory,arv.size]:=false;
+
   end;
-  arv:=AufScpt.RamVar(tmp.value);
-  if arv.size=0 then begin
-    AufScpt.send_error('警告：'+var_name+'不是ARV变量，该语句未执行。');
-    exit
-  end;
-  try
-    AufScpt.Expression.Local.Remove(tmp);
-  except
-    AufScpt.send_error('警告：删除变量'+var_name+'时出错')
-  end;
-  AufScpt.RamOccupation[arv.head-AufScpt.var_stream.Memory,arv.size]:=false;
 end;
 
 procedure math_pow(Sender:TObject);
@@ -4405,6 +4388,10 @@ begin
   try
     case Self.nargs[ArgNumber].pre of
       '&"':res:=RawStrToPRam(Self.nargs[ArgNumber].arg);
+      ':':begin
+        Script.send_error('警告：第'+IntToStr(ArgNumber)+'个参数的标签'+nargs[ArgNumber].arg+'未找到，代码未执行。');
+        exit
+      end;
       else res:=Self.Script.TryToDword(Self.nargs[ArgNumber])+Self.Script.PSW.run_parameter.current_line_number;
     end;
   except
@@ -4671,31 +4658,6 @@ end;
 
 { TAufScript }
 
-function TAufScript.PtrByte(Index:pRam):pbyte;
-var dv,md:byte;
-begin
-  result:=var_stream.Memory+index;
-end;
-
-function TAufScript.PtrLong(Index:pRam):plongint;
-var dv,md:byte;
-begin
-  result:=var_stream.Memory+Index;
-end;
-function TAufScript.PtrDouble(Index:pRam):pdouble;
-var dv,md:byte;
-begin
-  result:=var_stream.Memory+Index;
-end;
-function TAufScript.PtrStr(Index:pRam):pstring;deprecated;
-begin
-  result:=var_stream.Memory+Index;
-end;
-function TAufScript.PtrSubStr(Index:pRam):pstring;deprecated;
-var dv,md:byte;
-begin
-  result:=var_stream.Memory+Index;
-end;
 function TAufScript.GetLine:dword;
 begin
   result:=Self.PSW.stack[Self.PSW.stack_ptr].line
@@ -4703,46 +4665,6 @@ end;
 procedure TAufScript.SetLine(l:dword);
 begin
   Self.PSW.stack[Self.PSW.stack_ptr].line:=l;
-end;
-function TAufScript.GetByte(Index:pRam):byte;inline;
-begin
-  result:=PtrByte(index)^;
-end;
-procedure TAufScript.SetByte(Index:pRam;byt:byte);inline;
-begin
-  PtrByte(index)^:=byt;
-end;
-function TAufScript.GetLong(Index:pRam):longint;inline;
-begin
-  result:=PtrLong(index)^;
-end;
-procedure TAufScript.SetLong(Index:pRam;lng:longint);inline;
-begin
-  PtrLong(index)^:=lng;
-end;
-function TAufScript.GetDouble(Index:pRam):double;inline;
-begin
-  result:=PtrDouble(index)^;
-end;
-procedure TAufScript.SetDouble(Index:pRam;dbl:double);inline;
-begin
-  PtrDouble(index)^:=dbl;
-end;
-function TAufScript.GetStr(Index:pRam):string;inline;deprecated;
-begin
-  result:=PtrStr(index)^;
-end;
-procedure TAufScript.SetStr(Index:pRam;str:string);inline;deprecated;
-begin
-  PtrStr(index)^:=str;
-end;
-function TAufScript.GetSubStr(Index:pRam):string;inline;deprecated;
-begin
-  result:=PtrSubStr(index)^;
-end;
-procedure TAufScript.SetSubStr(Index:pRam;str:string);inline;deprecated;
-begin
-  PtrSubStr(index)^:=str;
 end;
 
 procedure TAufScript.SetRamOccupation(head,size:pRam;boo:boolean);
@@ -4818,23 +4740,7 @@ procedure TAufScript.SetScriptName(AName:string);
 begin
   Self.PSW.stack[Self.PSW.stack_ptr].scriptname:=AName;
 end;
-{
-function TAufScript.TmpExpRamVar(arg:Tnargs):TAufRamVar;
-var codee:byte;
-    value:dword;
-begin
-  case arg.pre of
-    '@':begin result.VarType:=ARV_FixNum;result.size:=4 end;
-    '~':begin result.VarType:=ARV_Float;result.size:=8 end;
-    '$':begin result.VarType:=ARV_FixNum;result.size:=1 end;
-  end;
-  val(arg.arg,value,codee);
-  if codee<>0 then begin raise EAufScriptSyntaxError.Create('没有中部');exit end;
-  result.head:=pbyte(value)+pRam(Self.PSW.run_parameter.ram_zero);
-  result.Is_Temporary:=false;
-  result.Stream:=nil;
-end;
-}
+
 procedure TAufScript.DefineNameDecode(var nargs:TNargs);
 var tmp_nargs, old_nargs:TNargs;
 begin
@@ -4842,8 +4748,8 @@ begin
   old_nargs:=nargs;
   case tmp_nargs.pre of '$"','~"','#"','&"':exit;end;
   while true do begin
-    tmp_nargs:=Self.Expression.Local.Translate(tmp_nargs.arg);
-    if tmp_nargs.arg='~Error' then tmp_nargs:=Self.Expression.Global.Translate(tmp_nargs.arg);
+    tmp_nargs:=Self.Expression.Local.Translate(old_nargs.arg);
+    if tmp_nargs.arg='~Error' then tmp_nargs:=Self.Expression.Global.Translate(old_nargs.arg);
     if tmp_nargs.arg='~Error' then begin
       nargs:=old_nargs;
       exit;
@@ -5102,57 +5008,14 @@ begin
   result:=sharp.arg;
 end;
 
-function TAufScript.TmpexpToDouble(tmpexp:Tnargs):double;deprecated;
-var index,codee:byte;
-begin
-  val(tmpexp.arg,index,codee);
-  if codee<>0 then begin
-    Self.send_error('TmpexpToDouble error: @n/$n/~n index invalid');
-    raise EAufScriptSyntaxError.Create('TmpexpToDouble error: @n/$n/~n index invalid');
-  end;
-  case tmpexp.pre of
-    '@':result:=Self.vLong[index];
-    '$':result:=Self.vByte[index];
-    '~':result:=Self.vDouble[index];
-  end;
-end;
-function TAufScript.TmpexpToDword(tmpexp:Tnargs):dword;deprecated;
-var index,codee:byte;
-begin
-  val(tmpexp.arg,index,codee);
-  if codee<>0 then begin
-    Self.send_error('TmpexpToDword error: @n/$n/~n index invalid');
-    raise EAufScriptSyntaxError.Create('TmpexpToDword error: @n/$n/~n index invalid');
-  end;
-  case tmpexp.pre of
-    '@':result:=Self.vLong[index];
-    '$':result:=Self.vByte[index];
-    '~':result:=trunc(Self.vDouble[index]);
-  end;
-end;
-function TAufScript.TmpexpToString(tmpexp:Tnargs):string;deprecated;
-var index,codee:byte;
-begin
-  val(tmpexp.arg,index,codee);
-  if codee<>0 then begin
-    Self.send_error('TmpexpToString error: @n/$n/~n index invalid');
-    raise EAufScriptSyntaxError.Create('TmpexpToString error: @n/$n/~n index invalid');
-  end;
-  case tmpexp.pre of
-    '@':result:=IntToStr(Self.vLong[index]);
-    '$':result:=IntToStr(Self.vByte[index]);
-    '~':result:=FloatToStr(Self.vDouble[index]);
-  end;
-end;
-
 function TAufScript.TryToDouble(arg:Tnargs):double;
 var AAuf:TAuf;
 begin
   AAuf:=Self.Auf as TAuf;
   DefineNameDecode(arg);
   case arg.pre of
-    '~&"','~"','#&"','#"','$"','$&"':begin result:=arv_to_double(Self.RamVar(arg));exit end;
-    '~','@','$':begin result:=TmpExpToDouble(arg);exit end;
+    '~"','#"','$"':begin result:=arv_to_double(Self.RamVar(arg));exit end;
+    '"':raise EAufScriptSyntaxError.Create('TryToDouble不能转换字符串立即数');
     else begin result:=SharpToDouble(arg);exit end;
   end;
 end;
@@ -5162,8 +5025,8 @@ begin
   AAuf:=Self.Auf as TAuf;
   DefineNameDecode(arg);
   case arg.pre of
-    '~&"','~"','#&"','#"','$"','$&"':begin result:=arv_to_dword(Self.RamVar(arg));exit end;
-    '~','@','$':begin result:=TmpExpToDword(arg);exit end;
+    '~"','#"','$"':begin result:=arv_to_dword(Self.RamVar(arg));exit end;
+    '"':raise EAufScriptSyntaxError.Create('TryToDWord不能转换字符串立即数');
     else begin result:=SharpToDword(arg);exit end;
   end;
 end;
@@ -5173,8 +5036,8 @@ begin
   AAuf:=Self.Auf as TAuf;
   DefineNameDecode(arg);
   case arg.pre of
-    '~&"','~"','#&"','#"','$"','$&"':begin result:=longint(arv_to_dword(Self.RamVar(arg)));exit end;
-    '~','@','$':begin result:=longint(TmpExpToDWord(arg));exit end;
+    '~"','#"','$"':begin result:=longint(arv_to_dword(Self.RamVar(arg)));exit end;
+    '"':raise EAufScriptSyntaxError.Create('TryToLong不能转换字符串立即数');
     else begin result:=SharpToLong(arg);exit end;
   end;
 end;
@@ -5184,26 +5047,9 @@ begin
   AAuf:=Self.Auf as TAuf;
   DefineNameDecode(arg);
   case arg.pre of
-    '~&"','~"','#&"','#"','$"','$&"':begin result:=arv_to_s(Self.RamVar(arg));exit end;
-    '~','@','$':begin result:=TmpExpToString(arg);exit end;
+    '~"','#"','$"':begin result:=arv_to_s(Self.RamVar(arg));exit end;
+    '"':begin result:=arg.arg;exit end;
     else begin result:=SharpToString(arg);exit end;
-  end;
-end;
-
-function TAufScript.Pointer(Iden:string;Index:pRam):Pointer;//这里要注意pointer类型的可变
-begin
-  case Iden of
-    '$':result:=Self.poByte[Index];
-    '@':result:=Self.poLong[Index];
-    '~':result:=Self.poDouble[Index];
-    '##':result:=Self.poStr[Index];
-    '#':result:=Self.poSubStr[Index];
-    else
-      begin
-        Self.send_error('警告：无效的指针类型，返回nil！');
-        //result:=@(Self.var_list);
-        result:=var_stream.Memory;
-      end;
   end;
 end;
 
@@ -5332,7 +5178,14 @@ end;
 procedure TAufScript.run_func(func_name:ansistring);
 var i:word;
     stmp:string;
+    pCode:pFuncAuf;
 begin
+  pCode:=pFuncAuf(PSW.run_parameter.current_strings.Objects[PSW.run_parameter.current_line_number]);
+  if pCode<>nil then begin
+    if pCode<>@nop then pCode(Self);
+    exit;
+  end;
+
   func_name:=lowercase(func_name);
   if func_name='' then exit;
   stmp:=','+func_name+',';
@@ -5547,9 +5400,9 @@ begin
           begin
             //:loo :a :aaa
             line:=0;
-            while line < Self.PSW.run_parameter.current_strings.Count-1 do
+            while line < Self.PSW.run_parameter.current_strings.Count do
               begin
-                if non_space(Self.PSW.run_parameter.current_strings.Strings[line]) = AAuf.nargs[i].arg+':' then break;
+                if lowercase(non_space(Self.PSW.run_parameter.current_strings.Strings[line])) = lowercase(AAuf.nargs[i].arg)+':' then break;
                 inc(line);
               end;
             if line <> Self.PSW.run_parameter.current_strings.Count then
@@ -5557,13 +5410,6 @@ begin
                 AAuf.nargs[i].pre:='&"';
                 AAuf.nargs[i].post:='"';
                 AAuf.nargs[i].arg:=pRamToRawStr(line);
-              end
-            else
-              begin
-                //这个没用到过感觉，因为?要作为函数名，这个部分需要去除
-                AAuf.nargs[i].pre:='?"';
-                AAuf.nargs[i].post:='"';
-                AAuf.nargs[i].arg:='~Error';
               end;
           end;
         '~','$','#':
@@ -6001,6 +5847,7 @@ begin
       {tmp}cmd:=str.Strings[line_tmp];
       if IO_fptr.command_decode<>nil then IO_fptr.command_decode({tmp}cmd);
       Self.ScriptLines.Add({tmp}cmd);
+      str.Objects[line_tmp]:=nil;//存指令地址，run_func时如果不为nil就直接执行
     end;
 
   {$ifdef MsgTimerMode}
@@ -6042,7 +5889,7 @@ end;
 constructor TAufExpressionUnit.Create(AKey:string;AValue:Tnargs;AReadOnly:boolean=false);
 begin
   inherited Create;
-  Self.key:=AKey;
+  Self.key:=lowercase(AKey);
   Self.value:=AValue;
   Self.readonly:=AReadOnly;
 end;
@@ -6055,33 +5902,38 @@ begin
   end;
 end;
 function TAufExpressionList.Find(AKey:string):TAufExpressionUnit;
-var tmp:TAufExpressionUnit;
-    i:integer;
+var lowkey:string;
+    idx:integer;
 begin
   if Self.Count = 0 then begin result:=nil;exit end;
-  i:=0;
-  while i<Self.Count do
+  lowkey:=lowercase(AKey);
+  idx:=0;
+  while idx<Self.Count do
     begin
-      if TAufExpressionUnit(Self.Items[i]).key=AKey then break;
-      inc(i);
+      if TAufExpressionUnit(Self.Items[idx]).key=AKey then break;
+      inc(idx);
     end;
-  if i<Self.Count then result:=TAufExpressionUnit(Self.Items[i])
+  if idx<Self.Count then result:=TAufExpressionUnit(Self.Items[idx])
   else result:=nil;
 end;
 function TAufExpressionList.Translate(AKey:string):Tnargs;
 var tmp:TAufExpressionUnit;
+    lowkey:string;
 begin
-  tmp:=Self.Find(AKey);
+  lowkey:=lowercase(AKey);
+  tmp:=Self.Find(lowkey);
   if tmp=nil then result:=narg('','~Error','')
   else result:=tmp.value;
 end;
 function TAufExpressionList.TryAddExp(AKey:string;AValue:Tnargs;readonly:boolean=false):boolean;
 var tmp:TAufExpressionUnit;
+    lowkey:string;
 begin
-  tmp:=Self.Find(AKey);
+  lowkey:=lowercase(AKey);
+  tmp:=Self.Find(lowkey);
   if tmp=nil then
     begin
-      tmp:=TAufExpressionUnit.Create(AKey,AValue,readonly);
+      tmp:=TAufExpressionUnit.Create(lowkey,AValue,readonly);
       Self.Add(tmp);
     end
   else
@@ -6092,22 +5944,27 @@ begin
 end;
 function TAufExpressionList.TryRenameExp(OldKey,NewKey:string):boolean;
 var tmp:TAufExpressionUnit;
+    oldLowKey, newLowKey:string;
 begin
   result:=false;
-  tmp:=Self.Find(OldKey);
+  oldLowKey:=lowercase(OldKey);
+  newLowKey:=lowercase(NewKey);
+  tmp:=Self.Find(oldLowKey);
   if tmp=nil then begin
     raise EAufScriptSyntaxError.Create('不能给不存在的表达式更名')
   end else begin
     if tmp.readonly then raise EAufScriptSyntaxError.Create('不能修改只读表达式')
-    else tmp.key:=NewKey;
+    else tmp.key:=newLowKey;
   end;
   result:=true;
 end;
 function TAufExpressionList.TryDeleteExp(Key:string):boolean;
 var tmp:TAufExpressionUnit;
+    lowkey:string;
 begin
   result:=false;
-  tmp:=Self.Find(Key);
+  lowkey:=lowercase(Key);
+  tmp:=Self.Find(lowkey);
   if tmp=nil then begin
     raise EAufScriptSyntaxError.Create('不存在指定表达式')
   end else begin
@@ -6447,7 +6304,7 @@ begin
 
   Self.add_func('if',        @_if,        'v1 sign v2 jmp/call/load :label/ofs/fname',  '满足条件则执行条件之后的指令');
   Self.add_func('else',      @nop,        '',                                           '仅跟随在if之后，单行首位执行无效');
-
+  {
   Self.add_func('cje,cjec,ncje,ncjec',@cj,'v1,v2,:label/ofs',       '如果v1等于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
   Self.add_func('cjm,cjmc,ncjm,ncjmc',@cj,'v1,v2,:label/ofs',       '如果v1大于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
   Self.add_func('cjl,cjlc,ncjl,ncjlc',@cj,'v1,v2,:label/ofs',       '如果v1小于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
@@ -6455,7 +6312,7 @@ begin
   Self.add_func('cjs,cjsc,ncjs,ncjsc',@cj,'s1,s2,:label/ofs',       '如果s1相等s2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
   Self.add_func('cjsub,cjsubc,ncjsub,ncjsubc',     @cj,'sub,str,:label/ofs',         '如果str包含sub则跳转,前加"n"表示否定,后加"c"表示压栈调用');
   Self.add_func('cjsreg,cjsregc,ncjsreg,ncjsregc', @cj,'reg,str,:label/ofs',         '如果str符合reg则跳转,前加"n"表示否定,后加"c"表示压栈调用');
-
+  }
   Self.add_func('taichi',    @taichi_call,'value,chaos_width,chaos_addr[,addr ...]', '根据value的值跳转到相应的地址，并将当前地址压栈，可用于RGB九色划分');
 
   Self.add_func('define',    @_define,    'name,expr,[-global]',    '定义宏定义');
@@ -6651,7 +6508,7 @@ end;
 
 procedure TAufScript.AdditionFuncDefine_SVO;
 begin
-  Self.add_func('svo',@svo_load,'svo_script','运行svo指令');
+  //Self.add_func('svo',@svo_load,'svo_script','运行svo指令');
 end;
 
 
