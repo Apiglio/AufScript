@@ -6528,8 +6528,6 @@ end;
 
 INITIALIZATION
 
-  Auf:=TAuf.Create(nil);
-  Auf.Script.InternalFuncDefine;
   GlobalExpressionList:=TAufExpressionList.Create;
   //这个是共用的，所有AufScript.Expression.Global都应该赋值这个
   GlobalExpressionList.TryAddExp('AufScriptAuthor',narg('"','Apiglio&Apemiro','"'));
@@ -6539,7 +6537,9 @@ INITIALIZATION
   GlobalMultiTaskList:=TAufMultiTaskList.Create;
   RegCalc:=TRegExpr.Create;
 
-
+  Auf:=TAuf.Create(nil);
+  Auf.Script.InternalFuncDefine;
+  Auf.Script.Expression.Global:=GlobalExpressionList;
   Usf:=TUsf.Create;
 
 
