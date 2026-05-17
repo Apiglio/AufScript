@@ -57,7 +57,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.9.0.2';
+  AufScript_Version='beta 2.9.1.0';
   {$if defined(cpu32)}
   AufScript_CPU='32bits';
   {$elseif defined(cpu64)}
@@ -241,6 +241,8 @@ type
 
   TAufScriptLines = class(TStringList)
   private
+    FLabelMap:TStringlist;
+  private
     procedure RefreshLinesStatus;
     procedure ReleaseLinesStatus;
   protected
@@ -252,6 +254,8 @@ type
     procedure SetFuncPointer(Index:Integer; Value:pFuncAuf);
   public
     procedure AppendCommand(command:string);
+    function AddLabel(LabelName:string; Address:pRam):boolean; //如果已有label，返回false
+    function FindLabel(LabelName:string; out Address:pRam):boolean;
     property TimeConsumings[index:Integer]:Double read GetTimeConsuming write SetTimeConsuming;
     property LineStatuses[index:Integer]:Integer read GetLineStatus write SetLineStatus;
     property FuncPointers[index:Integer]:pFuncAuf read GetFuncPointer write SetFuncPointer;
@@ -946,6 +950,20 @@ begin
   for stmp in AufScpt.ScriptLines do begin
     AufScpt.writeln(IntToStr(AufScpt.ScriptLines.LineStatuses[line_idx])+#9+stmp);
     inc(line_idx);
+  end;
+end;
+procedure stack_statuses_log(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    level:integer;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  level:=AufScpt.PSW.stack_ptr;
+  AufScpt.writeln('Stack Status By Level:');
+  with AufScpt do while level>=0 do begin
+    writeln(Usf.left_adjust(IntToStr(level),4,2)+' Line '+Usf.left_adjust(IntToStr(PSW.stack[level].line),4,2)+' File "'+PSW.stack[level].scriptname+'"');
+    dec(level);
   end;
 end;
 procedure _beep(Sender:TObject);
@@ -1759,6 +1777,22 @@ procedure nop(Sender:TObject); //用于else等无实际含义的函数/关键字
 begin
 end;
 
+procedure _init(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    addr:pRam;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(2) then exit;
+  if not AAuf.TryArgToAddr(1,addr) then exit;
+  with AufScpt do begin
+    if (addr<0) or (addr>=ScriptLines.Count) then send_error('无效的行计数器。')
+  else
+    ScriptLines.LineStatuses[addr]:=0;
+  end;
+end;
+
 procedure _if(Sender:TObject); //if a = b jmp/call :label
 var AufScpt:TAufScript;
     AAuf:TAuf;
@@ -1893,17 +1927,75 @@ begin
   AufScpt.push_addr(list_ofs[res]);
 end;
 
+procedure _enum(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    arvtype:TAufRamVarType;
+    seg,total:TAufRamVar;
+    total_string:string;
+    t_size,s_size,idx,p1,p2:integer;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToARV(1, 1, High(DWord), ARV_AllType, seg) then exit;
+  s_size:=seg.size;
+  idx:=AufScpt.ScriptLines.LineStatuses[AufScpt.currentline];
+  arvtype:=AAuf.TellArgType(2);
+  case arvtype of
+    ARV_Raw:begin
+      AAuf.TryArgToString(2,total_string);
+      t_size:=length(total_string);
+      p1:=idx*s_size;
+      p2:=p1+s_size;
+      if p2>t_size then p2:=t_size;
+      delete(total_string,p2+1,t_size);
+      delete(total_string,1,p1);
+      initiate_arv_str(total_string, seg);
+      if (idx+1)*s_size>=t_size then AufScpt.ScriptLines.LineStatuses[AufScpt.currentline]:=-1;
+    end;
+    else begin
+      if not AAuf.TryArgToARV(2, 1, High(DWord), ARV_AllType, total) then exit;
+      t_size:=total.size;
+      p1:=idx*s_size;
+      p2:=p1+s_size;
+      if p2>t_size then p2:=t_size;
+      fillARV(0,seg);
+      move((total.Head+p1)^,seg.Head^,s_size);
+      if (idx+1)*s_size>=t_size then AufScpt.ScriptLines.LineStatuses[AufScpt.currentline]:=-1;
+    end;
+  end;
+end;
+
 procedure _loop(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
     count,total:integer;
     addr:pRam;
+    init_command:string;
+    len_command:integer;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
   if not AAuf.TryArgToAddr(1, addr) then exit;
   if not AAuf.TryArgToLong(2, total) then exit;
+
+  //判断addr是init还是label:
+  if addr=0 then begin
+    AufScpt.send_error('无效的loop跳转参数，loop必须跳转到init或标签行的下一行。');
+    exit;
+  end;
+  init_command:=lowercase(non_space(AufScpt.ScriptLines.Strings[addr-1]));
+  len_command:=length(init_command);
+  if init_command[len_command]=':' then begin
+    //第一次执行loop
+    delete(init_command,len_command,1);
+    AufScpt.ScriptLines.Strings[addr-1]:='init &"'+pRamToRawStr(AufScpt.currentline)+'" "'+init_command+'"';
+  end else begin
+    //要不要区分init和其他？
+  end;
+
   count:=AufScpt.ScriptLines.LineStatuses[AufScpt.currentline];
   if count>=total then begin
     AufScpt.ScriptLines.LineStatuses[AufScpt.currentline]:=-1;
@@ -2868,33 +2960,6 @@ begin
     '-r':initiate_arv_str(s2+s1,tmp);
     else initiate_arv_str(s1+s2,tmp);
   end;
-end;
-
-procedure text_strEnumerate(Sender:TObject);
-//每次执行都从enum_text中选取一个字母存储给var，从first_index开始  enum var string [first_index]
-var AufScpt:TAufScript;
-    AAuf:TAuf;
-    times,now:dword;
-    arv:TAufRamVar;
-    enum_text:string;
-begin
-  AufScpt:=Sender as TAufScript;
-  AAuf:=AufScpt.Auf as TAuf;
-  if not AAuf.CheckArgs(3) then exit;
-  if not AAuf.TryArgToARV(1,1,High(dword),[ARV_Char],arv) then exit;
-  if not AAuf.TryArgToString(2,enum_text) then exit;
-  if not length(enum_text)>0 then begin
-    s_to_arv('',arv);
-    exit;
-  end;
-  times:=length(enum_text);
-  if AAuf.ArgsCount=3 then now:=0
-  else now:=StrToInt(AAuf.args[3]);
-  if now>=times then now:=0;
-  s_to_arv(enum_text[now+1],arv);
-  AAuf.args[3]:=IntToStr(now+1);
-  AufScpt.ScriptLines[AufScpt.PSW.run_parameter.current_line_number]:=AAuf.args[0]+' '+AAuf.args[1]+','+AAuf.args[2]+','+AAuf.args[3];
-
 end;
 
 procedure text_strFormat(Sender:TObject);//fmt @res, "AAA", 123, @str, ...
@@ -4412,10 +4477,12 @@ begin
   result:=false;
   try
     case Self.nargs[ArgNumber].pre of
-      '&"':res:=RawStrToPRam(Self.nargs[ArgNumber].arg);
+      '&"':res:=RawStrToPRam(Self.nargs[ArgNumber].arg);//兼容性保留，逐步改用LabelMap
       ':':begin
-        Script.send_error('警告：第'+IntToStr(ArgNumber)+'个参数的标签'+nargs[ArgNumber].arg+'未找到，代码未执行。');
-        exit
+        if not Script.ScriptLines.FindLabel(nargs[ArgNumber].arg, res) then begin
+          Script.send_error('警告：第'+IntToStr(ArgNumber)+'个参数的标签'+nargs[ArgNumber].arg+'未找到，代码未执行。');
+          exit;
+        end else res:=res+1;
       end;
       else res:=Self.Script.TryToDword(Self.nargs[ArgNumber])+Self.Script.currentline;
     end;
@@ -4760,9 +4827,33 @@ begin
   Objects[idx]:=TObject(pMeta);
 end;
 
+function TAufScriptLines.AddLabel(LabelName:string; Address:pRam):boolean;
+var index:integer;
+    lower_label:string;
+begin
+  result:=false;
+  lower_label:=LabelName;
+  if FLabelMap.Find(lower_label, index) then exit;
+  FLabelMap.AddObject(lower_label, TObject(Address));
+  result:=true;
+end;
+
+function TAufScriptLines.FindLabel(LabelName:string; out Address:pRam):boolean;
+var index:integer;
+    lower_label:string;
+begin
+  result:=false;
+  lower_label:=LabelName;
+  if not FLabelMap.Find(lower_label, index) then exit;
+  Address:=pRam(FLabelMap.Objects[index]);
+  result:=true;
+end;
+
 constructor TAufScriptLines.Create;
 begin
   inherited Create;
+  FLabelMap:=TStringList.Create;
+  FLabelMap.Sorted:=true;
 end;
 
 destructor TAufScriptLines.Destroy;
@@ -4773,6 +4864,7 @@ begin
     pMeta:=PAufScriptLineMeta(Objects[idx]);
     FreeMemAndNil(pMeta);
   end;
+  FLabelMap.Free;
   inherited Destroy;
 end;
 
@@ -4793,6 +4885,7 @@ end;
 procedure TAufScriptLines.Clear;
 begin
   ReleaseLinesStatus;
+  FLabelMap.Clear;
   inherited Clear;
 end;
 
@@ -5526,8 +5619,9 @@ end;
 
 procedure TAufScript.line_transfer;//将当前行代码转译成标准形式
 var i:0..args_range;
-    line:dword;
+    line:pRam;
     ts1,ts2,ta1,ta2,at_expr,at_num:string;
+    cmd,labelname:string;
     idx1,idx2,at_len,at_ofs:integer;
     AAuf:TAuf;
     tmp_nargs:Tnargs;
@@ -5539,12 +5633,20 @@ begin
         ':':
           begin
             //:loo :a :aaa
-            line:=0;
-            while line < ScriptLines.Count do
-              begin
-                if lowercase(non_space(ScriptLines.Strings[line])) = lowercase(AAuf.nargs[i].arg)+':' then break;
+            labelname:=lowercase(AAuf.nargs[i].arg);
+            if not ScriptLines.FindLabel(labelName, line) then begin
+              line:=0;
+              while line < ScriptLines.Count do begin
+                cmd:=lowercase(non_space(ScriptLines.Strings[line]));
+                if cmd = labelname+':' then begin
+                  if not ScriptLines.AddLabel(labelName, line) then send_error('出现同名标签，新的标签行将被忽略。');
+                  break;
+                end;
                 inc(line);
               end;
+            end;
+            //完全没必要替换了
+            {
             if line <> ScriptLines.Count then
               begin
                 line:=line+1; //标签跳转至标签下一行
@@ -5552,6 +5654,7 @@ begin
                 AAuf.nargs[i].post:='"';
                 AAuf.nargs[i].arg:=pRamToRawStr(line);
               end;
+            }
           end;
         '~','$','#':
           begin
@@ -6425,6 +6528,7 @@ begin
   Self.add_func('ramim',     @ramim,      'filename [,var [,-f]]',    '从文件中载入数据到内存');
   Self.add_func('tmcsm',     @time_consuming_log,   '',     '耗时分析报告（需跟随代码执行，单独执行无效）');
   Self.add_func('lnstt',     @line_statuses_log,    '',     '行计数器分析报告（需跟随代码执行，单独执行无效）');
+  Self.add_func('skstt',     @stack_statuses_log,   '',     '栈分析报告');
   Self.add_func('sleep',     @_sleep,     'n',              '等待n毫秒');
   Self.add_func('pause',     @_pause,     '',               '暂停');
   Self.add_func('beep',      @_beep,      'freq,dura',      '以freq的频率蜂鸣dura毫秒');
@@ -6449,10 +6553,7 @@ begin
   Self.add_func('rand',      @rand,       'v1,v2',          '将不大于v2的随机整数返回给v1');
   Self.add_func('fill',      @_fillbyte,  'var,byte',       '用byte填充var');
   Self.add_func('swap',      @_swap,      'v1',             '将v1字节倒序');
-  //Self.add_func('getbytes',  @_getbytes,  'mem,seg,idx',    '从mem中读取值片段');
-  //Self.add_func('setbytes',  @_setbytes,  'mem,seg,idx',    '向mem中覆盖值片段');
-
-
+  Self.add_func('enum',      @_enum,      'seg, total',     '将total分段迭代给seg');
 
   Self.add_func('loop',      @_loop,      ':label/ofs,times[,st]',  '简易循环times次');
   Self.add_func('jmp',       @jmp,        ':label/ofs',             '跳转到相对地址');
@@ -6463,8 +6564,9 @@ begin
   Self.add_func('halt',      @_halt,      '',                       '无条件结束');
   Self.add_func('end',       @_end,       '',                       '有条件结束，根据运行状态转译为ret, fend或halt');
 
-  Self.add_func('if',        @_if,        'v1 sign v2 jmp/call/load :label/ofs/fname',  '满足条件则执行条件之后的指令');
-  Self.add_func('else',      @nop,        '',                                           '仅跟随在if之后，单行首位执行无效');
+  Self.add_func('if',        @_if,        'v1 sign v2 ... else ...','满足条件则执行条件之后的指令');
+  Self.add_func('else',      @nop,        '',                       '仅跟随在if之后，单行首位执行无效');
+  Self.add_func('init',      @_init,      'addr[,labelname]',       '重置指定地址的行计数器');
   {
   Self.add_func('cje,cjec,ncje,ncjec',@cj,'v1,v2,:label/ofs',       '如果v1等于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
   Self.add_func('cjm,cjmc,ncjm,ncjmc',@cj,'v1,v2,:label/ofs',       '如果v1大于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
@@ -6557,7 +6659,6 @@ begin
   Self.add_func('srp',       @text_strReplace,       '#[],old,new',   '将#[]中的old替换成new');
   Self.add_func('mid',       @text_strMid,           '#[],pos,len',   '将#[]从pos处截取len位字符');
   Self.add_func('cat',       @text_strCat,           '#[],str[,-r]',  '将str加在#[]的末尾或开头(-r)');
-  Self.add_func('enum',      @text_strEnumerate,     '#[],str[,st]',  '将str的其中一位按执行次数依次赋值给#[]');
   Self.add_func('fmt',       @text_strFormat,        '#[],s1[, ...]', '从第2个参数起，连接成字符串赋值给#[]');
 
 end;
