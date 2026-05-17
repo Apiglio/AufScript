@@ -4886,7 +4886,7 @@ var tmp_nargs, old_nargs:TNargs;
 begin
   tmp_nargs:=nargs;
   old_nargs:=nargs;
-  case tmp_nargs.pre of '$"','~"','#"','&"':exit;end;
+  case tmp_nargs.pre of '$"','~"','#"','&"','"':exit;end;
   while true do begin
     tmp_nargs:=Self.Expression.Local.Translate(old_nargs.arg);
     if tmp_nargs.arg='~Error' then tmp_nargs:=Self.Expression.Global.Translate(old_nargs.arg);
