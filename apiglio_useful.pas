@@ -5831,7 +5831,6 @@ var idx:pRam;
 begin
   //Self.writeln('RunFirst');
   randomize;
-  Self.Expression.Local.TryAddExp('prev_res',narg('','~uninitalized prev_res',''));
 
   ScriptLines.RefreshLinesStatus;//包括计时、行计数器、指令指针的重置
   if PSW.print_mode.resume_when_run_close then
