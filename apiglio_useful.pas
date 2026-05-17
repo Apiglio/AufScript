@@ -5547,6 +5547,7 @@ begin
               end;
             if line <> ScriptLines.Count then
               begin
+                line:=line+1; //标签跳转至标签下一行
                 AAuf.nargs[i].pre:='&"';
                 AAuf.nargs[i].post:='"';
                 AAuf.nargs[i].arg:=pRamToRawStr(line);
