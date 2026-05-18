@@ -150,7 +150,7 @@ begin
   if Frame.ProgressBarEnabled then
     begin
       Frame.ProgressBar.Min:=0;
-      Frame.ProgressBar.Max:=Frame.Auf.Script.PSW.run_parameter.current_strings.Count-1;
+      Frame.ProgressBar.Max:=Frame.Auf.Script.ScriptLines.Count-1;
       Frame.ProgressBarMaxString:=IntToStr(Frame.ProgressBar.Max+1);
       Frame.ProgressBar.Hint:='0/'+Frame.ProgressBarMaxString;
     end;
@@ -265,7 +265,7 @@ begin
               'auto':
               begin
                 AFrame.ProgressBarEnabled:=true;
-                AFrame.ProgressBar.Max:=AufScpt.PSW.run_parameter.current_strings.Count;
+                AFrame.ProgressBar.Max:=AufScpt.ScriptLines.Count;
                 AFrame.ProgressBarMaxString:=IntToStr(AFrame.ProgressBar.Max);
                 AufScpt.writeln('进度条显示与代码位置绑定。');
               end;
