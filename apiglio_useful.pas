@@ -441,8 +441,6 @@ type
       procedure pop_addr;
       procedure push_addr(Ascript:TAufScriptLines;Ascriptname:string;line:dword);
       procedure push_addr(line:dword);
-      procedure push_addr_inline(Ascript:TAufScriptLines;Ascriptname:string;line:dword);
-      procedure push_addr_inline(line:dword);
 
     published
       procedure ram_export(filename:string);//将整个内存区域打印到文件
@@ -5813,30 +5811,13 @@ begin
       Self.PSW.haltoff:=true;
     end;
   inc(Self.PSW.stack_ptr);
-  Self.currentline:=line;
+  Self.currentline:=line - 1;
   Self.ScriptLines:=Ascript;
   Self.ScriptName:=Ascriptname;
 end;
 procedure TAufScript.push_addr(line:dword);
 begin
   push_addr(Self.ScriptLines,Self.ScriptName,line);
-end;
-procedure TAufScript.push_addr_inline(Ascript:TAufScriptLines;Ascriptname:string;line:dword);//why?
-begin
-  if Self.PSW.stack_ptr=stack_range-1 then
-    begin
-      Self.send_error('错误：['+Usf.to_s(stack_range)+']超出栈范围！');
-      Self.PSW.haltoff:=true;
-    end;
-  with Self.PSW.stack[Self.PSW.stack_ptr] do line:=line - 1;
-  inc(Self.PSW.stack_ptr);
-  Self.currentline:=line;
-  Self.ScriptLines:=Ascript;
-  Self.ScriptName:=Ascriptname;
-end;
-procedure TAufScript.push_addr_inline(line:dword);
-begin
-  push_addr(Self.ScriptLines,Self.ScriptName,line);//why? 再怎么说也应该要和push_addr_inline一样吧
 end;
 
 procedure TAufScript.EnableTaskMessage;
