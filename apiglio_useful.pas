@@ -2030,7 +2030,7 @@ begin
     AufScpt.ScriptLinesMap.AddObject(addr, tmp);
     tmp.AppendCommand('fend');
   end;
-  AufScpt.push_addr(tmp, addr, -1);
+  AufScpt.push_addr(tmp, addr, 0);
 end;
 
 procedure _fend(Sender:TObject);//退出文件，end语句或者无文末结束后栈未清空也会运行这个
