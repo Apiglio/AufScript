@@ -1,0 +1,11 @@
+print "A"
+print "B"
+jmp :JT
+print "C"
+JT:
+print "D"
+jmp @line[+3]
+print "E"
+print "F"
+print "G"
+print "H"

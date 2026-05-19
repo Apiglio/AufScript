@@ -1,0 +1,15 @@
+var int loop_test_var
+
+mov loop_test_var, 0
+loo:
+  print "A"
+  print "B"
+if loop_test_var > 5 jmp @line[5]
+  print "C"
+  print "D"
+  add loop_test_var, 1
+loop @line[-3], 2
+loop :loo, 12
+
+print "E"
+unvar loop_test_var

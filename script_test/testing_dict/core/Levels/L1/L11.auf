@@ -1,0 +1,4 @@
+print "C"
+L11:
+  load "L12.auf"
+loop :L11, 2

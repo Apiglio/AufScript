@@ -1,0 +1,18 @@
+var int call_test_var
+mov call_test_var, 0
+CALL_TEST:
+  call :FUNC
+  add call_test_var, 1
+if call_test_var < 4 jmp :CALL_TEST
+unvar call_test_var
+end
+
+FUNC:
+  print "C"
+  call :SUB
+  loop @line[-1], 3
+ret
+
+SUB:
+  print "S"
+ret

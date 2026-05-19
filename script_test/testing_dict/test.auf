@@ -1,0 +1,18 @@
+//测试代码
+
+//core
+println "【核心测试】"
+
+println "流程测试..."
+load "core/routine_test.auf"
+
+println "层次测试..."
+load "core/level_test.auf"
+
+
+//bounds
+println "【边界测试】"
+
+
+
+

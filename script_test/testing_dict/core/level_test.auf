@@ -1,0 +1,18 @@
+println "【开始】层次测试"
+
+of "script_test/testing_dict/tmp/level.tmp"
+load "Levels/L1.auf"
+load "Levels/L2.auf"
+load "Levels/L3.auf"
+os
+
+var string result, 64
+file.read result, "script_test/testing_dict/tmp/level.tmp"
+println "E= 122223CMMMCMMMCMMMCMMMCMMMCMMM"
+println "R= ", result
+unvar result
+
+println "【结束】层次测试"
+println
+
+

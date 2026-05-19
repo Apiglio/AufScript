@@ -1,0 +1,7 @@
+var int if_test_var
+mov if_test_var, 1
+if_loop:
+  if if_test_var > 3 if if_test_var > 5 print "A" else print "B" else if if_test_var > 5 print "C" else print "D"
+  add if_test_var, 1
+loop :if_loop, 5
+unvar if_test_var

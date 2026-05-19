@@ -1,0 +1,20 @@
+println "【开始】流程测试"
+
+of "script_test/testing_dict/tmp/routine.tmp"
+load "Routine/if.auf"
+load "Routine/jmp.auf"
+load "Routine/call.auf"
+load "Routine/loop.auf"
+load "Routine/complex_routine.auf"
+os
+
+var string result, 128
+file.read result, "script_test/testing_dict/tmp/routine.tmp"
+println "E= DDDBBAABDGHCSSSSCSSSSCSSSSCSSSSABCDCDCDABCDCDCDABABABABABABABABABABABE2 3 5 7 11 13 17 19 23 29 31 37 41 43 47"
+println "R= ", result
+unvar result
+
+println "【结束】流程测试"
+println
+
+

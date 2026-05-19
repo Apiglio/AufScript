@@ -1,0 +1,78 @@
+//总得分
+var int score_1, 4
+var int score_2, 4
+//局得分
+var int point_1, 4
+var int point_2, 4
+//骰子点数
+var int n1, 4
+var int n2, 4
+//玩家是否要求重投(1-否; 0-是)
+var int r1, 4
+var int r2, 4
+
+mov score_1, 0
+mov score_2, 0
+mov point_1, 0
+mov point_2, 0
+
+game:
+//投掷骰子
+  call :redice
+//默认不要求重投
+  mov r1, 1
+  mov r2, 1
+//执行两个玩家的AI脚本
+  load "player1.ai.auf"
+  load "player2.ai.auf"
+  mul r1, r2
+  if r1 == 0 call :redice
+  if n1 > n2 add point_1, 1
+  if n1 < n2 add point_2, 1
+
+  if point_1 >= 4 call :reset
+  if point_2 >= 4 call :reset
+  if score_1 >= 10 jmp :game_over
+  if score_2 >= 10 jmp :game_over
+
+jmp :game
+
+game_over:
+println "测试结果："
+println "    玩家A: ", score_1, "分"
+println "    玩家B: ", score_2, "分"
+unvar score_1
+unvar score_2
+unvar point_1
+unvar point_2
+unvar n1
+unvar n2
+unvar r1
+unvar r2
+end
+
+
+//重新投骰子
+redice:
+  rand n1, 5
+  rand n2, 5
+  add n1, 1
+  add n2, 1
+ret
+
+//重新记盘分
+reset:
+  if point_1 > point_2 add score_1, 1
+  if point_1 < point_2 add score_2, 1
+  mov point_1, 0
+  mov point_2, 0
+ret
+
+
+
+
+
+
+
+
+

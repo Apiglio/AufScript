@@ -1,0 +1,36 @@
+// 生成50以内的所有质数
+// kimi2.6生成
+
+var int n 4
+var int i 4
+var int flag 4
+var int temp 4
+
+mov n, 2
+
+next_n:
+  mov i, 2
+  mov flag, 1
+
+test_i:
+  if i >= n jmp :print_prime
+
+  mov temp, n
+  mod temp, i
+  if temp == 0 mov flag, 0
+
+  if flag == 0 jmp :print_prime
+
+  add i, 1
+  jmp :test_i
+
+print_prime:
+  if flag == 1 print n, " "
+  add n, 1
+  if n <= 50 jmp :next_n
+
+unvar n
+unvar i
+unvar flag
+unvar temp
+end
