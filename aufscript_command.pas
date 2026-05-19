@@ -144,13 +144,13 @@ begin
   AAuf:=AufScpt.Auf as TAuf;
   if not (AufScpt.Owner is TMemo_AufScript) then
     begin
-      AufScpt.send_error('解释器与命令行编辑框关联错误，未成功设置！');
+      AufScpt.send_error('解释器与命令行编辑框关联错误，未成功设置！',AufsErr_DefTime);
       exit
     end
   else AMemo:=AufScpt.Owner as TMemo_AufScript;
   if AAuf.ArgsCount<3 then
     begin
-      AufScpt.send_error('命令行设置需要两个参数，未成功设置！');
+      AufScpt.send_error('命令行设置需要两个参数，未成功设置！',AufsErr_RunTime);
       exit
     end;
   case AAuf.args[1] of
@@ -175,7 +175,7 @@ begin
           else ;
         end;
       end;
-    else AufScpt.send_error('未知的命令行设置项，未成功设置！');
+    else AufScpt.send_error('未知的命令行设置项，未成功设置！',AufsErr_Unknown);
   end;
 end;
 

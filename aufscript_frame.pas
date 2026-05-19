@@ -244,7 +244,7 @@ begin
   AAuf:=AufScpt.Auf as TAuf;
   if not (AufScpt.Owner is TFrame_AufScript) then
     begin
-      AufScpt.send_error('解释器与命令行编辑框关联错误，未成功设置！');
+      AufScpt.send_error('解释器与命令行编辑框关联错误，未成功设置！',AufsErr_DefTime);
       exit
     end
   else AFrame:=AufScpt.Owner as TFrame_AufScript;

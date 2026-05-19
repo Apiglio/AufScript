@@ -979,7 +979,7 @@ end;
 procedure freeARV(inp:TAufRamVar);
 begin
   if inp.Is_Temporary then inp.Stream.Free
-  else Auf.Script.send_error('警告：正在试图释放非临时AufRamVar，已被拒绝.');
+  else Auf.Script.send_error('警告：正在试图释放非临时AufRamVar，已被拒绝。',AufsErr_RunTime);
 end;
 
 function assignedARV(inp:TAufRamVar):boolean;
