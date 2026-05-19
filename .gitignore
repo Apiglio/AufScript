@@ -6,15 +6,13 @@ manual/*
 scpt/*
 测试脚本/*
 规划计划/*
-script_test/*
 *.o
 *.exe
 *.bak
 *.ppu
 *.compiled
 *.obj
-*.auf
 fpcunitproject1
 fpcunitproject1.or
-!script_test/*.auf
 docs/*
+*.tmp
