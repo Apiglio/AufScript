@@ -367,6 +367,7 @@ type
           target_file:string;
           is_screen:boolean;
           str_list:TStringList;
+          screenfile:textfile;
           resume_when_run_close:boolean;   //对于AufScptFrame来说为true其余为false
         end;                               //输出方式，默认为屏幕。使用os/of切换，of后可以跟文件名。切换os时保存至文件
       end;
@@ -5542,37 +5543,48 @@ begin
 end;
 procedure TAufScript.BeginOF(filename:string);
 begin
-  if PSW.print_mode.is_screen then
-    begin
-      PSW.print_mode.is_screen:=false;
-      PSW.print_mode.target_file:=filename;
-      PSW.print_mode.str_list:=TStringList.Create;
-      PSW.print_mode.str_list.Add('');
-    end
-  else
-    begin
-      if filename=PSW.print_mode.target_file then exit;
-      EndOF;
-      BeginOF(filename);
+  if PSW.print_mode.is_screen then begin
+    try
+      AssignFile(PSW.print_mode.screenfile, filename);
+      Rewrite(PSW.print_mode.screenfile);
+    except
+      send_error('警告：屏幕文件'+filename+'被占用，未进入文件输出模式。',AufsErr_FileIOFailed);
+      exit;
     end;
+    PSW.print_mode.is_screen:=false;
+    PSW.print_mode.target_file:=filename;
+    PSW.print_mode.str_list:=TStringList.Create;
+    PSW.print_mode.str_list.Add('');
+  end else begin
+    if filename=PSW.print_mode.target_file then begin
+      PSW.print_mode.is_screen:=true;
+      send_error('警告：设置为写入同一个屏幕文件，出于性能因素文件没有实际保存。',AufsErr_ScreenFile);
+      PSW.print_mode.is_screen:=false;
+      exit;
+    end;
+    EndOF;
+    BeginOF(filename);
+  end;
 end;
 procedure TAufScript.EndOF;
 begin
-  if PSW.print_mode.is_screen then
-    begin
-      exit;
-    end
-  else
-    begin
-      try
-        PSW.print_mode.str_list.SaveToFile(PSW.print_mode.target_file);
-      except
-        PSW.print_mode.str_list.SaveToFile('screen.log');
-      end;
-      PSW.print_mode.is_screen:=true;
-      PSW.print_mode.target_file:='';
-      PSW.print_mode.str_list.Free;
-    end;
+  if PSW.print_mode.is_screen then begin
+    send_error('警告：已在屏幕输出模式，代码未执行。',AufsErr_ScreenFile);
+    exit;
+  end;
+  try
+    Rewrite(PSW.print_mode.screenfile);
+    CloseFile(PSW.print_mode.screenfile);
+    PSW.print_mode.str_list.SaveToFile(PSW.print_mode.target_file);
+  except
+    PSW.print_mode.is_screen:=true;
+    send_error('警告：屏幕文件保存失败，结果仍保存在内存中，请重试。',AufsErr_FileIOFailed);
+    PSW.print_mode.is_screen:=false;
+    exit;
+  end;
+  PSW.print_mode.is_screen:=true;
+  PSW.print_mode.target_file:='';
+  PSW.print_mode.str_list.Free;
 end;
 procedure TAufScript.write(str:string);
 begin

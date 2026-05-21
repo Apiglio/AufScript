@@ -25,6 +25,7 @@ TAufScriptError = (
   AufsErr_StackInvalid,
   AufsErr_FileNotExists,
   AufsErr_FileIOFailed,
+  AufsErr_ScreenFile,
   AufsErr_TaskNotFound,
   AufsErr_TaskNotEnabled,
   AufsErr_TaskNoMsg,
