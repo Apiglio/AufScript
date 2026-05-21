@@ -16,3 +16,11 @@ println "【结束】层次测试"
 println
 
 
+println "【开始】层次常量测试"
+
+println "软件路径：", @path
+println "当前路径：", @level_path
+load "Levels/M1.auf"
+
+println "【结束】层次常量测试"
+println

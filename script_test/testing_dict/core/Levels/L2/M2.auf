@@ -1,0 +1,4 @@
+print "M2: "
+println "软件路径：", @path
+print "M2: "
+println "当前路径：", @level_path

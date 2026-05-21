@@ -5748,7 +5748,8 @@ begin
                   'ram_zero':AAuf.nargs[i]:=narg('',IntToStr(pRam(Self.PSW.run_parameter.ram_zero)),'');
                   'ram_size':AAuf.nargs[i]:=narg('',IntToStr(Self.PSW.run_parameter.ram_size),'');
                   'ram_all':AAuf.nargs[i]:=narg('$"',pRamToRawStr(0)+'|'+pRamToRawStr(pRam(Self.PSW.run_parameter.ram_size)),'"');
-                  'error_raise':AAuf.nargs[i]:=narg('',BoolToStr(Self.PSW.run_parameter.error_raise),'');
+                  'path':AAuf.nargs[i]:=narg('"',ExtractFilePath(ParamStr(0)),'"');
+                  'level_path':AAuf.nargs[i]:=narg('"',ExtractFilePath(ScriptName),'"');
                   'self_id':begin
                     if IsEqualGUID(PSW.message.FUUID_Stored, GUID_NULL) then begin
                       EnableTaskMessage;
