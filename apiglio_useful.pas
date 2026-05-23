@@ -51,7 +51,7 @@ uses
   StdCtrls,
   {$endif}
   LazUTF8, RegExpr, Variants,
-  Auf_Ram_Var, Auf_Ram_Image,
+  Auf_Ram_Var, Auf_Ram_Image, aufscript_canvas,
   auf_type_base, auf_type_array,
   kernel;
 
@@ -142,7 +142,7 @@ type
   TJumpModeSet=set of TJumpMode;
 
   TMsgUuid = TGUID;
-  TMsgCode = (mcUnknown=0, mcNormal=1, mcBroadcast=2);
+  TMsgCode = (mcUnknown=0, mcNormal=1, mcBroadcast=2, mcCanvas=3);
   TMsgItem = record
     From:TAufScript;
     Data:TAufRamVar;
@@ -388,6 +388,7 @@ type
         pause:pFuncAuf;                    //相当于readln;
         clear:pFuncAuf;                    //清屏
         command_decode:pFuncVarStr;        //在GUI模式中使用utf8编码时需要设置转码函数
+        canvas:TAufCanvasPanel;                  //用于绘制图形，初始值nil时图形指令不可用
       end;
       Func_process:record
         pre,post,mid:pFuncAuf;             //执行单条指令前后的额外过程和中途防假死预留
@@ -398,6 +399,7 @@ type
         OperatorCompare:TStringList{of pFuncComp}; //用于if语句中第2参数的自定义对比
         OperatorArray:array of string;     //用于配合TryArgToStrParam
       end;
+
 
       FSVOKernel:TAufKernel;
 
@@ -416,6 +418,7 @@ type
       function RamVar(arg:Tnargs):TAufRamVar;//将标准变量形式转化成ARV
       function RamVarToNargs(arv:TAufRamVar;not_offset:boolean=false):Tnargs;
       function RamVarClipToNargs(arv:TAufRamVar;idx,len:pRam;not_offset:boolean=false):Tnargs;
+
 
     protected
       //将Tnargs参数转换成需要的格式，不符合要求的情况下raise，使用时需要解决异常。
@@ -458,12 +461,17 @@ type
       procedure operators_helper;
       procedure define_helper;
 
+    protected
+      function GetTaskMessageEnabled:boolean;
+    public
       procedure EnableTaskMessage;
       procedure DisableTaskMessage;
       function SendTaskMessage(SendTo:TAufScript;Data:TAufRamVar;Code:TMsgCode):boolean;
       procedure ReadTaskMessage(var From:TAufScript; var Data:TAufRamVar; var Code:TMsgCode); //没有消息时返回nil
       function CountTaskMessage:integer;
+      property TaskMessageEnabled:boolean read GetTaskMessageEnabled;
 
+    public
       procedure Pause;//人为暂停
       procedure Resume;//人为继续
       procedure Stop;//人为中止
@@ -486,6 +494,7 @@ type
       procedure AdditionFuncDefine_Math;//数学模块函数定义
       procedure AdditionFuncDefine_AufBase;//内建类型模块定义
       procedure AdditionFuncDefine_Image;//图像模块函数定义
+      procedure AdditionFuncDefine_Canvas;//图形界面函数定义
       procedure AdditionFuncDefine_SVO;//SVO新语法调用模块，暂时的运行方式
 
   end;
@@ -524,6 +533,7 @@ type
       function TryArgToAufArray(ArgNumber:byte;out arr:TAufArray):boolean;
 
       function TellArgType(ArgNumber:byte):TAufRamVarType;
+      function CheckCanvas:boolean;
 
       function RangeCheck(target,min,max:int64):boolean;inline;
       //min<=target<=max时返回true否则返回false，并send_error
@@ -4052,6 +4062,47 @@ begin
   until img_out=nil;
 end;
 
+procedure cav_Refresh(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckCanvas then exit;
+  AufScpt.IO_fptr.canvas.Refresh;
+end;
+
+procedure cav_Clear(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckCanvas then exit;
+  AufScpt.IO_fptr.canvas.Shapes.Clear;
+end;
+
+procedure cav_AddRect(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    x0,x1,y0,y1,shp_id:integer;
+    shp_id_arv:TAufRamVar;
+    tmpShape:TAufShape;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckCanvas then exit;
+  if not AAuf.CheckArgs(6) then exit;
+  if not AAuf.TryArgToARV(1, 4, High(DWord), [ARV_FixNum], shp_id_arv) then exit;
+  if not AAuf.TryArgToLong(2, x0) then exit;
+  if not AAuf.TryArgToLong(3, x1) then exit;
+  if not AAuf.TryArgToLong(4, y0) then exit;
+  if not AAuf.TryArgToLong(5, y1) then exit;
+  tmpShape:=TAufFace.CreateByRect(Classes.Rect(x0,y0,x1,y1));
+  shp_id:=AufScpt.IO_fptr.canvas.Shapes.AddShape(tmpShape);
+  dword_to_arv(shp_id, shp_id_arv);
+end;
+
 
 function operator_compare_numeric(Sender:TObject;var is_error:boolean):smallint;
 var AufScpt:TAufScript;
@@ -4544,6 +4595,14 @@ begin
     else result:=ARV_Raw;
   end;
 end;
+function TAuf.CheckCanvas:boolean;
+begin
+  if Script.IO_fptr.canvas=nil then begin
+    Script.send_error('警告：未找到绑定画布，图形功能不可用。',AufsErr_CanvasNotFound);
+    result:=false;
+  end else result:=true;
+end;
+
 function TAuf.RangeCheck(target,min,max:int64):boolean;
 begin
   if (target>max) or (target<min) then begin
@@ -5848,6 +5907,11 @@ begin
   push_addr(Self.ScriptLines,Self.ScriptName,line);
 end;
 
+function TAufScript.GetTaskMessageEnabled:boolean;
+begin
+  result:=not IsEqualGUID(PSW.message.FUUID_Stored, GUID_NULL);
+end;
+
 procedure TAufScript.EnableTaskMessage;
 begin
   GlobalMultiTaskList.AddTask(Self);
@@ -6619,6 +6683,7 @@ begin
   AdditionFuncDefine_Math;
   AdditionFuncDefine_AufBase;
   AdditionFuncDefine_Image;
+  AdditionFuncDefine_Canvas;
   AdditionFuncDefine_SVO;
 
   //整个InternalFuncDefine不应该在create以外自行调用，运算符创建也不应该在这里
@@ -6774,6 +6839,14 @@ begin
 
   Self.add_func('img.addln',          @img_AddByLine,          'img1,img2[,pw[,bm]]',      '两个图像按照行拼接，拼接需满足边缘pw行像素重合(pw默认值为10)，最大回溯查找bm段(bm默认值为0)');
   Self.add_func('img.vsegln',         @img_VoidSegmentByLine,  'img,min,tor,basename',     '按行分割图像，min为最小像素高度，tor为最大行颜色差值，basename为原始存储文件名称');
+
+end;
+
+procedure TAufScript.AdditionFuncDefine_Canvas;
+begin
+  Self.add_func('cav.refresh',        @cav_Refresh,            '',                          '重绘画布');
+  Self.add_func('cav.clear',          @cav_Clear,              '',                          '清除画布上的所有图形');
+  Self.add_func('cav.addrect',        @cav_AddRect,            'shp_id, x0, x1, y0, y1',    '在画布上创建方形并将图形ID保存给shp_id');
 
 end;
 

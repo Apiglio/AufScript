@@ -22,7 +22,7 @@ uses
   Classes, StdCtrls, ExtCtrls, Sysutils, Forms, consoletestrunner, Interfaces,
   Controls, Dialogs, LazUTF8, Apiglio_Useful, auf_ram_var, aufscript_frame,
   aufscript_command, auf_ram_syntax, auf_ram_image, aufscript_thread,
-  auf_type_array, auf_type_base, word_tree, svo_tree, auf_type_parser;
+  auf_type_array, auf_type_base, word_tree, svo_tree, auf_type_parser, aufscript_canvas;
 
 type
 
@@ -34,6 +34,7 @@ type
     {$else}
     AufMemo:TMemo_AufScript;
     {$endif}
+    CanvasForm:TForm;
   public
     constructor CreateNew(AOwner:TComponent);
     procedure InitializeForm;
@@ -151,16 +152,28 @@ begin
   Self.Caption:=str;
 end;
 procedure TMyTestForm.InitializeForm;
+var AufCanvasPanel:TAufCanvasPanel;
 begin
   Self.Caption:='Auf GUI Tester';
   Self.Width:=600;
   Self.Height:=360;
   Self.Position:=poScreenCenter;
   Self.Show;
+
+  CanvasForm:=TForm.CreateNew(Self);
+  AufCanvasPanel:=TAufCanvasPanel.Create(CanvasForm);
+  AufCanvasPanel.Parent:=CanvasForm;
+  AufCanvasPanel.Align:=alClient;
+  CanvasForm.Caption:='AufScript Canvas Test';;
+  CanvasForm.Show;
+
+
   {$ifndef AufFrame}
   AufMemo:=TMemo_AufScript.Create(Self);
   AufMemo.Parent:=Self;
   AufMemo.Auf.Script.add_func('ptest',@project_test,'','测试');
+  AufMemo.Auf.Script.IO_fptr.canvas:=AufCanvasPanel;
+  AufCanvasPanel.AufScript:=AufMemo.Auf.Script;
   {$else}
   AufFrame:=TFrame_AufScript.Create(Self);
   AufFrame.Parent:=Self;
@@ -168,19 +181,20 @@ begin
   AufFrame.FrameResize(nil);
   AufFrame.AufGenerator;
   AufFrame.Auf.Script.add_func('ptest',@project_test,'','测试');
+  AufFrame.Auf.Script.IO_fptr.canvas:=AufCanvasPanel;
+  AufCanvasPanel.AufScript:=AufFrame.Auf.Script;
   AufFrame.OnChangeTitle:=@ChangeMainTitle;
   {$endif}
   Self.ResizeForm(nil);
   Self.OnResize:=@Self.ResizeForm;
   Self.OnDestroy:=@Self.FormDestroy;
 
-
-
 end;
 constructor TMyTestForm.CreateNew(AOwner:TComponent);
 begin
   inherited CreateNew(AOwner);
   Self.InitializeForm;
+
 end;
 procedure TMyTestForm.ResizeForm(Sender:TObject);
 var gap:word;//通用间隔

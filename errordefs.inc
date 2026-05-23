@@ -33,6 +33,7 @@ TAufScriptError = (
   AufsErr_EncTime,
   AufsErr_RunTime,
   AufsErr_PlatformUnimplemented,
+  AufsErr_CanvasNotFound,
   AufsErr_Unknown = 0
 );
 
