@@ -57,7 +57,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.9.1.0';
+  AufScript_Version='beta 2.9.1.1';
   {$if defined(cpu32)}
   AufScript_CPU='32bits';
   {$elseif defined(cpu64)}
@@ -83,7 +83,7 @@ const
   c_iden=['~','@','$','#',':','&'];//变量符号，前后缀符号
   c_toto=c_divi+c_iden;
   ram_range=$20000{4096}{32};//变量区大小
-  stack_range=32;//行数堆栈区大小，最多支持256个
+  stack_range=1024;//行数堆栈区大小，最多支持256个
   func_range=1024;//256;//函数区大小，最多支持65536个
   args_range=64;//16;//函数参数最大数量
   task_range=128;//跨任务消息存储条数限制
@@ -342,7 +342,7 @@ type
           time_consuming:array of Double;
           line_status:array of Integer;
         end;
-        stack_ptr:byte;         //PSW.stack[stack_ptr].line就是next_line,就是属性中的CurrentLine
+        stack_ptr:integer;         //PSW.stack[stack_ptr].line就是next_line,就是属性中的CurrentLine
 
         haltoff,pause:boolean;
         inRunNext:boolean;      //仅在SynMoTimer模式下使用，表示是否正在执行RunNext

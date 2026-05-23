@@ -1,0 +1,8 @@
+println "【开始】实务测试"
+
+load "Demo/recursive_calc.auf"
+
+println "【结束】实务测试"
+println
+
+

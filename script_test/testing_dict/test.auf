@@ -9,10 +9,11 @@ load "core/routine_test.auf"
 println "层次测试..."
 load "core/level_test.auf"
 
+println "实务测试..."
+load "core/demo_test.auf"
 
 //bounds
 println "【边界测试】"
 
-
-
-
+//end
+println "【测试结束】"
