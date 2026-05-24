@@ -175,7 +175,6 @@ end;
 
 procedure TAufShapeContainer.CheckCompact;
 begin
-  writeln(FNilCount, '>?', FList.Count);
   if FNilCount<37 then exit;
   if 5*FNilCount>FList.Count then Compact;
 end;

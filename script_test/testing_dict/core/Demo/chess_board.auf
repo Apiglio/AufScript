@@ -1,0 +1,49 @@
+define black, 00000000H
+define gray,  007f7f7fH
+define size, 7
+
+cav.clear
+var int row, 2
+var int col, 2
+var int color, 4
+var int shp, 4
+var int msk, 4
+
+mov color, @black
+mov msk, 00ffffffH
+mov row, 0
+L1:
+  mov col, 0
+  L2:
+    call :build_chess_board_cell
+    add col, 1
+    xor color, msk
+  loop :L2, @size
+  add row, 1
+  xor color, msk
+loop :L1, @size
+cav.refresh
+unvar row, col, color, shp, msk
+end
+
+
+build_chess_board_cell:
+  var int x0, 2
+  var int x1, 2
+  var int y0, 2
+  var int y1, 2
+  mov x0, row
+  mul x0, 32
+  mov y0, col
+  mul y0, 32
+  mov x1, x0
+  mov y1, y0
+  add x1, 32
+  add y1, 32
+  cav.add_rect shp, x0, x1, y0, y1
+  cav.set_style shp, color_fill, color
+  cav.set_style shp, color_fill_hover, @gray
+  unvar x0, x1, y0, y1
+ret
+
+
