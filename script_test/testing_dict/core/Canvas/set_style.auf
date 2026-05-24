@@ -1,0 +1,16 @@
+var int s1
+var int s2
+var int s3
+cav.clear
+cav.add_rect s1, 10, 90, 10, 90
+cav.add_rect s2, 50, 130, 50, 130
+cav.add_rect s3, 90, 170, 90, 170
+cav.set_style s1, width_hover, 3
+cav.set_style s2, color_fill_hover, 00FFFF00H
+cav.set_style s3, color_fill, 00FF00FFH
+cav.refresh
+
+cav.to_top s2
+cav.refresh
+
+unvar s1, s2, s3

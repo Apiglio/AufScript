@@ -1,0 +1,13 @@
+var int s1
+var int s2
+var int s3
+cav.clear
+cav.add_rect s1, 10, 90, 10, 90
+cav.add_rect s2, 50, 130, 50, 130
+cav.add_rect s3, 90, 170, 90, 170
+cav.refresh
+
+cav.to_top s2
+cav.refresh
+
+unvar s1, s2, s3

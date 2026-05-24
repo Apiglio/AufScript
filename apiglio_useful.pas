@@ -578,7 +578,7 @@ var
 
 
 IMPLEMENTATION
-uses auf_type_parser;
+uses auf_type_parser, Graphics;
 
 procedure de_decoder(var str:string);
 begin
@@ -4138,6 +4138,38 @@ begin
   AufScpt.IO_fptr.canvas.Shapes.SendToBack(shp_id);
 end;
 
+procedure cav_SetStyle(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    shp_id,index:integer;
+    style_name:string;
+    style_value:dword;
+    tmpShape:TAufShape;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckCanvas then exit;
+  if not AAuf.CheckArgs(4) then exit;
+  if not AAuf.TryArgToLong(1, shp_id) then exit;
+  if not AAuf.TryArgToStrParam(2, ['color_fill','color_stroke','color_fill_hover','color_stroke_hover','width','width_hover'], false, style_name) then exit;
+  if not AAuf.TryArgToDWord(3, style_value) then exit;
+  tmpShape:=AufScpt.IO_fptr.canvas.Shapes.FindShapeByID(shp_id, index);
+  if tmpShape=nil then begin
+    AufScpt.send_error(Format('警告：未找到图形#%d。',[shp_id]), AufsErr_RunTime);
+    exit;
+  end;
+  case style_name of
+    'color_fill':         tmpShape.Style.FillColor        :=TColor(style_value);
+    'color_stroke':       tmpShape.Style.StrokeColor      :=TColor(style_value);
+    'color_fill_hover':   tmpShape.Style.HoverFillColor   :=TColor(style_value);
+    'color_stroke_hover': tmpShape.Style.HoverStrokeColor :=TColor(style_value);
+    'width':              tmpShape.Style.Width            :=style_value;
+    'width_hover':        tmpShape.Style.HoverWidth       :=style_value;
+  end;
+  AufScpt.IO_fptr.canvas.Shapes.SendToBack(shp_id);
+end;
+
+
 
 function operator_compare_numeric(Sender:TObject;var is_error:boolean):smallint;
 var AufScpt:TAufScript;
@@ -6882,12 +6914,15 @@ procedure TAufScript.AdditionFuncDefine_Canvas;
 begin
   Self.add_func('cav.refresh',        @cav_Refresh,            '',                          '重绘画布');
   Self.add_func('cav.clear',          @cav_Clear,              '',                          '清除画布上的所有图形');
-  Self.add_func('cav.addrect',        @cav_AddRect,            'shp_id, x0, x1, y0, y1',    '在画布上创建方形并将图形ID保存给shp_id');
+  Self.add_func('cav.add_rect',       @cav_AddRect,            'shp_id, x0, x1, y0, y1',    '在画布上创建方形并将图形ID保存给shp_id');
 
 
-  Self.add_func('cav.shapeslist',     @cav_ShapesList,         '',                          '显示图形列表');
+  Self.add_func('cav.list',           @cav_ShapesList,         '',                          '显示图形列表');
   Self.add_func('cav.to_top',         @cav_ToTop,              'shp_id',                    '将给定id的图形置于画布最上层');
   Self.add_func('cav.to_bottom',      @cav_ToBottom,           'shp_id',                    '将给定id的图形置于画布最下层');
+
+  Self.add_func('cav.set_style',      @cav_SetStyle,           'shp_id, style_name, value', '设置给定id的图形的外观');
+
 
 end;
 

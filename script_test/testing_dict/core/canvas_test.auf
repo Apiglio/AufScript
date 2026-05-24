@@ -1,0 +1,9 @@
+println "【开始】画布测试"
+
+load "Canvas/add_rect.auf"
+load "Canvas/set_style.auf"
+
+println "【结束】画布测试"
+println
+
+

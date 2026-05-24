@@ -16,12 +16,17 @@ type
   private
     FShapeId:Integer;
     FShapeType:TShapeType;
-    FStyle:record
+  public
+    Style:record
+      Width:Integer;
+      HoverWidth:Integer;
       FillColor:TColor;
       StrokeColor:TColor;
+      HoverFillColor:TColor;
+      HoverStrokeColor:TColor;
     end;
   public
-    procedure Draw(Canvas:TCanvas);virtual;abstract;
+    procedure Draw(Canvas:TCanvas;Hover:boolean=false);virtual;abstract;
     function PointContains(point:TPoint):boolean;virtual;abstract;
   public
     constructor Create;
@@ -31,7 +36,7 @@ type
   private
     FCoordinates:array of TPoint;
   public
-    procedure Draw(Canvas:TCanvas);override;
+    procedure Draw(Canvas:TCanvas;Hover:boolean=false);override;
     function PointContains(point:TPoint):boolean;override;
   public
     constructor Create(points:array of TPoint);
@@ -65,6 +70,7 @@ type
   public
     FAufScript:TObject;
     FContainer:TAufShapeContainer;
+    FHoverShape:TAufShape;
   private
     procedure Paint; override;
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
@@ -88,20 +94,32 @@ uses Apiglio_Useful, auf_ram_var;
 
 constructor TAufShape.Create;
 begin
-  FStyle.FillColor:=clRed;
-  FStyle.StrokeColor:=clBlack;
+  with Style do begin
+    Width:=1;
+    HoverWidth:=1;
+    FillColor:=clRed;
+    StrokeColor:=clBlack;
+    HoverFillColor:=clMaroon;
+    HoverStrokeColor:=clBlack;
+  end;
 end;
 
 { TAufFace }
 
-procedure TAufFace.Draw(Canvas: TCanvas);
+procedure TAufFace.Draw(Canvas:TCanvas;Hover:boolean=false);
 begin
   if Length(FCoordinates)<3 then exit;
-  Canvas.Brush.Color:=FStyle.FillColor;
   Canvas.Brush.Style:=bsSolid;
-  Canvas.Pen.Color:=FStyle.StrokeColor;
-  Canvas.Pen.Width:=1;
   Canvas.Pen.Style:=psSolid;
+  if Hover then begin
+    Canvas.Brush.Color:=Style.HoverFillColor;
+    Canvas.Pen.Color:=Style.HoverStrokeColor;
+    Canvas.Pen.Width:=Style.HoverWidth;
+  end else begin
+    Canvas.Brush.Color:=Style.FillColor;
+    Canvas.Pen.Color:=Style.StrokeColor;
+    Canvas.Pen.Width:=Style.Width;
+  end;
   Canvas.Polygon(FCoordinates);
 end;
 
@@ -319,7 +337,7 @@ begin
   len:=FContainer.FList.Count;
   for idx:=0 to len-1 do begin
     shp:=TAufShape(FContainer.FList[idx]);
-    if shp<>nil then shp.Draw(Canvas);
+    if shp<>nil then shp.Draw(Canvas, shp=FHoverShape);
   end;
 end;
 
@@ -348,8 +366,20 @@ begin
 end;
 
 procedure TAufCanvasPanel.MouseMove(Shift: TShiftState; X, Y: Integer);
+var picked_shape:TAufShape;
 begin
-
+  picked_shape:=FContainer.PickShape(Classes.Point(X,Y));
+  if picked_shape=nil then begin
+    if FHoverShape<>nil then begin
+      FHoverShape:=nil;
+      Paint;
+    end;
+    exit;
+  end;
+  if FHoverShape<>picked_shape then begin
+    FHoverShape:=picked_shape;
+    Paint;
+  end;
 end;
 
 procedure TAufCanvasPanel.Resize;
@@ -367,6 +397,7 @@ constructor TAufCanvasPanel.Create(TheOwner: TComponent);
 begin
   inherited Create(TheOwner);
   FContainer:=TAufShapeContainer.Create;
+  FHoverShape:=nil;
 end;
 
 destructor TAufCanvasPanel.Destroy;

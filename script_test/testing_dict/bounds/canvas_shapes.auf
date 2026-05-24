@@ -5,16 +5,16 @@ var int s
 
 cav.clear
 loo:
-  cav.addrect s, 10, 90, 10, 90
+  cav.add_rect s, 10, 90, 10, 90
 loop :loo, 500
 
 cav.refresh
-cav.shapeslist
+cav.list
 
 randt:
   rand s, 100
   cav.to_bottom s
-  cav.shapeslist
+  cav.list
 loop :randt, 1000
 
 cav.refresh

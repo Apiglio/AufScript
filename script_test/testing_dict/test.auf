@@ -9,6 +9,9 @@ load "core/routine_test.auf"
 println "层次测试..."
 load "core/level_test.auf"
 
+println "画布测试..."
+load "core/canvas_test.auf"
+
 println "实务测试..."
 load "core/demo_test.auf"
 
