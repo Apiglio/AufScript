@@ -2863,7 +2863,7 @@ begin
     AufScpt.PSW.message_info.addr:=addr;
     if duration<0 then AufScpt.PSW.message_info.timeout:=Now+1000
     else AufScpt.PSW.message_info.timeout:=Now+duration/86400000;
-    //AufScpt.push_addr(addr);
+    AufScpt.push_addr(addr);//如果超时，在MultiTaskTimer中pop_addr
     {$else}
     //多线程模式还未测试
     message_received:=false;
@@ -6435,11 +6435,12 @@ begin
   if msgQueue.Count>0 then begin
     auf.Time.MultiTaskTimerPause:=false;
     Self.Enabled:=false;
-    auf.push_addr(auf.PSW.message_info.addr);
     auf.send(AufProcessControl_RunNext);
   end else if Now>=auf.PSW.message_info.timeout then begin
     auf.Time.MultiTaskTimerPause:=false;
     Self.Enabled:=false;
+    auf.pop_addr;
+    auf.next_addr;
     auf.send(AufProcessControl_RunNext);
   end;
 end;
