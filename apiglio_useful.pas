@@ -4103,6 +4103,41 @@ begin
   dword_to_arv(shp_id, shp_id_arv);
 end;
 
+procedure cav_ShapesList(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  AufScpt.writeln(AufScpt.IO_fptr.canvas.Shapes.AsString);
+end;
+
+procedure cav_ToTop(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    shp_id:integer;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckCanvas then exit;
+  if not AAuf.CheckArgs(2) then exit;
+  if not AAuf.TryArgToLong(1, shp_id) then exit;
+  AufScpt.IO_fptr.canvas.Shapes.BringToTop(shp_id);
+end;
+
+procedure cav_ToBottom(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    shp_id:integer;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckCanvas then exit;
+  if not AAuf.CheckArgs(2) then exit;
+  if not AAuf.TryArgToLong(1, shp_id) then exit;
+  AufScpt.IO_fptr.canvas.Shapes.SendToBack(shp_id);
+end;
+
 
 function operator_compare_numeric(Sender:TObject;var is_error:boolean):smallint;
 var AufScpt:TAufScript;
@@ -6848,6 +6883,11 @@ begin
   Self.add_func('cav.refresh',        @cav_Refresh,            '',                          '重绘画布');
   Self.add_func('cav.clear',          @cav_Clear,              '',                          '清除画布上的所有图形');
   Self.add_func('cav.addrect',        @cav_AddRect,            'shp_id, x0, x1, y0, y1',    '在画布上创建方形并将图形ID保存给shp_id');
+
+
+  Self.add_func('cav.shapeslist',     @cav_ShapesList,         '',                          '显示图形列表');
+  Self.add_func('cav.to_top',         @cav_ToTop,              'shp_id',                    '将给定id的图形置于画布最上层');
+  Self.add_func('cav.to_bottom',      @cav_ToBottom,           'shp_id',                    '将给定id的图形置于画布最下层');
 
 end;
 

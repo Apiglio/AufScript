@@ -1,6 +1,7 @@
 unit aufscript_canvas;
 
 {$mode objfpc}{$H+}
+{$inline on}
 
 interface
 
@@ -42,13 +43,22 @@ type
   private
     FList:TList;
     FAutoInc:integer; //始终自增的ID
+    FNilCount:integer;//计算空图形数量，达nil数量超过五分之一时清理
+  private
+    procedure CheckCompact;inline;
   public
     function AddShape(shape:TAufShape):Integer;
     procedure Clear;
+    procedure Compact; //清空列表中的所有nil
     constructor Create;
     destructor Destroy; override;
   public
+    function FindShapeByID(Shape_ID:Integer; out Index:Integer):TAufShape;
     function PickShape(pick:TPoint):TAufShape;
+    procedure BringToTop(Shape_ID:Integer);
+    procedure SendToBack(Shape_ID:Integer);
+  public
+    function AsString:string;
   end;
 
   TAufCanvasPanel = class(TCustomPanel)
@@ -144,26 +154,73 @@ end;
 
 
 { TAufShapeContainer }
+
+procedure TAufShapeContainer.CheckCompact;
+begin
+  writeln(FNilCount, '>?', FList.Count);
+  if FNilCount<37 then exit;
+  if 5*FNilCount>FList.Count then Compact;
+end;
+
 function TAufShapeContainer.AddShape(shape:TAufShape):Integer;
 begin
   FList.Add(shape);
   inc(FAutoInc);
   shape.FShapeId:=FAutoInc;
   result:=FAutoInc;
+  if shape=nil then inc(FNilCount);
+  CheckCompact;
 end;
 
 procedure TAufShapeContainer.Clear;
 var index:integer;
+    tmpShape:TAufShape;
 begin
-  for index:=FList.Count-1 downto 0 do TAufShape(FList[index]).Free;
+  for index:=FList.Count-1 downto 0 do begin
+    tmpShape:=TAufShape(FList[index]);
+    if tmpShape<>nil then tmpShape.Free;
+  end;
   FList.Clear;
+  FNilCount:=0;
+  FAutoInc:=0;
 end;
+
+//删除图形列表多余的nil，保留前五分之一的nil集中在FList最前，以便SendToBack快速交换
+procedure TAufShapeContainer.Compact;
+var idx, writeIdx, len, keepNilCount: integer;
+begin
+  len:=FList.Count;
+  if len<37 then exit;
+  keepNilCount:=len div 5;
+  // 从保留区后开始整理
+  writeIdx:=keepNilCount;
+  for idx:=keepNilCount to len-1 do begin
+    if FList[idx]<>nil then begin
+      FList[writeIdx]:=FList[idx];
+      inc(writeIdx);
+    end;
+  end;
+  // 删除尾部多余元素
+  for idx:=FList.Count-1 downto writeIdx do FList.Delete(idx);
+  // 重新规整前三分之一的nil
+  writeIdx:=keepNilCount-1;
+  for idx:=keepNilCount-1 downto 0 do begin
+    if FList[idx]<>nil then begin
+      FList[writeIdx]:=FList[idx];
+      dec(writeIdx);
+    end;
+  end;
+  for idx:=writeIdx downto 0 do FList[idx]:=nil;
+  FNilCount:=writeIdx+1;
+end;
+
 
 constructor TAufShapeContainer.Create;
 begin
   inherited Create;
   FList:=TList.Create;
   FAutoInc:=0;
+  FNilCount:=0;
 end;
 
 destructor TAufShapeContainer.Destroy;
@@ -173,16 +230,84 @@ begin
   inherited Destroy;
 end;
 
+function TAufShapeContainer.FindShapeByID(Shape_ID:Integer; out Index:Integer):TAufShape;
+var tmpIndex:integer;
+    tmpShape:TAufShape;
+begin
+  result:=nil;
+  if (FAutoInc<Shape_ID) or (Shape_ID<=0) then exit;
+  for tmpIndex:=FList.Count-1 downto 0 do begin
+    tmpShape:=TAufShape(FList[tmpIndex]);
+    if tmpShape=nil then continue;
+    if tmpShape.FShapeId=Shape_ID then begin
+      result:=tmpShape;
+      Index:=tmpIndex;
+      exit;
+    end;
+  end;
+end;
+
 function TAufShapeContainer.PickShape(pick:TPoint):TAufShape;
 var index:integer;
 begin
   for index:=FList.Count-1 downto 0 do begin
     result:=TAufShape(FList[index]);
+    if result=nil then continue;
     if result.PointContains(pick) then exit;
   end;
   result:=nil;
 end;
 
+procedure TAufShapeContainer.BringToTop(Shape_ID:Integer);
+var idx,len:integer;
+begin
+  if FindShapeByID(Shape_ID, idx) = nil then exit;
+  len:=FList.Count;
+  if idx+1=len then exit;
+  FList.Add(nil);//不能用AddShape，有可能正好达到导致Compact的FNilCount
+  FList[len]:=FList[idx];
+  FList[idx]:=nil;
+  inc(FNilCount);
+  CheckCompact;
+end;
+
+procedure TAufShapeContainer.SendToBack(Shape_ID:Integer);
+var idx,len,last_head_nil,tmp_idx:integer;
+begin
+  if FindShapeByID(Shape_ID, idx) = nil then exit;
+  len:=FList.Count;
+  if idx=0 then exit;
+  for last_head_nil:=0 to len-1 do begin
+    if FList[last_head_nil]<>nil then break;
+  end;
+  if last_head_nil=0 then begin
+    //列表开头没有nil：在前面创建4个nil，然后将指定图形与第4个nil交换
+    for tmp_idx:=0 to 3 do FList.Add(nil);
+    for tmp_idx:=len-1 downto 0 do FList[tmp_idx+4]:=FList[tmp_idx];
+    for tmp_idx:=0 to 3 do FList[tmp_idx]:=nil;
+    FList[3]:=FList[idx+4];
+    FList[idx+4]:=nil;
+    inc(FNilCount,4);
+  end else begin
+    //列表开头有nil：直接将指定图形和最后一个nil交换
+    FList[last_head_nil-1]:=FList[idx];
+    FList[idx]:=nil;
+  end;
+  CheckCompact;
+end;
+
+function TAufShapeContainer.AsString:string;
+var idx,len:integer;
+    tmpShape:TAufShape;
+begin
+  result:='';
+  len:=FList.Count;
+  for idx:=0 to len-1 do begin
+    tmpShape:=TAufShape(FList[idx]);
+    if tmpShape=nil then result:=result+#9+'_'
+    else result:=result+#9+'s'+IntToStr(tmpShape.FShapeId);
+  end;
+end;
 
 { TAufCanvasPanel }
 
@@ -194,7 +319,7 @@ begin
   len:=FContainer.FList.Count;
   for idx:=0 to len-1 do begin
     shp:=TAufShape(FContainer.FList[idx]);
-    shp.Draw(Canvas);
+    if shp<>nil then shp.Draw(Canvas);
   end;
 end;
 
@@ -214,8 +339,10 @@ begin
   if not AufScpt.TaskMessageEnabled then exit;
   newARV(event_arv, 32);
   fillARV(0,event_arv);
-  pdword(event_arv.Head)^:=X;
-  pdword(event_arv.Head+1)^:=Y;
+  pdword(event_arv.Head)^:=1;
+  pdword(event_arv.Head+4)^:=picked_shape.FShapeId;
+  pdword(event_arv.Head+8)^:=X;
+  pdword(event_arv.Head+12)^:=Y;
   AufScpt.SendTaskMessage(AufScpt, event_arv, mcCanvas);
   freeARV(event_arv);
 end;
