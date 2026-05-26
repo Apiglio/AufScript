@@ -4098,7 +4098,48 @@ begin
   if not AAuf.TryArgToLong(3, x1) then exit;
   if not AAuf.TryArgToLong(4, y0) then exit;
   if not AAuf.TryArgToLong(5, y1) then exit;
-  tmpShape:=TAufFace.CreateByRect(Classes.Rect(x0,y0,x1,y1));
+  tmpShape:=TAufRectangle.CreateByRect(Classes.Rect(x0,y0,x1,y1));
+  shp_id:=AufScpt.IO_fptr.canvas.Shapes.AddShape(tmpShape);
+  dword_to_arv(shp_id, shp_id_arv);
+end;
+
+procedure cav_AddOval(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    x0,x1,y0,y1,shp_id:integer;
+    shp_id_arv:TAufRamVar;
+    tmpShape:TAufShape;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckCanvas then exit;
+  if not AAuf.CheckArgs(6) then exit;
+  if not AAuf.TryArgToARV(1, 4, High(DWord), [ARV_FixNum], shp_id_arv) then exit;
+  if not AAuf.TryArgToLong(2, x0) then exit;
+  if not AAuf.TryArgToLong(3, x1) then exit;
+  if not AAuf.TryArgToLong(4, y0) then exit;
+  if not AAuf.TryArgToLong(5, y1) then exit;
+  tmpShape:=TAufEllipse.CreateByRect(Classes.Rect(x0,y0,x1,y1));
+  shp_id:=AufScpt.IO_fptr.canvas.Shapes.AddShape(tmpShape);
+  dword_to_arv(shp_id, shp_id_arv);
+end;
+
+procedure cav_AddPoint(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    x,y,scale,shp_id:integer;
+    shp_id_arv:TAufRamVar;
+    tmpShape:TAufShape;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckCanvas then exit;
+  if not AAuf.CheckArgs(5) then exit;
+  if not AAuf.TryArgToARV(1, 4, High(DWord), [ARV_FixNum], shp_id_arv) then exit;
+  if not AAuf.TryArgToLong(2, x) then exit;
+  if not AAuf.TryArgToLong(3, y) then exit;
+  if not AAuf.TryArgToLong(4, scale) then exit;
+  tmpShape:=TAufEllipse.CreateByRect(Classes.Rect(x-scale,y-scale,x+scale,y+scale));
   shp_id:=AufScpt.IO_fptr.canvas.Shapes.AddShape(tmpShape);
   dword_to_arv(shp_id, shp_id_arv);
 end;
@@ -6915,6 +6956,8 @@ begin
   Self.add_func('cav.refresh',        @cav_Refresh,            '',                          '重绘画布');
   Self.add_func('cav.clear',          @cav_Clear,              '',                          '清除画布上的所有图形');
   Self.add_func('cav.add_rect',       @cav_AddRect,            'shp_id, x0, x1, y0, y1',    '在画布上创建方形并将图形ID保存给shp_id');
+  Self.add_func('cav.add_oval',       @cav_AddOval,            'shp_id, x0, x1, y0, y1',    '在画布上创建椭圆形并将图形ID保存给shp_id');
+  Self.add_func('cav.add_point',      @cav_AddPoint,           'shp_id, x, y, scale',       '在画布上创建圆点图形并将图形ID保存给shp_id');
 
 
   Self.add_func('cav.list',           @cav_ShapesList,         '',                          '显示图形列表');

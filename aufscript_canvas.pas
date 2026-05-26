@@ -10,7 +10,7 @@ uses
 
 type
 
-  TShapeType = (astUnknown=0, astFace);
+  TShapeType = (astUnknown=0, astRectangle, astEllipse);
 
   TAufShape = class
   private
@@ -26,21 +26,35 @@ type
       HoverStrokeColor:TColor;
     end;
   public
-    procedure Draw(Canvas:TCanvas;Hover:boolean=false);virtual;abstract;
-    function PointContains(point:TPoint):boolean;virtual;abstract;
+    procedure Draw(ACanvas:TCanvas;AHover:boolean=false);virtual;
+    function PointContains(APoint:TPoint):boolean;virtual;abstract;
   public
     constructor Create;
   end;
 
-  TAufFace = class(TAufShape)
+  TAufRectangle = class(TAufShape)
   private
     FCoordinates:array of TPoint;
   public
-    procedure Draw(Canvas:TCanvas;Hover:boolean=false);override;
+    procedure Draw(ACanvas:TCanvas;AHover:boolean=false);override;
     function PointContains(point:TPoint):boolean;override;
   public
-    constructor Create(points:array of TPoint);
-    constructor CreateByRect(rect:TRect);
+    constructor Create(APoints:array of TPoint);
+    constructor CreateByRect(ARect:TRect);
+    destructor Destroy; override;
+  end;
+
+  TAufEllipse = class(TAufShape)
+  private
+    FCentroid:TPoint;
+    FWidth:Integer;
+    FHeight:Integer;
+  public
+    procedure Draw(ACanvas:TCanvas;AHover:boolean=false);override;
+    function PointContains(APoint:TPoint):boolean;override;
+  public
+    constructor Create(ACentroid:TPoint; AWidth, AHeight:Integer);
+    constructor CreateByRect(ARect:TRect);
     destructor Destroy; override;
   end;
 
@@ -92,6 +106,21 @@ uses Apiglio_Useful, auf_ram_var;
 
 { TAufShape }
 
+procedure TAufShape.Draw(ACanvas:TCanvas;AHover:boolean=false);
+begin
+  ACanvas.Brush.Style:=bsSolid;
+  ACanvas.Pen.Style:=psSolid;
+  if AHover then begin
+    ACanvas.Brush.Color:=Style.HoverFillColor;
+    ACanvas.Pen.Color:=Style.HoverStrokeColor;
+    ACanvas.Pen.Width:=Style.HoverWidth;
+  end else begin
+    ACanvas.Brush.Color:=Style.FillColor;
+    ACanvas.Pen.Color:=Style.StrokeColor;
+    ACanvas.Pen.Width:=Style.Width;
+  end;
+end;
+
 constructor TAufShape.Create;
 begin
   with Style do begin
@@ -104,27 +133,17 @@ begin
   end;
 end;
 
-{ TAufFace }
+{ TAufRectangle }
 
-procedure TAufFace.Draw(Canvas:TCanvas;Hover:boolean=false);
+procedure TAufRectangle.Draw(ACanvas:TCanvas;AHover:boolean=false);
 begin
   if Length(FCoordinates)<3 then exit;
-  Canvas.Brush.Style:=bsSolid;
-  Canvas.Pen.Style:=psSolid;
-  if Hover then begin
-    Canvas.Brush.Color:=Style.HoverFillColor;
-    Canvas.Pen.Color:=Style.HoverStrokeColor;
-    Canvas.Pen.Width:=Style.HoverWidth;
-  end else begin
-    Canvas.Brush.Color:=Style.FillColor;
-    Canvas.Pen.Color:=Style.StrokeColor;
-    Canvas.Pen.Width:=Style.Width;
-  end;
-  Canvas.Polygon(FCoordinates);
+  inherited Draw(ACanvas, AHover);
+  ACanvas.Polygon(FCoordinates);
 end;
 
 //这个函数deepseek写的
-function TAufFace.PointContains(point:TPoint):boolean;
+function TAufRectangle.PointContains(point:TPoint):boolean;
 var i,j:integer;
 begin
   result:=false;
@@ -141,34 +160,83 @@ begin
   end;
 end;
 
-constructor TAufFace.Create(points:array of TPoint);
+constructor TAufRectangle.Create(APoints:array of TPoint);
 var count_point:integer;
 begin
   inherited Create;
-  FShapeType:=astFace;
-  count_point:=Length(points);
+  FShapeType:=astRectangle;
+  count_point:=Length(APoints);
   SetLength(FCoordinates,count_point);
-  Move(points, FCoordinates, count_point*sizeof(TPoint));
+  Move(APoints, FCoordinates, count_point*sizeof(TPoint));
 end;
 
-constructor TAufFace.CreateByRect(rect:TRect);
+constructor TAufRectangle.CreateByRect(ARect:TRect);
 begin
   inherited Create;
-  FShapeType:=astFace;
+  FShapeType:=astRectangle;
   SetLength(FCoordinates, 4);
-  FCoordinates[0]:=rect.TopLeft;
-  FCoordinates[2]:=rect.BottomRight;
+  FCoordinates[0]:=ARect.TopLeft;
+  FCoordinates[2]:=ARect.BottomRight;
   FCoordinates[1].x:=FCoordinates[0].x;
   FCoordinates[1].y:=FCoordinates[2].y;
   FCoordinates[3].x:=FCoordinates[2].x;
   FCoordinates[3].y:=FCoordinates[0].y;
 end;
 
-destructor TAufFace.Destroy;
+destructor TAufRectangle.Destroy;
 begin
   SetLength(FCoordinates, 0);
   inherited Destroy;
 end;
+
+
+{ TAufEllipse }
+
+procedure TAufEllipse.Draw(ACanvas:TCanvas;AHover:boolean=false);
+var a,b:integer;
+begin
+  if (FWidth<=1) or (FHeight<=1) then exit;
+  inherited Draw(ACanvas, AHover);
+  a:=FWidth div 2;
+  b:=FHeight div 2;
+  with FCentroid do ACanvas.Ellipse(x-a, y-b, x+a, y+b);
+end;
+
+//这个函数deepseek写的
+function TAufEllipse.PointContains(APoint:TPoint):boolean;
+var dx,dy:double;
+    a,b:double;
+begin
+  dx:=APoint.X-FCentroid.X;
+  dy:=APoint.Y-FCentroid.Y;
+  a:=FWidth/2;
+  b:=FHeight/2;
+  if (a>0) and (b>0) then result:=(dx*dx)/(a*a)+(dy*dy)/(b*b)<=1 else result:=false;
+end;
+
+constructor TAufEllipse.Create(ACentroid:TPoint; AWidth, AHeight:Integer);
+begin
+  inherited Create;
+  FShapeType:=astEllipse;
+  FCentroid:=ACentroid;
+  FWidth:=AWidth;
+  FHeight:=AHeight;
+end;
+
+constructor TAufEllipse.CreateByRect(ARect:TRect);
+begin
+  inherited Create;
+  FShapeType:=astEllipse;
+  FCentroid:=ARect.CenterPoint;
+  FWidth:=ARect.Width;
+  FHeight:=ARect.Height;
+end;
+
+destructor TAufEllipse.Destroy;
+begin
+  inherited Destroy;
+end;
+
 
 
 { TAufShapeContainer }
@@ -371,13 +439,13 @@ begin
   if picked_shape=nil then begin
     if FHoverShape<>nil then begin
       FHoverShape:=nil;
-      Paint;
+      Invalidate;
     end;
     exit;
   end;
   if FHoverShape<>picked_shape then begin
     FHoverShape:=picked_shape;
-    Paint;
+    Invalidate;
   end;
 end;
 
@@ -397,6 +465,7 @@ begin
   inherited Create(TheOwner);
   FContainer:=TAufShapeContainer.Create;
   FHoverShape:=nil;
+  DoubleBuffered:=true;
 end;
 
 destructor TAufCanvasPanel.Destroy;
