@@ -4095,8 +4095,8 @@ begin
   if not AAuf.CheckArgs(6) then exit;
   if not AAuf.TryArgToARV(1, 4, High(DWord), [ARV_FixNum], shp_id_arv) then exit;
   if not AAuf.TryArgToLong(2, x0) then exit;
-  if not AAuf.TryArgToLong(3, x1) then exit;
-  if not AAuf.TryArgToLong(4, y0) then exit;
+  if not AAuf.TryArgToLong(3, y0) then exit;
+  if not AAuf.TryArgToLong(4, x1) then exit;
   if not AAuf.TryArgToLong(5, y1) then exit;
   tmpShape:=TAufPolyline.CreateByRect(Classes.Rect(x0,y0,x1,y1));
   shp_id:=AufScpt.IO_fptr.canvas.Shapes.AddShape(tmpShape);
@@ -4116,8 +4116,8 @@ begin
   if not AAuf.CheckArgs(6) then exit;
   if not AAuf.TryArgToARV(1, 4, High(DWord), [ARV_FixNum], shp_id_arv) then exit;
   if not AAuf.TryArgToLong(2, x0) then exit;
-  if not AAuf.TryArgToLong(3, x1) then exit;
-  if not AAuf.TryArgToLong(4, y0) then exit;
+  if not AAuf.TryArgToLong(3, y0) then exit;
+  if not AAuf.TryArgToLong(4, x1) then exit;
   if not AAuf.TryArgToLong(5, y1) then exit;
   tmpShape:=TAufPolygon.CreateByRect(Classes.Rect(x0,y0,x1,y1));
   shp_id:=AufScpt.IO_fptr.canvas.Shapes.AddShape(tmpShape);
@@ -4137,8 +4137,8 @@ begin
   if not AAuf.CheckArgs(6) then exit;
   if not AAuf.TryArgToARV(1, 4, High(DWord), [ARV_FixNum], shp_id_arv) then exit;
   if not AAuf.TryArgToLong(2, x0) then exit;
-  if not AAuf.TryArgToLong(3, x1) then exit;
-  if not AAuf.TryArgToLong(4, y0) then exit;
+  if not AAuf.TryArgToLong(3, y0) then exit;
+  if not AAuf.TryArgToLong(4, x1) then exit;
   if not AAuf.TryArgToLong(5, y1) then exit;
   tmpShape:=TAufEllipse.CreateByRect(Classes.Rect(x0,y0,x1,y1));
   shp_id:=AufScpt.IO_fptr.canvas.Shapes.AddShape(tmpShape);
@@ -6998,9 +6998,9 @@ procedure TAufScript.AdditionFuncDefine_Canvas;
 begin
   Self.add_func('cav.refresh',        @cav_Refresh,            '',                          '重绘画布');
   Self.add_func('cav.clear',          @cav_Clear,              '',                          '清除画布上的所有图形');
-  Self.add_func('cav.add_line',       @cav_AddLine,            'shp_id, x0, x1, y0, y1',    '在画布上创建线段并将图形ID保存给shp_id');
-  Self.add_func('cav.add_rect',       @cav_AddRect,            'shp_id, x0, x1, y0, y1',    '在画布上创建方形并将图形ID保存给shp_id');
-  Self.add_func('cav.add_oval',       @cav_AddOval,            'shp_id, x0, x1, y0, y1',    '在画布上创建椭圆形并将图形ID保存给shp_id');
+  Self.add_func('cav.add_line',       @cav_AddLine,            'shp_id, x0, y0, x1, y1',    '在画布上创建线段并将图形ID保存给shp_id');
+  Self.add_func('cav.add_rect',       @cav_AddRect,            'shp_id, x0, y0, x1, y1',    '在画布上创建方形并将图形ID保存给shp_id');
+  Self.add_func('cav.add_oval',       @cav_AddOval,            'shp_id, x0, y0, x1, y1',    '在画布上创建椭圆形并将图形ID保存给shp_id');
   Self.add_func('cav.add_point',      @cav_AddPoint,           'shp_id, x, y, scale',       '在画布上创建圆点图形并将图形ID保存给shp_id');
   Self.add_func('cav.add_text',       @cav_AddText,            'shp_id, x, y, text, max_w', '在画布上创建标注图形并将图形ID保存给shp_id');
 

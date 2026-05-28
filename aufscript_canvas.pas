@@ -12,6 +12,50 @@ type
 
   TShapeType = (astUnknown=0, astPolygon, astEllipse, astPolyline, astCaption);
 
+  TShapeState = $0..$f;
+
+const
+  assNormal   : TShapeState = $1;
+  assHover    : TShapeState = $2;
+  assToggled  : TShapeState = $4;
+  assFocus    : TShapeState = $8;
+  assAllState : TShapeState = $f;
+
+{
+                  text  point line  face
+  fill-color      O     O     X     O
+  border-color    X     O     O     O
+  stroke-color    O     O     O     O
+  symbol-width    O     O     X     X
+  border-width    X     O     O     O
+  stroke-width    O     O     O     O
+  :normal         O     O     O     O
+  :hover          X     O     X     O
+  :toggled        X     O     X     O
+  :focus          X     O     X     O
+}
+
+type
+
+  TAufStateStyle = record
+    FillColor   : TColor;
+    BorderColor : TColor;
+    StrokeColor : TColor;
+    SymbolWidth : Integer;
+    BorderWidth : Integer;
+    StrokeWidth : Integer;
+  end;
+
+  TAufStyle = class
+  public
+    NormalStyle  : TAufStateStyle;
+    HoverStyle   : TAufStateStyle;
+    ToggledStyle : TAufStateStyle;
+    FocusStyle   : TAufStateStyle;
+  public
+    procedure Assign(AStyle:TAufStateStyle; AState:TShapeState);
+  end;
+
   TAufShape = class
   private
     FShapeId:Integer;
@@ -131,6 +175,16 @@ type
 
 implementation
 uses Apiglio_Useful, auf_ram_var;
+
+{ TAufStyle }
+
+procedure TAufStyle.Assign(AStyle:TAufStateStyle; AState:TShapeState);
+begin
+  if (AState and assNormal)  <> 0 then NormalStyle  := AStyle;
+  if (AState and assHover)   <> 0 then HoverStyle   := AStyle;
+  if (AState and assToggled) <> 0 then ToggledStyle := AStyle;
+  if (AState and assFocus)   <> 0 then FocusStyle   := AStyle;
+end;
 
 
 { TAufShape }
