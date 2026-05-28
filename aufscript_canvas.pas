@@ -10,7 +10,7 @@ uses
 
 type
 
-  TShapeType = (astUnknown=0, astRectangle, astEllipse);
+  TShapeType = (astUnknown=0, astPolygon, astEllipse, astPolyline, astCaption);
 
   TAufShape = class
   private
@@ -32,7 +32,7 @@ type
     constructor Create;
   end;
 
-  TAufRectangle = class(TAufShape)
+  TAufPolygon = class(TAufShape)
   private
     FCoordinates:array of TPoint;
   public
@@ -54,6 +54,35 @@ type
     function PointContains(APoint:TPoint):boolean;override;
   public
     constructor Create(ACentroid:TPoint; AWidth, AHeight:Integer);
+    constructor CreateByRect(ARect:TRect);
+    destructor Destroy; override;
+  end;
+
+  TAufPolyline = class(TAufShape)
+  private
+    FCoordinates:array of TPoint;
+  public
+    procedure Draw(ACanvas:TCanvas;AHover:boolean=false);override;
+    function PointContains(point:TPoint):boolean;override;
+  public
+    constructor Create(APoints:array of TPoint);
+    constructor CreateByRect(ARect:TRect);
+    destructor Destroy; override;
+  end;
+
+  TAufCaption = class(TAufShape)
+  private
+    FCentroid:TPoint;
+    FMaxWidth:Integer; //小于0表示无限制
+    FCaption:String;
+    //FCache:TBitmap;
+  //private
+    //procedure BuildCache;
+  public
+    procedure Draw(ACanvas:TCanvas;AHover:boolean=false);override;
+    function PointContains(APoint:TPoint):boolean;override;
+  public
+    constructor Create(ACentroid:TPoint;ACaption:String;AScale:Integer);
     constructor CreateByRect(ARect:TRect);
     destructor Destroy; override;
   end;
@@ -133,9 +162,9 @@ begin
   end;
 end;
 
-{ TAufRectangle }
+{ TAufPolygon }
 
-procedure TAufRectangle.Draw(ACanvas:TCanvas;AHover:boolean=false);
+procedure TAufPolygon.Draw(ACanvas:TCanvas;AHover:boolean=false);
 begin
   if Length(FCoordinates)<3 then exit;
   inherited Draw(ACanvas, AHover);
@@ -143,7 +172,7 @@ begin
 end;
 
 //这个函数deepseek写的
-function TAufRectangle.PointContains(point:TPoint):boolean;
+function TAufPolygon.PointContains(point:TPoint):boolean;
 var i,j:integer;
 begin
   result:=false;
@@ -160,20 +189,20 @@ begin
   end;
 end;
 
-constructor TAufRectangle.Create(APoints:array of TPoint);
+constructor TAufPolygon.Create(APoints:array of TPoint);
 var count_point:integer;
 begin
   inherited Create;
-  FShapeType:=astRectangle;
+  FShapeType:=astPolygon;
   count_point:=Length(APoints);
   SetLength(FCoordinates,count_point);
   Move(APoints, FCoordinates, count_point*sizeof(TPoint));
 end;
 
-constructor TAufRectangle.CreateByRect(ARect:TRect);
+constructor TAufPolygon.CreateByRect(ARect:TRect);
 begin
   inherited Create;
-  FShapeType:=astRectangle;
+  FShapeType:=astPolygon;
   SetLength(FCoordinates, 4);
   FCoordinates[0]:=ARect.TopLeft;
   FCoordinates[2]:=ARect.BottomRight;
@@ -183,7 +212,7 @@ begin
   FCoordinates[3].y:=FCoordinates[0].y;
 end;
 
-destructor TAufRectangle.Destroy;
+destructor TAufPolygon.Destroy;
 begin
   SetLength(FCoordinates, 0);
   inherited Destroy;
@@ -236,6 +265,177 @@ destructor TAufEllipse.Destroy;
 begin
   inherited Destroy;
 end;
+
+
+{ TAufPolyline }
+
+procedure TAufPolyline.Draw(ACanvas:TCanvas;AHover:boolean=false);
+begin
+  if Length(FCoordinates)<2 then exit;
+  inherited Draw(ACanvas, AHover);
+  ACanvas.Polyline(FCoordinates);
+end;
+
+function TAufPolyline.PointContains(point:TPoint):boolean;
+begin
+  result:=false;
+end;
+
+constructor TAufPolyline.Create(APoints:array of TPoint);
+var count_point:integer;
+begin
+  inherited Create;
+  FShapeType:=astPolyline;
+  count_point:=Length(APoints);
+  SetLength(FCoordinates,count_point);
+  Move(APoints, FCoordinates, count_point*sizeof(TPoint));
+end;
+
+constructor TAufPolyline.CreateByRect(ARect:TRect);
+begin
+  inherited Create;
+  FShapeType:=astPolyline;
+  SetLength(FCoordinates, 2);
+  FCoordinates[0]:=ARect.TopLeft;
+  FCoordinates[1]:=ARect.BottomRight;
+end;
+
+destructor TAufPolyline.Destroy;
+begin
+  SetLength(FCoordinates, 0);
+  inherited Destroy;
+end;
+
+
+{ TAufCaption }
+
+{
+procedure TAufCaption.BuildCache;unimplemented '没有处理好绘制效果，坐标也不对';
+var MaxWidth, offset, ofs_idx:Integer;
+    TextStyle:TTextStyle;
+begin
+  FCache.Canvas.Font.Size:=Style.Width;
+  if FMaxWidth>=0 then MaxWidth:=FMaxWidth+1
+  else MaxWidth:=FCache.Canvas.TextWidth(FCaption);
+  FCache.SetSize(MaxWidth,Style.Width+2*Style.HoverWidth+1);
+  //FCache.Canvas.Brush.Style:=bsClear;
+  //FCache.Canvas.Brush.Color:=clNone;
+  //FCache.Canvas.Clear;
+  TextStyle.Alignment:=taCenter;
+  offset:=Style.HoverWidth;
+  if offset>10 then offset:=10;
+  FCache.Canvas.Font.Color:=Style.HoverFillColor;
+  for ofs_idx:=1 to offset do begin
+    FCache.Canvas.TextRect(Classes.Rect(0,0,FCache.Width, FCache.Height),offset+ofs_idx,offset+ofs_idx,FCaption,TextStyle);
+    FCache.Canvas.TextRect(Classes.Rect(0,0,FCache.Width, FCache.Height),offset-ofs_idx,offset+ofs_idx,FCaption,TextStyle);
+    FCache.Canvas.TextRect(Classes.Rect(0,0,FCache.Width, FCache.Height),offset+ofs_idx,offset-ofs_idx,FCaption,TextStyle);
+    FCache.Canvas.TextRect(Classes.Rect(0,0,FCache.Width, FCache.Height),offset-ofs_idx,offset-ofs_idx,FCaption,TextStyle);
+  end;
+  FCache.Canvas.Font.Color:=Style.FillColor;
+  FCache.Canvas.TextRect(Classes.Rect(0,0,FCache.Width, FCache.Height),offset,offset,FCaption,TextStyle);
+end;
+
+//和BuildCache没配合好
+procedure TAufCaption.Draw(ACanvas:TCanvas;AHover:boolean=false);
+var dstRect, srcRect:TRect;
+    semi_w, semi_h:integer;
+begin
+  //inherited Draw(ACanvas, AHover); 文字不需要继承笔刷
+  //Style里的Width作为字高 StrokeColor作为描边厚度
+  //FillColor是文字颜色 HoverFillColor是描边颜色
+  ACanvas.Font.Size:=Style.Width;
+  ACanvas.Font.Color:=Style.FillColor;
+  semi_w:=FCache.Width div 2;
+  semi_h:=FCache.Height div 2;
+  srcRect:=Classes.Rect(0,0,FCache.Width,FCache.Height);
+  dstRect:=Classes.Rect(FCentroid.x + semi_w, FCentroid.y + semi_h, FCache.Width, FCache.Height);
+  ACanvas.CopyMode:=cmSrcCopy;
+  ACanvas.CopyRect(dstRect, FCache.Canvas, srcRect);
+end;
+}
+
+procedure TAufCaption.Draw(ACanvas:TCanvas;AHover:boolean=false);
+var MaxWidth, offset, ofs_idx:Integer;
+    TextStyle:TTextStyle;
+    dstRect:TRect;
+    text_w, text_h, semi_w, semi_h:integer;
+    ll, tt, rr, bb:integer;
+begin
+  //inherited Draw(ACanvas, AHover); 文字不需要继承笔刷
+  //Style里的Width作为字高 HoverWidth作为描边厚度
+  //FillColor是文字颜色 StrokeColor是描边颜色
+  text_h:=Style.Width;
+  text_w:=ACanvas.TextWidth(FCaption);
+  ACanvas.Font.Size:=text_h;
+  if FMaxWidth>=0 then text_w:=FMaxWidth+1;
+  semi_w:=text_w div 2;
+  semi_h:=text_h div 2;
+  ll:=FCentroid.x - semi_w;
+  tt:=FCentroid.y - semi_h;
+  rr:=ll + text_w;
+  bb:=tt + text_h;
+
+  offset:=Style.HoverWidth;
+  if offset>10 then offset:=10; //字体描边最大 10 pixels
+
+  TextStyle.Alignment:=taCenter;
+  ACanvas.Font.Color:=Style.StrokeColor;
+  for ofs_idx:=1 to offset do begin
+    ACanvas.TextRect(Classes.Rect(ll-ofs_idx, tt-ofs_idx, rr-ofs_idx, bb-ofs_idx), ll-ofs_idx, tt-ofs_idx, FCaption, TextStyle);
+    ACanvas.TextRect(Classes.Rect(ll+ofs_idx, tt-ofs_idx, rr+ofs_idx, bb-ofs_idx), ll+ofs_idx, tt-ofs_idx, FCaption, TextStyle);
+    ACanvas.TextRect(Classes.Rect(ll-ofs_idx, tt+ofs_idx, rr-ofs_idx, bb+ofs_idx), ll-ofs_idx, tt+ofs_idx, FCaption, TextStyle);
+    ACanvas.TextRect(Classes.Rect(ll+ofs_idx, tt+ofs_idx, rr+ofs_idx, bb+ofs_idx), ll+ofs_idx, tt+ofs_idx, FCaption, TextStyle);
+    ACanvas.TextRect(Classes.Rect(ll+ofs_idx, tt, rr+ofs_idx, bb), ll+ofs_idx, tt, FCaption, TextStyle);
+    ACanvas.TextRect(Classes.Rect(ll-ofs_idx, tt, rr-ofs_idx, bb), ll-ofs_idx, tt, FCaption, TextStyle);
+    ACanvas.TextRect(Classes.Rect(ll, tt+ofs_idx, rr, bb+ofs_idx), ll, tt+ofs_idx, FCaption, TextStyle);
+    ACanvas.TextRect(Classes.Rect(ll, tt-ofs_idx, rr, bb-ofs_idx), ll, tt-ofs_idx, FCaption, TextStyle);
+
+  end;
+  ACanvas.Font.Color:=Style.FillColor;
+  ACanvas.TextRect(Classes.Rect(ll, tt, rr, bb), ll, tt, FCaption, TextStyle);
+end;
+
+function TAufCaption.PointContains(APoint:TPoint):boolean;
+begin
+  result:=false; //标注不能选中
+end;
+
+constructor TAufCaption.Create(ACentroid:TPoint;ACaption:String;AScale:Integer);
+begin
+  inherited Create;
+  FShapeType:=astCaption;
+  FCentroid:=ACentroid;
+  FCaption:=ACaption;
+  FMaxWidth:=-1;
+  //FCache:=TBitmap.Create;
+  //FCache.PixelFormat:=pf32bit;
+  Style.Width:=AScale;
+  Style.HoverWidth:=1;
+  Style.StrokeColor:=clWhite;
+  //BuildCache;
+end;
+
+constructor TAufCaption.CreateByRect(ARect:TRect);
+begin
+  inherited Create;
+  FShapeType:=astCaption;
+  FCentroid:=ARect.CenterPoint;
+  FMaxWidth:=ARect.Width;
+  //FCache:=TBitmap.Create;
+  //FCache.PixelFormat:=pf32bit;
+  Style.Width:=ARect.Height; //Width aka Scale表示字高
+  Style.HoverWidth:=1;
+  Style.StrokeColor:=clWhite;
+  //BuildCache;
+end;
+
+destructor TAufCaption.Destroy;
+begin
+  //FCache.Free;
+  inherited Destroy;
+end;
+
+
 
 
 
