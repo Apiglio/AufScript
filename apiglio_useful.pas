@@ -4226,33 +4226,158 @@ procedure cav_SetStyle(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
     shp_id,index:integer;
-    style_name:string;
-    style_value:dword;
+    style_name, state_name:string;
+    value:dword;
     tmpShape:TAufShape;
+    state:TShapeState;
+    style:TShapeStyle;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckCanvas then exit;
   if not AAuf.CheckArgs(4) then exit;
   if not AAuf.TryArgToLong(1, shp_id) then exit;
-  if not AAuf.TryArgToStrParam(2, ['color_fill','color_stroke','color_fill_hover','color_stroke_hover','width','width_hover'], false, style_name) then exit;
-  if not AAuf.TryArgToDWord(3, style_value) then exit;
+  if not AAuf.TryArgToString(2, style_name) then exit;
+  if not AAuf.TryArgToDWord(3, value) then exit;
   tmpShape:=AufScpt.IO_fptr.canvas.Shapes.FindShapeByID(shp_id, index);
   if tmpShape=nil then begin
     AufScpt.send_error(Format('警告：未找到图形#%d。',[shp_id]), AufsErr_RunTime);
     exit;
   end;
-  case style_name of
-    'color_fill':         tmpShape.Style.FillColor        :=TColor(style_value);
-    'color_stroke':       tmpShape.Style.StrokeColor      :=TColor(style_value);
-    'color_fill_hover':   tmpShape.Style.HoverFillColor   :=TColor(style_value);
-    'color_stroke_hover': tmpShape.Style.HoverStrokeColor :=TColor(style_value);
-    'width':              tmpShape.Style.Width            :=style_value;
-    'width_hover':        tmpShape.Style.HoverWidth       :=style_value;
+  index:=pos(':', style_name);
+  if index>0 then begin
+    state_name:=style_name;
+    delete(style_name, index, length(style_name));
+    delete(state_name, 1, index);
+  end else state_name:='';
+
+  state_name:=lowercase(state_name);
+  case state_name of
+    'normal'  : state:=assNormal;
+    'hover'   : state:=assHover;
+    'toggled' : state:=assToggled;
+    'focus'   : state:=assFocus;
+    else        state:=assAllState;
   end;
-  AufScpt.IO_fptr.canvas.Shapes.SendToBack(shp_id);
+
+  style_name:=lowercase(style_name);
+  case style_name of
+    'fill-color':   style:=assFillColor;
+    'border-color': style:=assBorderColor;
+    'stroke-color': style:=assStrokeColor;
+    'symbol-width': style:=assSymbolWidth;
+    'border-width': style:=assBorderWidth;
+    'stroke-width': style:=assStrokeWidth;
+    else begin
+      AufScpt.send_error('无效样式项目，代码未执行。',AufsErr_NoNamedParam);
+      exit;
+    end;
+  end;
+  tmpShape.Style.SetDWord(style, state, value);
 end;
 
+procedure cav_GetStyle(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    shp_id,index:integer;
+    style_name, state_name:string;
+    value:TAufRamVar;
+    tmpShape:TAufShape;
+    state:TShapeState;
+    style:TShapeStyle;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckCanvas then exit;
+  if not AAuf.CheckArgs(4) then exit;
+  if not AAuf.TryArgToLong(1, shp_id) then exit;
+  if not AAuf.TryArgToString(2, style_name) then exit;
+  if not AAuf.TryArgToARV(3, 4, High(DWord), [ARV_FixNum], value) then exit;
+  tmpShape:=AufScpt.IO_fptr.canvas.Shapes.FindShapeByID(shp_id, index);
+  if tmpShape=nil then begin
+    AufScpt.send_error(Format('警告：未找到图形#%d。',[shp_id]), AufsErr_RunTime);
+    exit;
+  end;
+  index:=pos(':', style_name);
+  if index>0 then begin
+    state_name:=style_name;
+    delete(style_name, index, length(style_name));
+    delete(state_name, 1, index);
+  end else state_name:='';
+
+  state_name:=lowercase(state_name);
+  case state_name of
+    'normal'  : state:=assNormal;
+    'hover'   : state:=assHover;
+    'toggled' : state:=assToggled;
+    'focus'   : state:=assFocus;
+    else        state:=assAllState;
+  end;
+
+  style_name:=lowercase(style_name);
+  case style_name of
+    'fill-color':   style:=assFillColor;
+    'border-color': style:=assBorderColor;
+    'stroke-color': style:=assStrokeColor;
+    'symbol-width': style:=assSymbolWidth;
+    'border-width': style:=assBorderWidth;
+    'stroke-width': style:=assStrokeWidth;
+    else begin
+      AufScpt.send_error('无效样式项目，代码未执行。',AufsErr_NoNamedParam);
+      exit;
+    end;
+  end;
+  dword_to_arv(tmpShape.Style.GetDWord(style, state),value);
+end;
+
+procedure cav_SetTemplateStyle(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    index:integer;
+    style_name, state_name:string;
+    value:dword;
+    tmpShape:TAufShape;
+    state:TShapeState;
+    style:TShapeStyle;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckCanvas then exit;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToString(1, style_name) then exit;
+  if not AAuf.TryArgToDWord(2, value) then exit;
+
+  index:=pos(':', style_name);
+  if index>0 then begin
+    state_name:=style_name;
+    delete(style_name, index, length(style_name));
+    delete(state_name, 1, index);
+  end else state_name:='';
+
+  state_name:=lowercase(state_name);
+  case state_name of
+    'normal'  : state:=assNormal;
+    'hover'   : state:=assHover;
+    'toggled' : state:=assToggled;
+    'focus'   : state:=assFocus;
+    else        state:=assAllState;
+  end;
+
+  style_name:=lowercase(style_name);
+  case style_name of
+    'fill-color':   style:=assFillColor;
+    'border-color': style:=assBorderColor;
+    'stroke-color': style:=assStrokeColor;
+    'symbol-width': style:=assSymbolWidth;
+    'border-width': style:=assBorderWidth;
+    'stroke-width': style:=assStrokeWidth;
+    else begin
+      AufScpt.send_error('无效样式项目，代码未执行。',AufsErr_NoNamedParam);
+      exit;
+    end;
+  end;
+  _DEFAULT_SHAPE_STYLE_.SetDWord(style, state, value);
+end;
 
 
 function operator_compare_numeric(Sender:TObject;var is_error:boolean):smallint;
@@ -7010,6 +7135,8 @@ begin
   Self.add_func('cav.to_bottom',      @cav_ToBottom,           'shp_id',                    '将给定id的图形置于画布最下层');
 
   Self.add_func('cav.set_style',      @cav_SetStyle,           'shp_id, style_name, value', '设置给定id的图形的外观');
+  Self.add_func('cav.get_style',      @cav_GetStyle,           'shp_id, style_name, @var',  '返回给定id图形的外观参数');
+  Self.add_func('cav.tpl_style',      @cav_SetTemplateStyle,   'style_name, value',         '设置默认的图形外观');
 
 
 end;

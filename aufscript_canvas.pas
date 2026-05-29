@@ -11,10 +11,11 @@ uses
 type
 
   TShapeType = (astUnknown=0, astPolygon, astEllipse, astPolyline, astCaption);
-
+  TShapeStyle = (assFillColor=0, assBorderColor=1, assStrokeColor=2, assSymbolWidth=3, assBorderWidth=4, assStrokeWidth=5);
   TShapeState = $0..$f;
 
 const
+  ShapeStateCount = 4;
   assNormal   : TShapeState = $1;
   assHover    : TShapeState = $2;
   assToggled  : TShapeState = $4;
@@ -37,43 +38,32 @@ const
 
 type
 
-  TAufStateStyle = record
-    FillColor   : TColor;
-    BorderColor : TColor;
-    StrokeColor : TColor;
-    SymbolWidth : Integer;
-    BorderWidth : Integer;
-    StrokeWidth : Integer;
-  end;
-
-  TAufStyle = class
+  TAufStateStyle = class
+  private
+    FStyle:PDWORD;
   public
-    NormalStyle  : TAufStateStyle;
-    HoverStyle   : TAufStateStyle;
-    ToggledStyle : TAufStateStyle;
-    FocusStyle   : TAufStateStyle;
+    function GetColor(AStyle:TShapeStyle; AState:TShapeState):TColor;
+    function GetDWord(AStyle:TShapeStyle; AState:TShapeState):DWord;
+    procedure SetColor(AStyle:TShapeStyle; AState:TShapeState; value:TColor);
+    procedure SetDWord(AStyle:TShapeStyle; AState:TShapeState; value:DWord);
   public
-    procedure Assign(AStyle:TAufStateStyle; AState:TShapeState);
+    constructor Create;
+    destructor Destroy; override;
+    procedure Assign(AStyle:TAufStateStyle);
   end;
 
   TAufShape = class
   private
     FShapeId:Integer;
     FShapeType:TShapeType;
-  public
-    Style:record
-      Width:Integer;
-      HoverWidth:Integer;
-      FillColor:TColor;
-      StrokeColor:TColor;
-      HoverFillColor:TColor;
-      HoverStrokeColor:TColor;
-    end;
+    FStyle:TAufStateStyle;
   public
     procedure Draw(ACanvas:TCanvas;AHover:boolean=false);virtual;
     function PointContains(APoint:TPoint):boolean;virtual;abstract;
   public
     constructor Create;
+    destructor Destroy; override;
+    property Style:TAufStateStyle read FStyle write FStyle;
   end;
 
   TAufPolygon = class(TAufShape)
@@ -173,47 +163,125 @@ type
     property AufScript:TObject read FAufScript write SetAufScript;
   end;
 
+var
+    _DEFAULT_SHAPE_STYLE_ : TAufStateStyle;
+
 implementation
 uses Apiglio_Useful, auf_ram_var;
 
-{ TAufStyle }
+{ TAufStateStyle }
 
-procedure TAufStyle.Assign(AStyle:TAufStateStyle; AState:TShapeState);
+function TAufStateStyle.GetColor(AStyle:TShapeStyle; AState:TShapeState):TColor;
+var state_bits:TShapeState;
+    step:integer;
 begin
-  if (AState and assNormal)  <> 0 then NormalStyle  := AStyle;
-  if (AState and assHover)   <> 0 then HoverStyle   := AStyle;
-  if (AState and assToggled) <> 0 then ToggledStyle := AStyle;
-  if (AState and assFocus)   <> 0 then FocusStyle   := AStyle;
+  state_bits:=AState;
+  step:=0;
+  while state_bits>0 do begin
+    state_bits:=state_bits shr 1;
+    inc(step);
+  end;
+  if step=0 then step:=1;
+  dec(step);
+  result:=TColor((FStyle+step*(Ord(High(TShapeStyle))+1)+Ord(AStyle))^);
+end;
+
+function TAufStateStyle.GetDWord(AStyle:TShapeStyle; AState:TShapeState):DWord;
+var state_bits:TShapeState;
+    step:integer;
+begin
+  state_bits:=AState;
+  step:=0;
+  while state_bits>0 do begin
+    state_bits:=state_bits shr 1;
+    inc(step);
+  end;
+  if step=0 then step:=1;
+  dec(step);
+  result:=(FStyle+step*(Ord(High(TShapeStyle))+1)+Ord(AStyle))^;
+end;
+
+procedure TAufStateStyle.SetColor(AStyle:TShapeStyle; AState:TShapeState; value:TColor);
+var state_bits:TShapeState;
+    step:integer;
+begin
+  state_bits:=AState;
+  for step:=0 to ShapeStateCount-1 do begin
+    if (state_bits and $1) > 0 then (FStyle+step*(Ord(High(TShapeStyle))+1)+Ord(AStyle))^:=dword(value);
+    state_bits:=state_bits shr 1;
+  end;
+end;
+
+procedure TAufStateStyle.SetDWord(AStyle:TShapeStyle; AState:TShapeState; value:DWord);
+var state_bits:TShapeState;
+    step:integer;
+begin
+  state_bits:=AState;
+  for step:=0 to ShapeStateCount-1 do begin
+    if (state_bits and $1) > 0 then (FStyle+step*(Ord(High(TShapeStyle))+1)+Ord(AStyle))^:=value;
+    state_bits:=state_bits shr 1;
+  end;
+end;
+
+constructor TAufStateStyle.Create;
+begin
+  inherited Create;
+  FStyle:=AllocMem(ShapeStateCount*(Ord(High(TShapeStyle))+1)*sizeof(DWord));
+end;
+
+destructor TAufStateStyle.Destroy;
+begin
+  FreeMem(FStyle);
+  inherited Destroy;
+end;
+
+procedure TAufStateStyle.Assign(AStyle:TAufStateStyle);
+begin
+  move(AStyle.FStyle^, Self.FStyle^, sizeof(DWord)*ShapeStateCount*(Ord(High(TShapeStyle))+1));
 end;
 
 
 { TAufShape }
 
 procedure TAufShape.Draw(ACanvas:TCanvas;AHover:boolean=false);
+var tmpColor:TColor;
 begin
   ACanvas.Brush.Style:=bsSolid;
   ACanvas.Pen.Style:=psSolid;
   if AHover then begin
-    ACanvas.Brush.Color:=Style.HoverFillColor;
-    ACanvas.Pen.Color:=Style.HoverStrokeColor;
-    ACanvas.Pen.Width:=Style.HoverWidth;
+    tmpColor:=Style.GetColor(assFillColor, assHover);
+    ACanvas.Brush.Color:=tmpColor;
+    if tmpColor shr 24 = $ff then ACanvas.Brush.Style:=bsClear;
+
+    tmpColor:=Style.GetColor(assBorderColor, assHover);
+    ACanvas.Pen.Color:=tmpColor;
+    if tmpColor shr 24 = $ff then ACanvas.Pen.Style:=psClear;
+
+    ACanvas.Pen.Width:=Style.GetDWord(assBorderWidth, assHover);
   end else begin
-    ACanvas.Brush.Color:=Style.FillColor;
-    ACanvas.Pen.Color:=Style.StrokeColor;
-    ACanvas.Pen.Width:=Style.Width;
+    tmpColor:=Style.GetColor(assFillColor, assNormal);
+    ACanvas.Brush.Color:=tmpColor;
+    if tmpColor shr 24 = $ff then ACanvas.Brush.Style:=bsClear;
+
+    tmpColor:=Style.GetColor(assBorderColor, assNormal);
+    ACanvas.Pen.Color:=Style.GetColor(assBorderColor, assNormal);
+    if tmpColor shr 24 = $ff then ACanvas.Pen.Style:=psClear;
+
+    ACanvas.Pen.Width:=Style.GetDWord(assBorderWidth, assNormal);
   end;
 end;
 
 constructor TAufShape.Create;
 begin
-  with Style do begin
-    Width:=1;
-    HoverWidth:=1;
-    FillColor:=clRed;
-    StrokeColor:=clBlack;
-    HoverFillColor:=clMaroon;
-    HoverStrokeColor:=clBlack;
-  end;
+  inherited Create;
+  FStyle:=TAufStateStyle.Create;
+  FStyle.Assign(_DEFAULT_SHAPE_STYLE_);
+end;
+
+destructor TAufShape.Destroy;
+begin
+  FStyle.Free;
+  inherited Destroy;
 end;
 
 { TAufPolygon }
@@ -416,11 +484,15 @@ var MaxWidth, offset, ofs_idx:Integer;
     ll, tt, rr, bb:integer;
 begin
   //inherited Draw(ACanvas, AHover); 文字不需要继承笔刷
-  //Style里的Width作为字高 HoverWidth作为描边厚度
-  //FillColor是文字颜色 StrokeColor是描边颜色
-  text_h:=Style.Width;
+
+  offset:=Style.GetDWord(assStrokeWidth, assNormal);
+  if offset>10 then offset:=10; //字体描边最大 10 pixels
+
+  text_h:=Style.GetDWord(assSymbolWidth, assNormal);
   text_w:=ACanvas.TextWidth(FCaption);
   ACanvas.Font.Size:=text_h;
+  text_h:=text_h+2*offset;
+  text_w:=text_w+2*offset;
   if FMaxWidth>=0 then text_w:=FMaxWidth+1;
   semi_w:=text_w div 2;
   semi_h:=text_h div 2;
@@ -429,11 +501,8 @@ begin
   rr:=ll + text_w;
   bb:=tt + text_h;
 
-  offset:=Style.HoverWidth;
-  if offset>10 then offset:=10; //字体描边最大 10 pixels
-
   TextStyle.Alignment:=taCenter;
-  ACanvas.Font.Color:=Style.StrokeColor;
+  ACanvas.Font.Color:=Style.GetColor(assStrokeColor, assNormal);
   for ofs_idx:=1 to offset do begin
     ACanvas.TextRect(Classes.Rect(ll-ofs_idx, tt-ofs_idx, rr-ofs_idx, bb-ofs_idx), ll-ofs_idx, tt-ofs_idx, FCaption, TextStyle);
     ACanvas.TextRect(Classes.Rect(ll+ofs_idx, tt-ofs_idx, rr+ofs_idx, bb-ofs_idx), ll+ofs_idx, tt-ofs_idx, FCaption, TextStyle);
@@ -443,9 +512,8 @@ begin
     ACanvas.TextRect(Classes.Rect(ll-ofs_idx, tt, rr-ofs_idx, bb), ll-ofs_idx, tt, FCaption, TextStyle);
     ACanvas.TextRect(Classes.Rect(ll, tt+ofs_idx, rr, bb+ofs_idx), ll, tt+ofs_idx, FCaption, TextStyle);
     ACanvas.TextRect(Classes.Rect(ll, tt-ofs_idx, rr, bb-ofs_idx), ll, tt-ofs_idx, FCaption, TextStyle);
-
   end;
-  ACanvas.Font.Color:=Style.FillColor;
+  ACanvas.Font.Color:=Style.GetColor(assFillColor, assNormal);
   ACanvas.TextRect(Classes.Rect(ll, tt, rr, bb), ll, tt, FCaption, TextStyle);
 end;
 
@@ -463,9 +531,9 @@ begin
   FMaxWidth:=-1;
   //FCache:=TBitmap.Create;
   //FCache.PixelFormat:=pf32bit;
-  Style.Width:=AScale;
-  Style.HoverWidth:=1;
-  Style.StrokeColor:=clWhite;
+  Style.SetDWord(assSymbolWidth, assAllState, AScale);
+  Style.SetDWord(assStrokeWidth, assAllState, 1);
+  Style.SetColor(assStrokeColor, assAllState, clWhite);
   //BuildCache;
 end;
 
@@ -477,9 +545,9 @@ begin
   FMaxWidth:=ARect.Width;
   //FCache:=TBitmap.Create;
   //FCache.PixelFormat:=pf32bit;
-  Style.Width:=ARect.Height; //Width aka Scale表示字高
-  Style.HoverWidth:=1;
-  Style.StrokeColor:=clWhite;
+  Style.SetDWord(assSymbolWidth, assAllState, ARect.Height);
+  Style.SetDWord(assStrokeWidth, assAllState ,1);
+  Style.SetColor(assStrokeColor, assAllState, clWhite);
   //BuildCache;
 end;
 
@@ -644,7 +712,7 @@ begin
   for idx:=0 to len-1 do begin
     tmpShape:=TAufShape(FList[idx]);
     if tmpShape=nil then result:=result+#9+'_'
-    else result:=result+#9+'s'+IntToStr(tmpShape.FShapeId);
+    else result:=result+#9+tmpShape.ClassName+'#'+IntToStr(tmpShape.FShapeId);
   end;
 end;
 
@@ -729,6 +797,13 @@ begin
 end;
 
 
+initialization
+
+  _DEFAULT_SHAPE_STYLE_:=TAufStateStyle.Create;
+
+finalization
+
+  _DEFAULT_SHAPE_STYLE_.Free;
 
 end.
 
