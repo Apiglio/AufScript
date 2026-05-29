@@ -1,0 +1,106 @@
+define white, 00FFFFFFH
+define black, 00000000H
+define piece_w, 12
+
+//棋盘定义
+var int board, 361
+var int count
+var int shp
+var int i
+var int j
+var int player
+var int color, 4
+var int mask, 4
+mov mask, @white
+var int transparent, 4
+mov transparent, 0ffffffffh
+
+cav.clear
+
+//绘制棋盘
+cav.tpl_style "border-color", 03f3f3fh
+cav.tpl_style "fill-color", 03f3f3fh
+
+mov i, 20
+lat:
+  cav.add_line shp, i, 20, i, 560
+  add i, 30
+loop :lat, 18
+
+mov j, 20
+lng:
+  cav.add_line shp, 20, j, 560, j
+  add j, 30
+loop :lng, 18
+
+mov i, 110
+D1:
+  mov j, 110
+  D2:
+    cav.add_point shp, i, j, 4
+    add j, 180
+  loop :D2, 2
+  add i, 180
+loop :D1, 2
+
+cav.refresh
+
+//生成棋子（隐藏棋子）
+cav.tpl_style "fill-color", 0ffffffffh
+cav.tpl_style "border-color", 0ffffffffh
+cav.tpl_style "fill-color:hover", 00bfbfbfh
+
+mov i, 20
+L1:
+  mov j, 20
+  L2:
+    cav.add_point shp, i, j, @piece_w
+    add j, 30
+  loop :L2, 18
+  add i, 30
+loop :L1, 18
+
+cav.refresh
+
+//交互逻辑
+task.enable
+mov count, 0
+mov color, @black
+mainloop:
+  task.wait :mouseup  
+if count < 361 jmp :mainloop
+
+
+unvar board, count, shp, i, j, player, color, mask
+end
+
+mouseup:
+  var int event_msg, 32
+  var int shp_color, 4
+  dupdef event_msg, event_type
+  ptrmr event_type, 4
+  dupdef event_type, picked
+  pofr picked, 1
+  dupdef event_type, xpos
+  pofr xpos, 2
+  dupdef event_type, ypos
+  pofr ypos, 3
+  
+  task.read event_msg
+  cav.get_style picked, "fill-color", shp_color
+  if shp_color != transparent jmp :invalid_piece
+  
+    cav.set_style picked, "fill-color", color
+	cav.set_style picked, "border-color", @black
+	xor color, mask
+  
+  invalid_piece:
+  
+  deldef event_type
+  deldef picked
+  deldef xpos
+  deldef ypos
+  unvar event_msg, shp_color
+ret
+
+

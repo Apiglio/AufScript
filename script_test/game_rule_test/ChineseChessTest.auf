@@ -1,0 +1,113 @@
+define white, 00FFFFFFH
+define black, 00000000H
+
+define piece_w, 13
+define piece_t, 10
+
+
+//棋盘定义
+var int board, 81
+var int shp
+var int i
+var int j
+var int player
+var int color, 4
+var int mask, 4
+mov mask, @white
+
+cav.tpl_style "border-color", 00bfbfbfh
+
+//绘制棋盘
+cav.clear
+mov i, 20
+lat:
+  cav.add_line shp, i,  20, i, 140
+  cav.add_line shp, i, 170, i, 290
+  add i, 30
+loop :lat, 8
+
+mov j, 20
+lng:
+  cav.add_line shp, 20, j, 260, j
+  add j, 30
+loop :lng, 9
+
+cav.add_line shp, 20,  140,  20, 170
+cav.add_line shp, 260, 140, 260, 170
+cav.add_line shp, 110,  20, 170,  80
+cav.add_line shp, 170,  20, 110,  80
+cav.add_line shp, 110, 230, 170, 290
+cav.add_line shp, 170, 230, 110, 290
+
+mov i, 50
+rocket_1:
+  mov j, 80
+  rocket_2:
+    cav.add_point shp, i, j, 3
+    cav.set_style shp, "fill-color", 0
+    add j, 150
+  loop :rocket_2, 1
+  add i, 180
+loop :rocket_1, 1
+
+mov i, 20
+pawn_1:
+  mov j, 110
+  pawn_2:
+    cav.add_point shp, i, j, 3
+    cav.set_style shp, "fill-color", 0
+    add j, 90
+  loop :pawn_2, 1
+  add i, 60
+loop :pawn_1, 4
+
+//棋子
+
+cav.tpl_style "border-color", 00h
+cav.tpl_style "fill-color", @white
+cav.tpl_style "fill-color:hover", 003f3f7fh
+cav.tpl_style "stroke-width", 1
+cav.tpl_style "stroke-color", @white
+
+var char piece_names, 72
+mov piece_names, "车马相仕帅仕相马车兵  兵  兵  兵  兵卒  卒  卒  卒  卒車马象士将士象马車"
+dupdef piece_names, pname
+ptrmr pname, 2
+
+mov i, 20
+P1:
+  mov j, 20
+  P2:
+    if pname == "  " jmp :no_piece
+	cav.add_point shp, j, i, @piece_w
+	cav.set_style shp, "fill-color:normal", @white
+	cav.add_text  shp, j, i, pname, @piece_t
+	cav.set_style shp, "fill-color:normal", @black
+	no_piece:
+	pofr pname, 1
+    add j, 30
+  loop :P2, 8
+  add i, 90
+loop :P1, 3
+
+mov i, 50
+P3:
+  cav.add_point shp, i, 80, @piece_w
+  cav.set_style shp, "fill-color:normal", @white
+  cav.add_text  shp, i, 80, "炮", @piece_t
+  cav.set_style shp, "fill-color:normal", @black
+  cav.add_point shp, i, 230, @piece_w
+  cav.set_style shp, "fill-color:normal", @white
+  cav.add_text  shp, i, 230, "砲", @piece_t
+  cav.set_style shp, "fill-color:normal", @black
+  add i, 180
+loop :P3, 1
+
+deldef pname
+unvar piece_names
+cav.refresh
+cav.list
+
+unvar board, shp, i, j, player, color, mask
+end
+

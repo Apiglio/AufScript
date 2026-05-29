@@ -1,0 +1,73 @@
+define white, 00FFFFFFH
+define black, 00000000H
+define piece_w, 12
+
+//棋盘定义
+var int board, 361
+var int shp
+var int i
+var int j
+var int player
+var int color, 4
+var int mask, 4
+mov mask, @white
+
+cav.clear
+
+//绘制棋盘
+cav.tpl_style "border-color", 03f3f3fh
+cav.tpl_style "fill-color", 03f3f3fh
+
+mov i, 20
+lat:
+  cav.add_line shp, i, 20, i, 560
+  add i, 30
+loop :lat, 18
+
+mov j, 20
+lng:
+  cav.add_line shp, 20, j, 560, j
+  add j, 30
+loop :lng, 18
+
+mov i, 110
+D1:
+  mov j, 110
+  D2:
+    cav.add_point shp, i, j, 4
+    add j, 180
+  loop :D2, 2
+  add i, 180
+loop :D1, 2
+
+cav.refresh
+
+//生成棋子
+cav.tpl_style "border-color", 00h
+cav.tpl_style "fill-color", 00h
+cav.tpl_style "fill-color:hover", ffffffffh
+cav.tpl_style "border-color:hover", ffffffffh
+
+mov color, @black
+mov i, 20
+L1:
+  mov j, 20
+  L2:
+    call :random_player
+    cav.add_point shp, i, j, @piece_w
+    cav.set_style shp, "fill-color:normal", color
+    add j, 30
+  loop :L2, 18
+  add i, 30
+loop :L1, 18
+
+cav.refresh
+
+
+unvar board, shp, i, j, player, color, mask
+end
+
+random_player:
+  rand player, 2
+  if player > 0 xor color, mask
+ret

@@ -1,0 +1,26 @@
+var int shp
+cav.clear
+
+cav.tpl_style "fill-color", 0000ff00h
+cav.tpl_style "border-color", 0000ffffh
+cav.tpl_style "stroke-color", 00ff00ffh
+cav.tpl_style "symbol-width", 20
+cav.tpl_style "border-width", 4
+cav.tpl_style "stroke-width", 1
+
+cav.tpl_style "fill-color:hover", 00007f00h
+cav.tpl_style "border-color:hover", 00007f7fh
+cav.tpl_style "stroke-color:hover", 007f007fh
+cav.tpl_style "symbol-width:hover", 30
+cav.tpl_style "border-width:hover", 6
+cav.tpl_style "stroke-width:hover", 2
+
+
+cav.add_text  shp, 100, 100, "中文", 16
+cav.add_rect  shp,  20,  20, 240,  60
+cav.add_point shp, 200, 160, 16
+cav.add_line  shp,  50, 160, 220, 120
+
+cav.refresh
+unvar shp
+
