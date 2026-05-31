@@ -10,30 +10,37 @@ uses
 
 type
 
-  TShapeType = (astUnknown=0, astPolygon, astEllipse, astPolyline, astCaption);
-  TShapeStyle = (assFillColor=0, assBorderColor=1, assStrokeColor=2, assSymbolWidth=3, assBorderWidth=4, assStrokeWidth=5);
-  TShapeState = $0..$f;
+  TAufCanvasEventType = (acetUnknown=0, acetClick=1, acetMouseDown=2, acetMouseUp=3, acetSelected, acetEnter=5, acetLeave=6);
+  TShapeType = (astUnknown=0, astPolygon, astEllipse, astPolyline, astCaption, astImage);
+  TShapeStyle = (assFillColor=0, assBorderColor=1, assStrokeColor=2, assSymbolWidth=3, assBorderWidth=4, assStrokeWidth=5, assOffsetX=6, assOffsetY=7);
+  TShapeState = $0..$3f;
 
 const
-  ShapeStateCount = 4;
+  ShapeStateCount = 6;
   assNormal   : TShapeState = $1;
   assHover    : TShapeState = $2;
-  assToggled  : TShapeState = $4;
-  assFocus    : TShapeState = $8;
-  assAllState : TShapeState = $f;
+  assActive   : TShapeState = $4;
+  assSelected : TShapeState = $8;
+  assDragging : TShapeState = $10;
+  assDisabled : TShapeState = $20;
+  assAllState : TShapeState = $3f;
 
 {
-                  text  point line  face
-  fill-color      O     O     X     O
-  border-color    X     O     O     O
-  stroke-color    O     O     O     O
-  symbol-width    O     O     X     X
-  border-width    X     O     O     O
-  stroke-width    O     O     O     O
-  :normal         O     O     O     O
-  :hover          X     O     X     O
-  :toggled        X     O     X     O
-  :focus          X     O     X     O
+                  text  point line  face  image
+  fill-color      O     O     X     O     X
+  border-color    X     O     O     O     O
+  stroke-color    O     O     O     O     O
+  symbol-width    O     O     X     X     X
+  border-width    X     O     O     O     O
+  stroke-width    O     O     O     O     O
+  offset-x        X     X     X     X     O
+  offset-y        X     X     X     X     O
+  :normal         O     O     O     O     O
+  :hover          X     O     X     O     O
+  :active         X     O     X     O     O
+  :selected       X     O     X     O     O
+  :dragging       X     O     X     O     O
+  :disabled       O     O     O     O     O
 }
 
 type
@@ -57,8 +64,9 @@ type
     FShapeId:Integer;
     FShapeType:TShapeType;
     FStyle:TAufStateStyle;
+    FState:TShapeState;
   public
-    procedure Draw(ACanvas:TCanvas;AHover:boolean=false);virtual;
+    procedure Draw(ACanvas:TCanvas);virtual;
     function PointContains(APoint:TPoint):boolean;virtual;abstract;
   public
     constructor Create;
@@ -70,7 +78,7 @@ type
   private
     FCoordinates:array of TPoint;
   public
-    procedure Draw(ACanvas:TCanvas;AHover:boolean=false);override;
+    procedure Draw(ACanvas:TCanvas);override;
     function PointContains(point:TPoint):boolean;override;
   public
     constructor Create(APoints:array of TPoint);
@@ -84,7 +92,7 @@ type
     FWidth:Integer;
     FHeight:Integer;
   public
-    procedure Draw(ACanvas:TCanvas;AHover:boolean=false);override;
+    procedure Draw(ACanvas:TCanvas);override;
     function PointContains(APoint:TPoint):boolean;override;
   public
     constructor Create(ACentroid:TPoint; AWidth, AHeight:Integer);
@@ -96,7 +104,7 @@ type
   private
     FCoordinates:array of TPoint;
   public
-    procedure Draw(ACanvas:TCanvas;AHover:boolean=false);override;
+    procedure Draw(ACanvas:TCanvas);override;
     function PointContains(point:TPoint):boolean;override;
   public
     constructor Create(APoints:array of TPoint);
@@ -113,11 +121,23 @@ type
   //private
     //procedure BuildCache;
   public
-    procedure Draw(ACanvas:TCanvas;AHover:boolean=false);override;
+    procedure Draw(ACanvas:TCanvas);override;
     function PointContains(APoint:TPoint):boolean;override;
   public
     constructor Create(ACentroid:TPoint;ACaption:String;AScale:Integer);
     constructor CreateByRect(ARect:TRect);
+    destructor Destroy; override;
+  end;
+
+  TAufImageShape = class(TAufShape)
+  private
+    FRect:TRect;
+    FBitmap:Graphics.TBitmap;
+  public
+    procedure Draw(ACanvas:TCanvas);override;
+    function PointContains(point:TPoint):boolean;override;
+  public
+    constructor Create(ARect:TRect;ABitmap:Graphics.TBitmap);
     destructor Destroy; override;
   end;
 
@@ -149,6 +169,7 @@ type
     FContainer:TAufShapeContainer;
     FHoverShape:TAufShape;
   private
+    procedure SendCanvasEvent(AEventType:TAufCanvasEventType; AShapeId:Integer; X,Y:Integer);
     procedure Paint; override;
     procedure MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
     procedure MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Integer); override;
@@ -243,32 +264,20 @@ end;
 
 { TAufShape }
 
-procedure TAufShape.Draw(ACanvas:TCanvas;AHover:boolean=false);
+procedure TAufShape.Draw(ACanvas:TCanvas);
 var tmpColor:TColor;
 begin
   ACanvas.Brush.Style:=bsSolid;
   ACanvas.Pen.Style:=psSolid;
-  if AHover then begin
-    tmpColor:=Style.GetColor(assFillColor, assHover);
-    ACanvas.Brush.Color:=tmpColor;
-    if tmpColor shr 24 = $ff then ACanvas.Brush.Style:=bsClear;
+  tmpColor:=Style.GetColor(assFillColor, FState);
+  ACanvas.Brush.Color:=tmpColor;
+  if tmpColor shr 24 = $ff then ACanvas.Brush.Style:=bsClear;
 
-    tmpColor:=Style.GetColor(assBorderColor, assHover);
-    ACanvas.Pen.Color:=tmpColor;
-    if tmpColor shr 24 = $ff then ACanvas.Pen.Style:=psClear;
+  tmpColor:=Style.GetColor(assBorderColor, FState);
+  ACanvas.Pen.Color:=Style.GetColor(assBorderColor, FState);
+  if tmpColor shr 24 = $ff then ACanvas.Pen.Style:=psClear;
 
-    ACanvas.Pen.Width:=Style.GetDWord(assBorderWidth, assHover);
-  end else begin
-    tmpColor:=Style.GetColor(assFillColor, assNormal);
-    ACanvas.Brush.Color:=tmpColor;
-    if tmpColor shr 24 = $ff then ACanvas.Brush.Style:=bsClear;
-
-    tmpColor:=Style.GetColor(assBorderColor, assNormal);
-    ACanvas.Pen.Color:=Style.GetColor(assBorderColor, assNormal);
-    if tmpColor shr 24 = $ff then ACanvas.Pen.Style:=psClear;
-
-    ACanvas.Pen.Width:=Style.GetDWord(assBorderWidth, assNormal);
-  end;
+  ACanvas.Pen.Width:=Style.GetDWord(assBorderWidth, FState);
 end;
 
 constructor TAufShape.Create;
@@ -286,10 +295,10 @@ end;
 
 { TAufPolygon }
 
-procedure TAufPolygon.Draw(ACanvas:TCanvas;AHover:boolean=false);
+procedure TAufPolygon.Draw(ACanvas:TCanvas);
 begin
   if Length(FCoordinates)<3 then exit;
-  inherited Draw(ACanvas, AHover);
+  inherited Draw(ACanvas);
   ACanvas.Polygon(FCoordinates);
 end;
 
@@ -343,11 +352,11 @@ end;
 
 { TAufEllipse }
 
-procedure TAufEllipse.Draw(ACanvas:TCanvas;AHover:boolean=false);
+procedure TAufEllipse.Draw(ACanvas:TCanvas);
 var a,b:integer;
 begin
   if (FWidth<=1) or (FHeight<=1) then exit;
-  inherited Draw(ACanvas, AHover);
+  inherited Draw(ACanvas);
   a:=FWidth div 2;
   b:=FHeight div 2;
   with FCentroid do ACanvas.Ellipse(x-a, y-b, x+a, y+b);
@@ -391,10 +400,10 @@ end;
 
 { TAufPolyline }
 
-procedure TAufPolyline.Draw(ACanvas:TCanvas;AHover:boolean=false);
+procedure TAufPolyline.Draw(ACanvas:TCanvas);
 begin
   if Length(FCoordinates)<2 then exit;
-  inherited Draw(ACanvas, AHover);
+  inherited Draw(ACanvas);
   ACanvas.Polyline(FCoordinates);
 end;
 
@@ -476,14 +485,14 @@ begin
 end;
 }
 
-procedure TAufCaption.Draw(ACanvas:TCanvas;AHover:boolean=false);
+procedure TAufCaption.Draw(ACanvas:TCanvas);
 var MaxWidth, offset, ofs_idx:Integer;
     TextStyle:TTextStyle;
     dstRect:TRect;
     text_w, text_h, semi_w, semi_h:integer;
     ll, tt, rr, bb:integer;
 begin
-  //inherited Draw(ACanvas, AHover); 文字不需要继承笔刷
+  //inherited Draw(ACanvas); 文字不需要继承笔刷
 
   offset:=Style.GetDWord(assStrokeWidth, assNormal);
   if offset>10 then offset:=10; //字体描边最大 10 pixels
@@ -558,6 +567,43 @@ begin
 end;
 
 
+{ TAufImageShape }
+
+operator +(A:Classes.TRect; B:Classes.TPoint):Classes.TRect;
+begin
+  result.TopLeft:=A.TopLeft+B;
+  result.BottomRight:=A.BottomRight+B;
+end;
+
+procedure TAufImageShape.Draw(ACanvas:TCanvas);
+var OffsetX, OffsetY:Int32;
+begin
+  OffsetX:=Style.GetDWord(assOffsetX, FState);
+  OffsetY:=Style.GetDWord(assOffsetY, FState);
+  ACanvas.CopyRect(FRect+Classes.Point(OffsetX, OffsetY), FBitmap.Canvas, Classes.Rect(0,0,FBitmap.Width ,FBitmap.Height));
+  inherited Draw(ACanvas);
+  ACanvas.Brush.Style:=bsClear;
+  ACanvas.Rectangle(FRect+Classes.Point(OffsetX, OffsetY));
+end;
+
+function TAufImageShape.PointContains(point:TPoint):boolean;
+begin
+  result:=FRect.Contains(point);
+end;
+
+constructor TAufImageShape.Create(ARect:TRect;ABitmap:Graphics.TBitmap);
+begin
+  inherited Create;
+  FBitmap:=Graphics.TBitmap.Create;
+  FBitmap.Assign(ABitmap);
+  FRect:=ARect;
+end;
+
+destructor TAufImageShape.Destroy;
+begin
+  FBitmap.Free;
+  inherited Destroy;
+end;
 
 
 
@@ -726,8 +772,24 @@ begin
   len:=FContainer.FList.Count;
   for idx:=0 to len-1 do begin
     shp:=TAufShape(FContainer.FList[idx]);
-    if shp<>nil then shp.Draw(Canvas, shp=FHoverShape);
+    if shp<>nil then shp.Draw(Canvas);
   end;
+end;
+
+procedure TAufCanvasPanel.SendCanvasEvent(AEventType:TAufCanvasEventType; AShapeId:Integer; X,Y:Integer);
+var event_arv:TAufRamVar;
+    AufScpt:TAufScript;
+begin
+  AufScpt:=FAufScript as TAufScript;
+  if not AufScpt.TaskMessageEnabled then exit;
+  newARV(event_arv, 32);
+  fillARV(0,event_arv);
+  pdword(event_arv.Head)^:=Ord(AEventType);
+  pdword(event_arv.Head+4)^:=AShapeId;
+  pdword(event_arv.Head+8)^:=X;
+  pdword(event_arv.Head+12)^:=Y;
+  AufScpt.SendTaskMessage(AufScpt, event_arv, mcCanvas);
+  freeARV(event_arv);
 end;
 
 procedure TAufCanvasPanel.MouseDown(Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
@@ -737,21 +799,10 @@ end;
 
 procedure TAufCanvasPanel.MouseUp(Button: TMouseButton; Shift: TShiftState; X, Y: Integer);
 var picked_shape:TAufShape;
-    event_arv:TAufRamVar;
-    AufScpt:TAufScript;
 begin
-  AufScpt:=FAufScript as TAufScript;
   picked_shape:=FContainer.PickShape(Classes.Point(X,Y));
   if picked_shape=nil then exit;
-  if not AufScpt.TaskMessageEnabled then exit;
-  newARV(event_arv, 32);
-  fillARV(0,event_arv);
-  pdword(event_arv.Head)^:=1;
-  pdword(event_arv.Head+4)^:=picked_shape.FShapeId;
-  pdword(event_arv.Head+8)^:=X;
-  pdword(event_arv.Head+12)^:=Y;
-  AufScpt.SendTaskMessage(AufScpt, event_arv, mcCanvas);
-  freeARV(event_arv);
+  SendCanvasEvent(acetMouseUp, picked_shape.FShapeId, X, Y);
 end;
 
 procedure TAufCanvasPanel.MouseMove(Shift: TShiftState; X, Y: Integer);
@@ -760,13 +811,16 @@ begin
   picked_shape:=FContainer.PickShape(Classes.Point(X,Y));
   if picked_shape=nil then begin
     if FHoverShape<>nil then begin
+      if FHoverShape.FState = assHover then FHoverShape.FState:=assNormal;
       FHoverShape:=nil;
       Invalidate;
     end;
     exit;
   end;
   if FHoverShape<>picked_shape then begin
+    if (FHoverShape <> nil) and (FHoverShape.FState <> assDisabled) then FHoverShape.FState:=assNormal;
     FHoverShape:=picked_shape;
+    if picked_shape.FState<>assDisabled then picked_shape.FState:=assHover;
     Invalidate;
   end;
 end;

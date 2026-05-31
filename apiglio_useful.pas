@@ -4187,6 +4187,117 @@ begin
   dword_to_arv(shp_id, shp_id_arv);
 end;
 
+procedure cav_GenGrid(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    x0, y0, x1, y1, cw, ch, row, col:integer;
+    tmpShape:TAufShape;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckCanvas then exit;
+  if not AAuf.CheckArgs(7) then exit;
+  if not AAuf.TryArgToLong(1, x0) then exit;
+  if not AAuf.TryArgToLong(2, y0) then exit;
+  if not AAuf.TryArgToLong(3, x1) then exit;
+  if not AAuf.TryArgToLong(4, y1) then exit;
+  if not AAuf.TryArgToLong(5, cw) then exit;
+  if not AAuf.TryArgToLong(6, ch) then exit;
+  col:=x0;
+  while col<=x1 do begin
+    tmpShape:=TAufPolyline.CreateByRect(Classes.Rect(col, y0, col, y1));
+    AufScpt.IO_fptr.canvas.Shapes.AddShape(tmpShape);
+    inc(col, cw);
+  end;
+  row:=y0;
+  while row<=y1 do begin
+    tmpShape:=TAufPolyline.CreateByRect(Classes.Rect(x0, row, x1, row));
+    AufScpt.IO_fptr.canvas.Shapes.AddShape(tmpShape);
+    inc(row, ch);
+  end;
+end;
+
+procedure cav_GenDotArray(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    x0, y0, x1, y1, cw, ch, row, col:integer;
+    tmpShape:TAufShape;
+    dot_size:dword;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckCanvas then exit;
+  if not AAuf.CheckArgs(7) then exit;
+  if not AAuf.TryArgToLong(1, x0) then exit;
+  if not AAuf.TryArgToLong(2, y0) then exit;
+  if not AAuf.TryArgToLong(3, x1) then exit;
+  if not AAuf.TryArgToLong(4, y1) then exit;
+  if not AAuf.TryArgToLong(5, cw) then exit;
+  if not AAuf.TryArgToLong(6, ch) then exit;
+  dot_size:=_DEFAULT_SHAPE_STYLE_.GetDWord(assSymbolWidth, assNormal);
+  row:=y0;
+  while row<=y1 do begin
+    col:=x0;
+    while col<=x1 do begin
+      tmpShape:=TAufEllipse.CreateByRect(Classes.Rect(col-dot_size,row-dot_size,col+dot_size,row+dot_size));
+      AufScpt.IO_fptr.canvas.Shapes.AddShape(tmpShape);
+      inc(col, cw);
+    end;
+    inc(row, ch);
+  end;
+end;
+
+procedure cav_AddImage(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    x,y,shp_id,pw,ph:integer;
+    shp_id_arv:TAufRamVar;
+    tmpShape:TAufShape;
+    filename:string;
+    pic:TPicture;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckCanvas then exit;
+  if not AAuf.CheckArgs(5) then exit;
+  if not AAuf.TryArgToARV(1, 4, High(DWord), [ARV_FixNum], shp_id_arv) then exit;
+  if not AAuf.TryArgToString(2, filename) then exit;
+  if not AAuf.TryArgToLong(3, x) then exit;
+  if not AAuf.TryArgToLong(4, y) then exit;
+  pw:=-1;
+  ph:=-1;
+  if AAuf.ArgsCount>5 then begin
+    if not AAuf.CheckArgs(7) then exit;
+    if not AAuf.TryArgToLong(5, pw) then exit;
+    if not AAuf.TryArgToLong(6, ph) then exit;
+    if (pw<0) or (ph<0) then begin
+      AufScpt.send_error('警告：图形尺寸不应小于0，代码未执行。',AufsErr_RunTime);
+      exit;
+    end;
+  end;
+  if not FileExists(filename) then begin
+    AufScpt.send_error('警告：找不到文件'+filename+'，代码未执行。', AufsErr_FileNotExists);
+    exit;
+  end;
+  pic:=TPicture.Create;
+  try
+    try
+      pic.LoadFromFile(filename);
+      if pw<0 then pw:=pic.Width;
+      if ph<0 then ph:=pic.Height;
+      tmpShape:=TAufImageShape.Create(Classes.Rect(x,y,x+pw,y+ph), pic.Bitmap);
+      shp_id:=AufScpt.IO_fptr.canvas.Shapes.AddShape(tmpShape);
+      dword_to_arv(shp_id, shp_id_arv);
+    except
+      AufScpt.send_error('警告：无法打开文件'+filename+'，代码未执行。', AufsErr_FileIOFailed);
+      exit;
+    end;
+  finally
+    pic.Free;
+  end;
+
+end;
+
 procedure cav_ShapesList(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
@@ -4227,7 +4338,7 @@ var AufScpt:TAufScript;
     AAuf:TAuf;
     shp_id,index:integer;
     style_name, state_name:string;
-    value:dword;
+    value:int32;
     tmpShape:TAufShape;
     state:TShapeState;
     style:TShapeStyle;
@@ -4238,7 +4349,7 @@ begin
   if not AAuf.CheckArgs(4) then exit;
   if not AAuf.TryArgToLong(1, shp_id) then exit;
   if not AAuf.TryArgToString(2, style_name) then exit;
-  if not AAuf.TryArgToDWord(3, value) then exit;
+  if not AAuf.TryArgToLong(3, value) then exit;
   tmpShape:=AufScpt.IO_fptr.canvas.Shapes.FindShapeByID(shp_id, index);
   if tmpShape=nil then begin
     AufScpt.send_error(Format('警告：未找到图形#%d。',[shp_id]), AufsErr_RunTime);
@@ -4255,8 +4366,10 @@ begin
   case state_name of
     'normal'  : state:=assNormal;
     'hover'   : state:=assHover;
-    'toggled' : state:=assToggled;
-    'focus'   : state:=assFocus;
+    'active'  : state:=assActive;
+    'selected': state:=assSelected;
+    'disabled': state:=assDisabled;
+    'dragging': state:=assDragging;
     else        state:=assAllState;
   end;
 
@@ -4268,6 +4381,8 @@ begin
     'symbol-width': style:=assSymbolWidth;
     'border-width': style:=assBorderWidth;
     'stroke-width': style:=assStrokeWidth;
+    'offset-x':     style:=assOffsetX;
+    'offset-y':     style:=assOffsetY;
     else begin
       AufScpt.send_error('无效样式项目，代码未执行。',AufsErr_NoNamedParam);
       exit;
@@ -4309,8 +4424,10 @@ begin
   case state_name of
     'normal'  : state:=assNormal;
     'hover'   : state:=assHover;
-    'toggled' : state:=assToggled;
-    'focus'   : state:=assFocus;
+    'active'  : state:=assActive;
+    'selected': state:=assSelected;
+    'disabled': state:=assDisabled;
+    'dragging': state:=assDragging;
     else        state:=assAllState;
   end;
 
@@ -4322,6 +4439,8 @@ begin
     'symbol-width': style:=assSymbolWidth;
     'border-width': style:=assBorderWidth;
     'stroke-width': style:=assStrokeWidth;
+    'offset-x':     style:=assOffsetX;
+    'offset-y':     style:=assOffsetY;
     else begin
       AufScpt.send_error('无效样式项目，代码未执行。',AufsErr_NoNamedParam);
       exit;
@@ -4335,7 +4454,7 @@ var AufScpt:TAufScript;
     AAuf:TAuf;
     index:integer;
     style_name, state_name:string;
-    value:dword;
+    value:int32;
     tmpShape:TAufShape;
     state:TShapeState;
     style:TShapeStyle;
@@ -4345,7 +4464,7 @@ begin
   if not AAuf.CheckCanvas then exit;
   if not AAuf.CheckArgs(3) then exit;
   if not AAuf.TryArgToString(1, style_name) then exit;
-  if not AAuf.TryArgToDWord(2, value) then exit;
+  if not AAuf.TryArgToLong(2, value) then exit;
 
   index:=pos(':', style_name);
   if index>0 then begin
@@ -4358,8 +4477,10 @@ begin
   case state_name of
     'normal'  : state:=assNormal;
     'hover'   : state:=assHover;
-    'toggled' : state:=assToggled;
-    'focus'   : state:=assFocus;
+    'active'  : state:=assActive;
+    'selected': state:=assSelected;
+    'disabled': state:=assDisabled;
+    'dragging': state:=assDragging;
     else        state:=assAllState;
   end;
 
@@ -4371,6 +4492,8 @@ begin
     'symbol-width': style:=assSymbolWidth;
     'border-width': style:=assBorderWidth;
     'stroke-width': style:=assStrokeWidth;
+    'offset-x':     style:=assOffsetX;
+    'offset-y':     style:=assOffsetY;
     else begin
       AufScpt.send_error('无效样式项目，代码未执行。',AufsErr_NoNamedParam);
       exit;
@@ -7123,11 +7246,17 @@ procedure TAufScript.AdditionFuncDefine_Canvas;
 begin
   Self.add_func('cav.refresh',        @cav_Refresh,            '',                          '重绘画布');
   Self.add_func('cav.clear',          @cav_Clear,              '',                          '清除画布上的所有图形');
+  //绘制单个要素
   Self.add_func('cav.add_line',       @cav_AddLine,            'shp_id, x0, y0, x1, y1',    '在画布上创建线段并将图形ID保存给shp_id');
   Self.add_func('cav.add_rect',       @cav_AddRect,            'shp_id, x0, y0, x1, y1',    '在画布上创建方形并将图形ID保存给shp_id');
   Self.add_func('cav.add_oval',       @cav_AddOval,            'shp_id, x0, y0, x1, y1',    '在画布上创建椭圆形并将图形ID保存给shp_id');
   Self.add_func('cav.add_point',      @cav_AddPoint,           'shp_id, x, y, scale',       '在画布上创建圆点图形并将图形ID保存给shp_id');
   Self.add_func('cav.add_text',       @cav_AddText,            'shp_id, x, y, text, max_w', '在画布上创建标注图形并将图形ID保存给shp_id');
+  Self.add_func('cav.add_image',      @cav_AddImage,           'shp_id, pic, x, y[, w, h]', '在画布上创建图片资源并将图形ID保存给shp_id');
+
+  //绘制预设的形状组合
+  Self.add_func('cav.gen_grid',       @cav_GenGrid,            'x0, y0, x1, y1, cw, ch',    '在画布上批量创建线段格网');
+  Self.add_func('cav.gen_array',      @cav_GenDotArray,        'x0, y0, x1, y1, cw, ch',    '在画布上批量创建点阵');
 
 
   Self.add_func('cav.list',           @cav_ShapesList,         '',                          '显示图形列表');
