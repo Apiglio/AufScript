@@ -2225,22 +2225,55 @@ procedure _deldef(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
     global:boolean;
-    defname:string;
+    defname, readonly_list, notfound_list:string;
+    index:integer;
+    tmpAEL:TAufExpressionList;
+    tmpAEU:TAufExpressionUnit;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(2) then exit;
   global:=false;
-  if AAuf.ArgsCount>=3 then
-    begin
-      if lowercase(AAuf.args[2])='-global' then global:=true;
+  if AAuf.ArgsCount>=3 then begin
+    case lowercase(AAuf.args[AAuf.ArgsCount-1]) of
+      '-global':
+        begin
+          global:=true;
+          dec(AAuf.ArgsCount);
+        end;
     end;
-  if not AAuf.TryArgToDefName(1, defname) then exit;
-  try
-    if global then AufScpt.Expression.Global.TryDeleteExp(defname)
-    else AufScpt.Expression.Local.TryDeleteExp(defname);
-  except
-    AufScpt.send_error('警告：删除宏定义'+defname+'时出错，该定义属于只读定义或变量',AufsErr_ConflictDefName)
+  end;
+
+  notfound_list:='';
+  readonly_list:='';
+
+  for index:=AAuf.ArgsCount-1 downto 1 do begin
+    if not AAuf.TryArgToDefName(index, defname) then exit;
+    defname:=lowercase(defname);
+    if global then tmpAEL:=AufScpt.Expression.Global
+    else tmpAEL:=AufScpt.Expression.Local;
+    tmpAEU:=tmpAEL.Find(defname);
+    if tmpAEU=nil then begin
+      notfound_list:=notfound_list+defname+', ';
+      continue;
+    end;
+    if tmpAEU.readonly then begin
+      readonly_list:=readonly_list+defname+', ';
+      continue;
+    end;
+    tmpAEL.TryDeleteExp(defname);
+  end;
+  if (notfound_list<>'') or (readonly_list<>'') then begin
+    defname:='警告：以下宏定义无法删除：';
+    if notfound_list<>'' then begin
+      delete(notfound_list,length(notfound_list)-1,2);
+      defname:=defname+CRLF+'  找不到定义：'+notfound_list;
+    end;
+    if readonly_list<>'' then begin
+      delete(readonly_list,length(readonly_list)-1,2);
+      defname:=defname+CRLF+'  只读定义或变量：'+readonly_list;
+    end;
+    AufScpt.send_error(defname,AufsErr_ConflictDefName);
   end;
 end;
 procedure _ifdef_or_ifndef(Sender:TObject);
@@ -4332,6 +4365,40 @@ begin
   if not AAuf.CheckArgs(2) then exit;
   if not AAuf.TryArgToLong(1, shp_id) then exit;
   AufScpt.IO_fptr.canvas.Shapes.SendToBack(shp_id);
+end;
+
+procedure cav_MoveBy(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    shp_id,shp_idx:integer;
+    xPos,yPos:integer;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckCanvas then exit;
+  if not AAuf.CheckArgs(4) then exit;
+  if not AAuf.TryArgToLong(1, shp_id) then exit;
+  if not AAuf.TryArgToLong(2, xPos) then exit;
+  if not AAuf.TryArgToLong(3, yPos) then exit;
+  AufScpt.IO_fptr.canvas.Shapes.FindShapeByID(shp_id,shp_idx).Translation(Classes.Point(xPos,yPos));
+end;
+
+procedure cav_MoveTo(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    shp_id,shp_idx:integer;
+    xPos,yPos:integer;
+    tmpShape:TAufShape;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckCanvas then exit;
+  if not AAuf.CheckArgs(4) then exit;
+  if not AAuf.TryArgToLong(1, shp_id) then exit;
+  if not AAuf.TryArgToLong(2, xPos) then exit;
+  if not AAuf.TryArgToLong(3, yPos) then exit;
+  tmpShape:=AufScpt.IO_fptr.canvas.Shapes.FindShapeByID(shp_id,shp_idx);
+  tmpShape.Translation(Classes.Point(xPos,yPos)-tmpShape.VertexCentroid);
 end;
 
 procedure cav_SetStyle(Sender:TObject);
@@ -7263,6 +7330,9 @@ begin
   Self.add_func('cav.list',           @cav_ShapesList,         '',                          '显示图形列表');
   Self.add_func('cav.to_top',         @cav_ToTop,              'shp_id',                    '将给定id的图形置于画布最上层');
   Self.add_func('cav.to_bottom',      @cav_ToBottom,           'shp_id',                    '将给定id的图形置于画布最下层');
+  Self.add_func('cav.move_by',        @cav_MoveBy,             'shp_id, x, y',              '将给定id的图形平移(x,y)');
+  Self.add_func('cav.move_to',        @cav_MoveTo,             'shp_id, x, y',              '将给定id的图形平移到(x,y)');
+
 
   Self.add_func('cav.set_style',      @cav_SetStyle,           'shp_id, style_name, value', '设置给定id的图形的外观');
   Self.add_func('cav.get_style',      @cav_GetStyle,           'shp_id, style_name, @var',  '返回给定id图形的外观参数');

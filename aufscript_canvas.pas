@@ -68,6 +68,8 @@ type
   public
     procedure Draw(ACanvas:TCanvas);virtual;
     function PointContains(APoint:TPoint):boolean;virtual;abstract;
+    function VertexCentroid:TPoint;virtual;abstract;
+    procedure Translation(APoint:TPoint);virtual;abstract;
   public
     constructor Create;
     destructor Destroy; override;
@@ -79,7 +81,9 @@ type
     FCoordinates:array of TPoint;
   public
     procedure Draw(ACanvas:TCanvas);override;
-    function PointContains(point:TPoint):boolean;override;
+    function PointContains(APoint:TPoint):boolean;override;
+    function VertexCentroid:TPoint;override;
+    procedure Translation(APoint:TPoint);override;
   public
     constructor Create(APoints:array of TPoint);
     constructor CreateByRect(ARect:TRect);
@@ -94,6 +98,8 @@ type
   public
     procedure Draw(ACanvas:TCanvas);override;
     function PointContains(APoint:TPoint):boolean;override;
+    function VertexCentroid:TPoint;override;
+    procedure Translation(APoint:TPoint);override;
   public
     constructor Create(ACentroid:TPoint; AWidth, AHeight:Integer);
     constructor CreateByRect(ARect:TRect);
@@ -105,7 +111,9 @@ type
     FCoordinates:array of TPoint;
   public
     procedure Draw(ACanvas:TCanvas);override;
-    function PointContains(point:TPoint):boolean;override;
+    function PointContains(APoint:TPoint):boolean;override;
+    function VertexCentroid:TPoint;override;
+    procedure Translation(APoint:TPoint);override;
   public
     constructor Create(APoints:array of TPoint);
     constructor CreateByRect(ARect:TRect);
@@ -123,6 +131,8 @@ type
   public
     procedure Draw(ACanvas:TCanvas);override;
     function PointContains(APoint:TPoint):boolean;override;
+    function VertexCentroid:TPoint;override;
+    procedure Translation(APoint:TPoint);override;
   public
     constructor Create(ACentroid:TPoint;ACaption:String;AScale:Integer);
     constructor CreateByRect(ARect:TRect);
@@ -135,7 +145,9 @@ type
     FBitmap:Graphics.TBitmap;
   public
     procedure Draw(ACanvas:TCanvas);override;
-    function PointContains(point:TPoint):boolean;override;
+    function PointContains(APoint:TPoint):boolean;override;
+    function VertexCentroid:TPoint;override;
+    procedure Translation(APoint:TPoint);override;
   public
     constructor Create(ARect:TRect;ABitmap:Graphics.TBitmap);
     destructor Destroy; override;
@@ -303,21 +315,42 @@ begin
 end;
 
 //这个函数deepseek写的
-function TAufPolygon.PointContains(point:TPoint):boolean;
+function TAufPolygon.PointContains(APoint:TPoint):boolean;
 var i,j:integer;
 begin
   result:=false;
   if Length(FCoordinates)<3 then exit;
   j:=High(FCoordinates);
   for i:=0 to High(FCoordinates) do begin
-    if (((FCoordinates[i].Y>point.Y)<>(FCoordinates[j].Y>point.Y)) and
-        (point.X<(FCoordinates[j].X-FCoordinates[i].X)*(point.Y-FCoordinates[i].Y) /
+    if (((FCoordinates[i].Y>APoint.Y)<>(FCoordinates[j].Y>APoint.Y)) and
+        (APoint.X<(FCoordinates[j].X-FCoordinates[i].X)*(APoint.Y-FCoordinates[i].Y) /
         (FCoordinates[j].Y-FCoordinates[i].Y)+FCoordinates[i].X)) then
     begin
       result:=not result;
     end;
     j:=i;
   end;
+end;
+
+function TAufPolygon.VertexCentroid:TPoint;
+var xx,yy:int64;
+    idx,len:integer;
+begin
+  len:=Length(FCoordinates);
+  xx:=0;
+  yy:=0;
+  for idx:=len-1 downto 0 do begin
+    inc(xx, FCoordinates[idx].x);
+    inc(yy, FCoordinates[idx].y);
+  end;
+  result:=Classes.Point(xx div len, yy div len);
+end;
+
+procedure TAufPolygon.Translation(APoint:TPoint);
+var len,idx:integer;
+begin
+  len:=Length(FCoordinates);
+  for idx:=len-1 downto 0 do FCoordinates[idx]:=FCoordinates[idx]+APoint;
 end;
 
 constructor TAufPolygon.Create(APoints:array of TPoint);
@@ -374,6 +407,16 @@ begin
   if (a>0) and (b>0) then result:=(dx*dx)/(a*a)+(dy*dy)/(b*b)<=1 else result:=false;
 end;
 
+function TAufEllipse.VertexCentroid:TPoint;
+begin
+  result:=FCentroid;
+end;
+
+procedure TAufEllipse.Translation(APoint:TPoint);
+begin
+  FCentroid:=FCentroid+APoint;
+end;
+
 constructor TAufEllipse.Create(ACentroid:TPoint; AWidth, AHeight:Integer);
 begin
   inherited Create;
@@ -407,9 +450,30 @@ begin
   ACanvas.Polyline(FCoordinates);
 end;
 
-function TAufPolyline.PointContains(point:TPoint):boolean;
+function TAufPolyline.PointContains(APoint:TPoint):boolean;
 begin
   result:=false;
+end;
+
+function TAufPolyline.VertexCentroid:TPoint;
+var xx,yy:int64;
+    idx,len:integer;
+begin
+  len:=Length(FCoordinates);
+  xx:=0;
+  yy:=0;
+  for idx:=len-1 downto 0 do begin
+    inc(xx, FCoordinates[idx].x);
+    inc(yy, FCoordinates[idx].y);
+  end;
+  result:=Classes.Point(xx div len, yy div len);
+end;
+
+procedure TAufPolyline.Translation(APoint:TPoint);
+var len,idx:integer;
+begin
+  len:=Length(FCoordinates);
+  for idx:=len-1 downto 0 do FCoordinates[idx]:=FCoordinates[idx]+APoint;
 end;
 
 constructor TAufPolyline.Create(APoints:array of TPoint);
@@ -531,6 +595,16 @@ begin
   result:=false; //标注不能选中
 end;
 
+function TAufCaption.VertexCentroid:TPoint;
+begin
+  result:=FCentroid;
+end;
+
+procedure TAufCaption.Translation(APoint:TPoint);
+begin
+  FCentroid:=FCentroid+APoint;
+end;
+
 constructor TAufCaption.Create(ACentroid:TPoint;ACaption:String;AScale:Integer);
 begin
   inherited Create;
@@ -586,9 +660,19 @@ begin
   ACanvas.Rectangle(FRect+Classes.Point(OffsetX, OffsetY));
 end;
 
-function TAufImageShape.PointContains(point:TPoint):boolean;
+function TAufImageShape.PointContains(APoint:TPoint):boolean;
 begin
-  result:=FRect.Contains(point);
+  result:=FRect.Contains(APoint);
+end;
+
+function TAufImageShape.VertexCentroid:TPoint;
+begin
+  result:=Classes.Point(FRect.Left+FRect.Width div 2, FRect.Top+FRect.Height div 2);
+end;
+
+procedure TAufImageShape.Translation(APoint:TPoint);
+begin
+  FRect:=FRect+APoint;
 end;
 
 constructor TAufImageShape.Create(ARect:TRect;ABitmap:Graphics.TBitmap);
@@ -854,6 +938,12 @@ end;
 initialization
 
   _DEFAULT_SHAPE_STYLE_:=TAufStateStyle.Create;
+  _DEFAULT_SHAPE_STYLE_.SetColor(assFillColor,   assAllState, clGreen);
+  _DEFAULT_SHAPE_STYLE_.SetColor(assBorderColor, assAllState, clBlack);
+  _DEFAULT_SHAPE_STYLE_.SetColor(assStrokeColor, assAllState, clWhite);
+  _DEFAULT_SHAPE_STYLE_.SetDWord(assSymbolWidth, assAllState, 5);
+  _DEFAULT_SHAPE_STYLE_.SetDWord(assBorderWidth, assAllState, 1);
+  _DEFAULT_SHAPE_STYLE_.SetDWord(assStrokeWidth, assAllState, 1);
 
 finalization
 
