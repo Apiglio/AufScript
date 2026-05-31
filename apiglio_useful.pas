@@ -3223,6 +3223,7 @@ begin
   if not AAuf.TryArgToDefName(1,exprname) then exit;
   if not AAuf.TryArgToLong(2,idx) then exit;
 
+  exprname:=lowercase(exprname);
   tmpAEU:=AufScpt.Expression.Local.Find(exprname);
   if tmpAEU=nil then begin
     AufScpt.send_error('警告：变量未找到，该语句未执行。',AufsErr_Unknown);
