@@ -1,0 +1,71 @@
+define elem_size, 1
+var int array_len
+mov array_len, 55
+var int array_size
+mov array_size, array_len
+mul array_size, elem_size
+var int arr, array_size
+var int tmp elem_size
+var int rank
+var int rpos
+dupdef arr, arr_0
+ptrmr arr_0, elem_size
+
+//测试赋值
+call :init_array
+call :print_array
+
+if array_len < 2 jmp :error_length
+
+mov rank, array_len
+loo:
+  rand rpos, rank
+  sub rank, 1
+  if rpos == rank jmp :no_exchange
+    dupdef arr_0, arr_i
+    dupdef arr_0, arr_j
+    pofr arr_i, rpos
+    pofr arr_j, rank
+    mov tmp, arr_i
+    mov arr_i, arr_j
+    mov arr_j, tmp
+  no_exchange:
+if rank > 1 jmp :loo
+
+call :print_array
+
+deldef arr_0, arr_i, arr_j
+unvar array_size, array_len, arr, tmp, rank, rpos
+
+end
+
+init_array:
+  var int a
+  mov a, array_len
+  dupdef arr, arr_i
+  ptrmr, arr_i, elem_size
+  init_loop:
+    mov arr_i, a
+    pofr arr_i, 1
+    sub a, 1
+  if a > 0 jmp :init_loop
+  unvar a
+ret
+
+print_array:
+  var int a
+  mov a, array_len
+  dupdef arr, arr_i
+  ptrmr, arr_i, elem_size
+  print_loop:
+    print arr_i, ", "
+    pofr arr_i, 1
+    sub a, 1
+  if a > 0 jmp :print_loop
+  println
+  unvar a
+ret
+
+error_length:
+  println "错误：array_len太小"
+halt
