@@ -1,3 +1,11 @@
+unit auf_type_error;
+
+{$mode objfpc}{$H+}
+
+interface
+
+type
+
 TAufScriptError = (
   AufsErr_NoFunction,
   AufsErr_NoOperator,
@@ -36,4 +44,8 @@ TAufScriptError = (
   AufsErr_CanvasNotFound,
   AufsErr_Unknown = 0
 );
+
+implementation
+
+end.
 

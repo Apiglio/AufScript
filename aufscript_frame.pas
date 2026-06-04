@@ -15,7 +15,7 @@ uses
   {$endif}
   Classes, SysUtils, FileUtil, Forms, Controls, StdCtrls, Buttons, ComCtrls,
   Dialogs, ExtCtrls, LazUTF8, SynEdit, LResources, Graphics,
-  Apiglio_Useful, SynHighlighterAuf;
+  Apiglio_Useful, SynHighlighterAuf, auf_type_error;
 
 const
   ARF_CommonGap      = 4;

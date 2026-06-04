@@ -52,7 +52,7 @@ uses
   {$endif}
   LazUTF8, RegExpr, Variants,
   Auf_Ram_Var, Auf_Ram_Image, aufscript_canvas,
-  auf_type_base, auf_type_array,
+  auf_type_base, auf_type_array, auf_type_error,
   kernel;
 
 const
@@ -103,7 +103,6 @@ type
   TAufScript = class;
   pRam = {$ifdef cpu64}QWord{$else}DWord{$endif};//内存编号
 
-  {$I errordefs.inc}
 
 
   {Usf  工具库}

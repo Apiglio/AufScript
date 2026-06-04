@@ -110,11 +110,11 @@
         <IsPartOfProject Value="True"/>
       </Unit16>
       <Unit17>
-        <Filename Value="errordefs.inc"/>
+        <Filename Value="aufscript_canvas.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit17>
       <Unit18>
-        <Filename Value="aufscript_canvas.pas"/>
+        <Filename Value="auftype\auf_type_error.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit18>
     </Units>

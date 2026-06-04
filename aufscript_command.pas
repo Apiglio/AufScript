@@ -14,7 +14,7 @@ uses
   Windows,
   {$endif}
   Classes, SysUtils, FileUtil, Forms, Controls, StdCtrls,
-  Dialogs, LazUTF8, Apiglio_Useful;
+  Dialogs, LazUTF8, Apiglio_Useful, auf_type_error;
 
 type
   TMemo_AufScript = class(TMemo)

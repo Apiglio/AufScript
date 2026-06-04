@@ -10,7 +10,7 @@ uses
     cthreads,
     {$endif}
   {$endif}
-  Classes, SysUtils, LazUTF8;
+  Classes, SysUtils, LazUTF8, auf_type_error;
 
 type
 
