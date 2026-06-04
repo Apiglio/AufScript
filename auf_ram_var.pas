@@ -87,12 +87,12 @@ type
 
 
 
-  procedure newARV(out inp:TAufRamVar;Size:dword);
-  procedure freeARV(inp:TAufRamVar);
+  function newARV(out inp:TAufRamVar;Size:dword):TAufScriptError;
+  function freeARV(inp:TAufRamVar):TAufScriptError;
   function assignedARV(inp:TAufRamVar):boolean;
-  procedure copyARV(ori_arv:TAufRamVar;var new_arv:TAufRamVar);
-  procedure castARV(ori_arv:TAufRamVar;var new_arv:TAufRamVar);
-  procedure fillARV(target:byte;var arv:TAufRamVar);
+  function copyARV(ori_arv:TAufRamVar;var new_arv:TAufRamVar):TAufScriptError;
+  function castARV(ori_arv:TAufRamVar;var new_arv:TAufRamVar):TAufScriptError;
+  function fillARV(target:byte;var arv:TAufRamVar):TAufScriptError;
 
   function fixnum_comp(ina,inb:TAufRamVar):smallint;
   function fixnum_comp_abs(ina,inb:TAufRamVar):smallint;
@@ -170,7 +170,8 @@ type
   procedure qword_to_arv(q:qword;oup:TAufRamVar);
   procedure double_to_arv(d:double;oup:TAufRamVar);
 
-  procedure initiate_arv(exp:string;var arv:TAufRamVar);//根据字符串创建最大相似的ARV 应该改名initiate_arv_fixnum
+  procedure initiate_arv_fixnum(exp:string;var arv:TAufRamVar);
+  procedure initiate_arv(exp:string;var arv:TAufRamVar);inline;deprecated;
   procedure initiate_arv_float(exp:string;var arv:TAufRamVar);
   procedure initiate_arv_str(exp:RawByteString;var arv:TAufRamVar);//根据字符串创建字符串的ARV
 
@@ -962,8 +963,9 @@ end;
 
 
 
-procedure newARV(out inp:TAufRamVar;Size:dword);
+function newARV(out inp:TAufRamVar;Size:dword):TAufScriptError;
 begin
+  result:=AufsErr_NoError;
   inp.Is_Temporary:=true;
   if not assigned(inp.Stream) then inp.Stream.Free;
   inp.Stream:=TMemoryStream.Create;
@@ -977,10 +979,14 @@ begin
   while inp.Stream.Position<inp.size do inp.Stream.WriteByte($00);
 end;
 
-procedure freeARV(inp:TAufRamVar);
+function freeARV(inp:TAufRamVar):TAufScriptError;
 begin
+  result:=AufsErr_NoError;
   if inp.Is_Temporary then inp.Stream.Free
-  else Auf.Script.send_error('警告：正在试图释放非临时AufRamVar，已被拒绝。',AufsErr_RunTime);
+  else begin
+    result:=AufsErr_TemporaryARVRelease;
+    raise Exception.Create(AufScriptErrorPromptMap[Ord(AufsErr_TemporaryARVRelease)]);
+  end;
 end;
 
 function assignedARV(inp:TAufRamVar):boolean;
@@ -989,8 +995,9 @@ begin
   result:=true;//暂时没有检验超界的办法
 end;
 
-procedure copyARV(ori_arv:TAufRamVar;var new_arv:TAufRamVar);
+function copyARV(ori_arv:TAufRamVar;var new_arv:TAufRamVar):TAufScriptError;
 begin
+  result:=AufsErr_NoError;
   if ori_arv.size>=new_arv.size then begin
     Move(ori_arv.Head^,new_arv.Head^,new_arv.size);
   end else begin
@@ -999,13 +1006,11 @@ begin
   end;
 end;
 
-procedure castARV(ori_arv:TAufRamVar;var new_arv:TAufRamVar);
-var dtmp:double;
-    itmp:int64;
-    stmp:string;
+function castARV(ori_arv:TAufRamVar;var new_arv:TAufRamVar):TAufScriptError;
 begin
+  result:=AufsErr_NoError;
   if new_arv.VarType = ori_arv.VarType then begin
-    //这里需要报警告
+    result:=AufsErr_ConvertSameVarType;
     copyARV(ori_arv, new_arv);
     exit;
   end;
@@ -1016,14 +1021,17 @@ begin
           ARV_Float:
             begin
               case ori_arv.size of
-                4:initiate_arv(IntToStr(Round(PSingle(ori_arv.Head)^)),new_arv);
-                8:initiate_arv(IntToStr(Round(PDouble(ori_arv.Head)^)),new_arv);
-                else raise Exception.Create('警告：4或8位以外的浮点型不支持to_double转换');
+                4:initiate_arv_fixnum(IntToStr(Round(PSingle(ori_arv.Head)^)),new_arv);
+                8:initiate_arv_fixnum(IntToStr(Round(PDouble(ori_arv.Head)^)),new_arv);
+                else begin
+                  result:=AufsErr_PlatformUnimplementedFloat;
+                  exit;
+                end;
               end;
             end;
           ARV_Char:
             begin
-              initiate_arv(arv_to_s(ori_arv),new_arv);
+              initiate_arv_fixnum(arv_to_s(ori_arv),new_arv);
             end;
         end;
       end;
@@ -1048,8 +1056,9 @@ begin
 
 end;
 
-procedure fillARV(target:byte;var arv:TAufRamVar);
+function fillARV(target:byte;var arv:TAufRamVar):TAufScriptError;
 begin
+  result:=AufsErr_NoError;
   FillByte(arv.Head^,arv.size,target);
 end;
 
@@ -2185,7 +2194,7 @@ begin
     end;
 end;
 
-procedure initiate_arv(exp:string;var arv:TAufRamVar);//根据字符串创建最大相似的ARV，非临时性ARV位数按规定赋值，临时性最大还原字符串
+procedure initiate_arv_fixnum(exp:string;var arv:TAufRamVar);
 var size,len,pi:integer;
     str,stmp:string;
     function isHex(ss:string):boolean;
@@ -2201,7 +2210,7 @@ begin
   if exp[length(exp)] in ['h','H'] then
     begin
       delete(str,length(str),1);
-      if not isHex(str) then raise Exception.Create('[initiate_arv]十六进制整数表达有误。');
+      if not isHex(str) then raise Exception.Create('[initiate_arv_fixnum]十六进制整数表达有误。');
       len:=length(str);
       size:=len div 2 + len mod 2;
       if arv.Is_Temporary then
@@ -2216,7 +2225,7 @@ begin
       else
         begin
           arv.VarType:=ARV_FixNum;
-          if not assignedARV(arv) then raise Exception.Create('[initiate_arv]非临时性ARV地址有误');
+          if not assignedARV(arv) then raise Exception.Create('[initiate_arv_fixnum]非临时性ARV地址有误');
         end;
       while length(str)>arv.size*2 do delete(str,1,1);
       while length(str)<arv.size*2 do str:='0'+str;
@@ -2239,6 +2248,11 @@ begin
       end;
       decimal_to_fixnum(exp,arv);
     end;
+end;
+
+procedure initiate_arv(exp:string;var arv:TAufRamVar);
+begin
+  initiate_arv_fixnum(exp, arv);
 end;
 
 procedure initiate_arv_float(exp:string;var arv:TAufRamVar);
@@ -2500,13 +2514,13 @@ procedure dword_to_arv(d:dword;oup:TAufRamVar);
 var tmp:string;
 begin
   tmp:=IntToHex(d,8);
-  initiate_arv(tmp+'H',oup);
+  initiate_arv_fixnum(tmp+'H',oup);
 end;
 procedure qword_to_arv(q:qword;oup:TAufRamVar);
 var tmp:string;
 begin
   tmp:=IntToHex(q,16);
-  initiate_arv(tmp+'H',oup);
+  initiate_arv_fixnum(tmp+'H',oup);
 end;
 procedure double_to_arv(d:double;oup:TAufRamVar);
 begin

@@ -1257,9 +1257,7 @@ begin
           if tmp.VarType = tmp_src.VarType then begin
             copyARV(tmp_src,tmp);
           end else begin
-            //arv 类型转换
-            //AufScpt.send_error('暂不支持不同类型arv之间的直接转换。',AufsErr_Convert);
-            castARV(tmp_src, tmp);
+            EnsureNoError(castARV(tmp_src, tmp), AufScpt);
           end;
           exit;
         end;
@@ -1272,7 +1270,7 @@ begin
           ARV_FixNum:
             begin
               try
-                initiate_arv(AufScpt.TryToString(AAuf.nargs[2]),tmp);
+                initiate_arv_fixnum(AufScpt.TryToString(AAuf.nargs[2]),tmp);
               except
                 AufScpt.send_error('整数解析出错。',AufsErr_Unknown);
               end;
@@ -2733,7 +2731,7 @@ begin
   if not AAuf.TryArgToARV(1,High(dword),0,[ARV_Float,ARV_FixNum],tmp) then exit;
   if not AAuf.TryArgToString(2,str) then exit;
 
-  initiate_arv(str,tmp);
+  initiate_arv_fixnum(str,tmp);
 end;
 procedure text_strReplace(Sender:TObject);
 var AufScpt:TAufScript;
@@ -4768,7 +4766,7 @@ begin
       exit;
     end;
     ARV_FixNum:begin
-      initiate_arv(Script.TryToString(nargs[ArgNumber]),res);
+      initiate_arv_fixnum(Script.TryToString(nargs[ArgNumber]),res);
     end;
     ARV_Float:begin
       //临时规定为double
