@@ -91,6 +91,7 @@ type
   procedure freeARV(inp:TAufRamVar);
   function assignedARV(inp:TAufRamVar):boolean;
   procedure copyARV(ori_arv:TAufRamVar;var new_arv:TAufRamVar);
+  procedure castARV(ori_arv:TAufRamVar;var new_arv:TAufRamVar);
   procedure fillARV(target:byte;var arv:TAufRamVar);
 
   function fixnum_comp(ina,inb:TAufRamVar):smallint;
@@ -996,6 +997,55 @@ begin
     Move(ori_arv.Head^,new_arv.Head^,ori_arv.size);
     FillByte((new_arv.Head+ori_arv.size)^,new_arv.size-ori_arv.size,0);
   end;
+end;
+
+procedure castARV(ori_arv:TAufRamVar;var new_arv:TAufRamVar);
+var dtmp:double;
+    itmp:int64;
+    stmp:string;
+begin
+  if new_arv.VarType = ori_arv.VarType then begin
+    //这里需要报警告
+    copyARV(ori_arv, new_arv);
+    exit;
+  end;
+  case new_arv.VarType of
+    ARV_FixNum:
+      begin
+        case ori_arv.VarType of
+          ARV_Float:
+            begin
+              case ori_arv.size of
+                4:initiate_arv(IntToStr(Round(PSingle(ori_arv.Head)^)),new_arv);
+                8:initiate_arv(IntToStr(Round(PDouble(ori_arv.Head)^)),new_arv);
+                else raise Exception.Create('警告：4或8位以外的浮点型不支持to_double转换');
+              end;
+            end;
+          ARV_Char:
+            begin
+              initiate_arv(arv_to_s(ori_arv),new_arv);
+            end;
+        end;
+      end;
+    ARV_Float:
+      begin
+        case ori_arv.VarType of
+          ARV_FixNum:
+            begin
+              initiate_arv_float(FloatToStr(arv_to_double(ori_arv)),new_arv);
+            end;
+          ARV_Char:
+            begin
+              initiate_arv_float(arv_to_s(ori_arv),new_arv);
+            end;
+        end;
+      end;
+    ARV_Char:
+      begin
+        initiate_arv_str(arv_to_s(ori_arv),new_arv);
+      end;
+  end;
+
 end;
 
 procedure fillARV(target:byte;var arv:TAufRamVar);

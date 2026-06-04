@@ -1259,10 +1259,12 @@ begin
             copyARV(tmp_src,tmp);
           end else begin
             //arv 类型转换
-            AufScpt.send_error('暂不支持不同类型arv之间的直接转换。',AufsErr_Convert);
+            //AufScpt.send_error('暂不支持不同类型arv之间的直接转换。',AufsErr_Convert);
+            castARV(tmp_src, tmp);
           end;
           exit;
         end;
+        //立即数赋值部分
         case tmp.VarType of
           ARV_Char:
             begin
@@ -2532,215 +2534,6 @@ begin
   ARV_xor(tmp1,tmp2);
 end;
 
-
-
-procedure math_h_arithmetic(Sender:TObject);//这是一个性能不太好的权宜算法
-//label exitt,resultt;
-var AufScpt:TAufScript;
-    AAuf:TAuf;
-    a,b,c:TDecimalStr;
-    oup:TAufRamVar;
-    ae,be,te:integer;//用来记录a和b的小数点偏移位数，总退格
-    asgn,bsgn,csgn:char;
-    poss,post,len:integer;
-
-begin
-  AufScpt:=Sender as TAufScript;
-  AAuf:=AufScpt.Auf as TAuf;
-  if not AAuf.CheckArgs(3) then exit;
-  //if AAuf.ArgsCount<3 then begin AufScpt.send_error('警告：h_add需要两个参数，语句未执行。');exit end;
-  try
-    a.data:=AufScpt.TryToString(AAuf.nargs[1]);
-    oup:=AufScpt.RamVar(AAuf.nargs[1]);
-    if oup.VarType<>ARV_Char then begin
-      raise Exception.Create('');
-      AufScpt.send_error('警告：第一个参数不是字符串变量类型');
-    end;
-  except
-    AufScpt.send_error('警告：第一个参数解析错误，'+AAuf.nargs[0].arg+'语句未执行。');exit;
-  end;
-  if not AAuf.TryArgToString(2,b.data) then exit;
-
-  //标准化
-  asgn:=number_std(a.data);
-  bsgn:=number_std(b.data);
-
-  //将小数点剔除
-  len:=length(a.data);
-  ae:=0;
-  poss:=pos('.',a.data);
-  if (poss>0)and(poss<>len) then
-    begin
-      for post:=poss to len-1 do a.data[post]:=a.data[post+1];
-      delete(a.data,len,1);
-      ae:=len-poss;
-    end;
-  if a.data[len]='.' then delete(a.data,len,1);
-
-  len:=length(b.data);
-  be:=0;
-  poss:=pos('.',b.data);
-  if (poss>0)and(poss<>len) then
-    begin
-      for post:=poss to len-1 do b.data[post]:=b.data[post+1];
-      delete(b.data,len,1);
-      be:=len-poss;
-    end;
-  if b.data[len]='.' then delete(b.data,len,1);
-
-  while (a.data[1]='0')and(length(a.data)>1) do delete(a.data,1,1);
-  while (b.data[1]='0')and(length(b.data)>1) do delete(b.data,1,1);
-  case AAuf.nargs[0].arg of
-    'h_div','h_mod':
-      begin
-        if b=DecimalStr('0') then
-          begin
-            AufScpt.send_error('警告：第二个参数不能为零，'+AAuf.nargs[0].arg+'语句未执行。');
-            exit
-          end;
-        if (ae+be<>0) then
-          begin
-            AufScpt.send_error('警告：参数不能为非整数，'+AAuf.nargs[0].arg+'语句未执行。');
-            exit
-          end;
-        if AAuf.nargs[0].arg='h_div' then te:=ae-be
-        else te:=0;
-      end;
-    'h_divreal':
-      begin
-        te:=ae-be;
-        if b=DecimalStr('0') then
-          begin
-            AufScpt.send_error('警告：第二个参数不能为零，'+AAuf.nargs[0].arg+'语句未执行。');
-            exit
-          end;
-      end;
-    'h_add','h_sub':
-      begin
-        te:=ae;
-        if ae>be then begin
-          for te:=be+1 to ae do b.data:=b.data+'0';
-        end;
-        if ae<be then begin
-          for te:=ae+1 to be do a.data:=a.data+'0';
-        end;
-      end;
-    'h_mul':
-      begin
-        te:=ae+be;
-      end
-    else ;
-  end;
-  case AAuf.nargs[0].arg of
-    'h_add','h_sub','h_mul':
-      begin
-        a.data:=asgn+a.data;
-        b.data:=bsgn+b.data;
-      end;
-    else ;
-  end;
-
-  case AAuf.nargs[0].arg of
-    'h_add':c:=a+b;
-    'h_sub':c:=a-b;
-    'h_mul':c:=a*b;
-    'h_div':begin c:=a div b;if asgn<>bsgn then c.data:='-'+c.data;end;
-    'h_mod':begin c:=a mod b;end;
-    'h_divreal':
-      begin
-        MaxDivDigit:=oup.size+4;
-        c:=a/b;
-        if asgn<>bsgn then c.data:='-'+c.data;
-      end;
-    else ;
-  end;
-
-  //把小数点退回去
-  csgn:=number_std(c.data);
-  poss:=pos('.',c.data);
-  if poss=0 then c.data:=c.data+'.0';
-  if poss=length(c.data) then c.data:=c.data+'0';
-  len:=length(c.data);
-  if poss=0 then poss:=len-1;
-  if te<0 then begin
-    while te<0 do begin
-      if poss=len then begin c.data:=c.data+'0';inc(len) end;
-      c.data[poss]:=c.data[poss+1];
-      inc(poss);
-      inc(te);
-    end;
-    c.data[poss]:='.';
-  end else begin
-    while te>0 do begin
-      if poss=1 then begin c.data:='0'+c.data;inc(poss) end;
-      c.data[poss]:=c.data[poss-1];
-      dec(poss);
-      dec(te);
-    end;
-    c.data[poss]:='.';
-  end;
-  len:=length(c.data);
-  if c.data[len]='.' then delete(c.data,len,1);
-  if c.data[1]='.' then c.data:='0'+c.data;
-  c.data:=csgn+c.data;
-  len:=length(c.data);
-  while len>oup.size do
-    begin
-      delete(c.data,len,1);
-      len:=length(c.data);
-    end;
-
-  initiate_arv_str(c.data,oup);
-
-
-end;
-procedure math_hr_arithmetic(Sender:TObject);
-var AufScpt:TAufScript;
-    AAuf:TAuf;
-    a,b,c:TRealStr;
-    oup:TAufRamVar;
-    tmplen:dword;
-begin
-  AufScpt:=Sender as TAufScript;
-  AAuf:=AufScpt.Auf as TAuf;
-  if not AAuf.CheckArgs(3) then exit;
-  try
-    a.data:=AufScpt.TryToString(AAuf.nargs[1]);
-    oup:=AufScpt.RamVar(AAuf.nargs[1]);
-    if oup.VarType<>ARV_Char then begin
-      raise Exception.Create('');
-      AufScpt.send_error('警告：第一个参数不是字符串变量类型');
-    end;
-  except
-    AufScpt.send_error('警告：第一个参数解析错误，'+AAuf.nargs[0].arg+'语句未执行。');exit;
-  end;
-  if not AAuf.TryArgToString(2,b.data) then exit;
-
-  case AAuf.nargs[0].arg of
-    'h_add':c:=a+b;
-    'h_sub':c:=a-b;
-    'h_mul':a:=a*b;
-    'h_div':;
-    'h_mod':;
-    'h_divreal':
-      begin
-        MaxDivDigit:=oup.size;
-        c:=a/b;
-        tmplen:=length(c.data);
-        while tmplen>oup.size do
-          begin
-            if c.data[tmplen]<>'.' then delete(c.data,tmplen,1)
-            else if tmplen-1>oup.size then begin c.data:='error';exit;end
-            else delete(c.data,tmplen,1);
-            tmplen:=length(c.data);
-          end;
-      end;
-  end;
-
-  initiate_arv_str(c.data,oup);
-  //AufScpt.writeln(c.data);
-
-end;
 
 procedure task_enable(Sender:TObject);
 var AufScpt:TAufScript;
@@ -5056,9 +4849,9 @@ begin
   narg:=nargs[ArgNumber];
   Script.DefineNameDecode(narg);
   case narg.pre of
-    '$','$"','$&"':result:=ARV_FixNum;
-    '~','~"','~&"':result:=ARV_Float;
-    '#','#"','#&"':result:=ARV_Char;
+    '$"':result:=ARV_FixNum;
+    '~"':result:=ARV_Float;
+    '#"':result:=ARV_Char;
     else result:=ARV_Raw;
   end;
 end;
@@ -7237,23 +7030,6 @@ begin
   Self.add_func('or',          @math_logic_or,       'v1,v2',                   '位或');
   Self.add_func('xor',         @math_logic_xor,      'v1,v2',                   '异或');
   Self.add_func('ofs',         @math_logic_offset_count, 'v1,v2,threshold,out', '差值位计数');
-
-  {
-  Self.add_func('h_add',@math_h_arithmetic,'#[],#[]','高精加');
-  Self.add_func('h_sub',@math_h_arithmetic,'#[],#[]','高精减');
-  Self.add_func('h_mul',@math_h_arithmetic,'#[],#[]','高精乘');
-  Self.add_func('h_div',@math_h_arithmetic,'#[],#[]','高精整除');
-  Self.add_func('h_mod',@math_h_arithmetic,'#[],#[]','高精求余');
-  Self.add_func('h_divreal',@math_h_arithmetic,'#[],#[]','高精实数除');
-  }
-  Self.add_func('h_add',       @math_hr_arithmetic,  '#[],#[]',                 '高精加');
-  Self.add_func('h_sub',       @math_hr_arithmetic,  '#[],#[]',                 '高精减');
-  Self.add_func('h_mul',       @math_hr_arithmetic,  '#[],#[]',                 '高精乘');
-  //Self.add_func('h_div',@math_hr_arithmetic,'#[],#[]      ','高精整除');
-  //Self.add_func('h_mod',@math_hr_arithmetic,'#[],#[]      ','高精求余');
-  Self.add_func('h_divreal',   @math_hr_arithmetic,  '#[],#[]',                 '高精实数除');
-
-
 
 end;
 
