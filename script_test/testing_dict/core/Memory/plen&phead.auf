@@ -1,0 +1,10 @@
+var int a, 65
+var int b
+
+plen b, b
+println "b的长度是", b
+
+phead b, b
+println "b的头地址是", b
+
+unvar a, b

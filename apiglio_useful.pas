@@ -1202,18 +1202,53 @@ end;
 procedure _fillbyte(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
-    tmp:TAufRamVar;
-    pi:pRam;
-    target:byte;
+    filled, mask:TAufRamVar;
+    arg_type:TAufRamVarType;
+    idx, len:integer;
     stmp:string;
+    btmp:byte;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
-  if not AAuf.TryArgToARV(1,High(dword),0,[ARV_FixNum,ARV_Char,ARV_Float,ARV_Raw],tmp) then exit;
-  if not AAuf.TryArgToByte(2,target) then exit;
-  //for pi:=0 to tmp.size-1 do (tmp.Head+pi)^:=target;
-  fillARV(target,tmp);
+  if not AAuf.TryArgToARV(1,High(dword),0,[ARV_FixNum,ARV_Char,ARV_Float,ARV_Raw],filled) then exit;
+  arg_type:=AAuf.TellArgType(2);
+  case arg_type of
+    ARV_FixNum,ARV_Char,ARV_Float:
+    begin
+      if not AAuf.TryArgToARV(2, 1, High(DWord), ARV_AllType, mask) then exit;
+      if mask.size=1 then begin
+        fillARV(mask.Head^, filled);
+      end else begin
+        idx:=0;
+        len:=mask.size;
+        while (idx+1)*len<=filled.size do begin
+          move(mask.Head^, (filled.Head+idx*len)^, len);
+          inc(idx);
+        end;
+        if idx<filled.size then move(mask.Head^, (filled.Head+idx*len)^, filled.size-idx);
+      end;
+    end;
+    else begin
+      case AAuf.nargs[2].pre of
+        '"':begin
+          if not AAuf.TryArgToString(2, stmp) then exit;
+          idx:=0;
+          len:=length(stmp);
+          while (idx+1)*len<=filled.size do begin
+            move(stmp[1], (filled.Head+idx*len)^, len);
+            inc(idx);
+          end;
+          if idx<filled.size then move(stmp[1], (filled.Head+idx*len)^, filled.size-idx);
+        end;
+        else begin
+          if not AAuf.TryArgToByte(2, btmp) then exit;
+          fillARV(btmp, filled);
+        end;
+      end;
+    end;
+  end;
+
 end;
 
 procedure _swap(Sender:TObject);
@@ -2705,34 +2740,6 @@ begin
   END;
 end;
 
-procedure text_str(Sender:TObject);
-var AufScpt:TAufScript;
-    AAuf:TAuf;
-    tmp:TAufRamVar;
-    str:string;
-begin
-  AufScpt:=Sender as TAufScript;
-  AAuf:=AufScpt.Auf as TAuf;
-  if not AAuf.CheckArgs(3) then exit;
-  if not AAuf.TryArgToARV(1,High(dword),0,[ARV_Char],tmp) then exit;
-  if not AAuf.TryArgToString(2,str) then exit;
-
-  initiate_arv_str(str,tmp);
-end;
-procedure text_val(Sender:TObject);
-var AufScpt:TAufScript;
-    AAuf:TAuf;
-    tmp:TAufRamVar;
-    str:string;
-begin
-  AufScpt:=Sender as TAufScript;
-  AAuf:=AufScpt.Auf as TAuf;
-  if not AAuf.CheckArgs(3) then exit;
-  if not AAuf.TryArgToARV(1,High(dword),0,[ARV_Float,ARV_FixNum],tmp) then exit;
-  if not AAuf.TryArgToString(2,str) then exit;
-
-  initiate_arv_fixnum(str,tmp);
-end;
 procedure text_strReplace(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
@@ -3154,6 +3161,54 @@ ErrOver_L:
 ErrOver_R:
   AufScpt.send_error('指针定义位移超界[R]。',AufsErr_Unknown);
 
+end;
+
+procedure ptr_exchange(Sender:TObject);
+var AAuf:TAuf;
+    AufScpt:TAufScript;
+    arv1,arv2:TAufRamVar;
+    tmp:pbyte;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToARV(1, 1, High(DWORD), ARV_AllType, arv1) then exit;
+  if not AAuf.TryArgToARV(2, 1, High(DWORD), ARV_AllType, arv2) then exit;
+  if arv1.size<>arv2.size then begin
+    AufScpt.send_error('警告：用于交换的两个变量长度必须一致。', AufsErr_ParamSize);
+    exit;
+  end;
+  GetMem(tmp, arv1.size);
+  move(arv1.Head^, tmp^, arv1.size);
+  move(arv2.Head^, arv1.Head^, arv1.size);
+  move(tmp^, arv2.Head^, arv1.size);
+  FreeMem(tmp, arv1.size);
+end;
+
+procedure ptr_length(Sender:TObject);
+var AAuf:TAuf;
+    AufScpt:TAufScript;
+    arv, len:TAufRamVar;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToARV(1, 1, High(DWORD), ARV_AllType, arv) then exit;
+  if not AAuf.TryArgToARV(2, 1, High(DWORD), [ARV_FixNum], len) then exit;
+  dword_to_arv(arv.size, len);
+end;
+
+procedure ptr_head(Sender:TObject);
+var AAuf:TAuf;
+    AufScpt:TAufScript;
+    arv, hea:TAufRamVar;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToARV(1, 1, High(DWORD), ARV_AllType, arv) then exit;
+  if not AAuf.TryArgToARV(2, 1, High(DWORD), [ARV_FixNum], hea) then exit;
+  dword_to_arv(DWord(arv.Head-AufScpt.PSW.run_parameter.ram_zero), hea);
 end;
 
 procedure _syntax_assign(Sender:TObject); // = method result ...
@@ -6898,15 +6953,7 @@ begin
   Self.add_func('if',        @_if,        'v1 sign v2 ... else ...','满足条件则执行条件之后的指令');
   Self.add_func('else',      @nop,        '',                       '仅跟随在if之后，单行首位执行无效');
   Self.add_func('init',      @_init,      'addr[,labelname]',       '重置指定地址的行计数器');
-  {
-  Self.add_func('cje,cjec,ncje,ncjec',@cj,'v1,v2,:label/ofs',       '如果v1等于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
-  Self.add_func('cjm,cjmc,ncjm,ncjmc',@cj,'v1,v2,:label/ofs',       '如果v1大于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
-  Self.add_func('cjl,cjlc,ncjl,ncjlc',@cj,'v1,v2,:label/ofs',       '如果v1小于v2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
 
-  Self.add_func('cjs,cjsc,ncjs,ncjsc',@cj,'s1,s2,:label/ofs',       '如果s1相等s2则跳转,前加"n"表示否定,后加"c"表示压栈调用');
-  Self.add_func('cjsub,cjsubc,ncjsub,ncjsubc',     @cj,'sub,str,:label/ofs',         '如果str包含sub则跳转,前加"n"表示否定,后加"c"表示压栈调用');
-  Self.add_func('cjsreg,cjsregc,ncjsreg,ncjsregc', @cj,'reg,str,:label/ofs',         '如果str符合reg则跳转,前加"n"表示否定,后加"c"表示压栈调用');
-  }
   Self.add_func('taichi',    @taichi_call,'value,chaos_width,chaos_addr[,addr ...]', '根据value的值跳转到相应的地址，并将当前地址压栈，可用于RGB九色划分');
 
   Self.add_func('define',    @_define,    'name,expr,[-global]',    '定义宏定义');
@@ -6929,6 +6976,10 @@ begin
   Self.add_func('pcpr',     @ptr_shift_or_offset,   '@var, byte',  '定义指针向右压缩byte个字节');
   Self.add_func('ptrml',    @ptr_shift_or_offset,   '@var, byte',  '定义指针向左压缩至byte个字节');
   Self.add_func('ptrmr',    @ptr_shift_or_offset,   '@var, byte',  '定义指针向右压缩至byte个字节');
+
+  Self.add_func('pvex',     @ptr_exchange,          '@var1, @var2','将两个定义指针所指向的内存值交换');
+  Self.add_func('plen',     @ptr_length,            '@var, LEN',   '将定义指针var所指向的内存长度赋值给LEN');
+  Self.add_func('phead',    @ptr_head,              '@var, HEA',   '将定义指针var所指向的内存头地址赋值给HEA');
 
   Self.add_func('=',        @_syntax_assign,        'method, result',   '赋值语法糖');
   Self.add_func('.',        @_syntax_property,      'method, subject',  '成员语法糖');
@@ -6985,13 +7036,11 @@ begin
 end;
 procedure TAufScript.AdditionFuncDefine_Text;
 begin
-  Self.add_func('str',       @text_str,              '#[],var',       '将var转化成字符串存入#[]');
-  Self.add_func('val',       @text_val,              '$[],str',       '将str转化成数值存入$[]');
-  Self.add_func('len',       @text_strLength,        '#[],$[]',       '将str的长度存入$[]');
-  Self.add_func('srp',       @text_strReplace,       '#[],old,new',   '将#[]中的old替换成new');
-  Self.add_func('mid',       @text_strMid,           '#[],pos,len',   '将#[]从pos处截取len位字符');
-  Self.add_func('cat',       @text_strCat,           '#[],str[,-r]',  '将str加在#[]的末尾或开头(-r)');
-  Self.add_func('fmt',       @text_strFormat,        '#[],s1[, ...]', '从第2个参数起，连接成字符串赋值给#[]');
+  Self.add_func('len',       @text_strLength,        's, I',                    '将字符串s的长度存入I');
+  Self.add_func('srp',       @text_strReplace,       'S, old, new',             '将字符串S中的old替换成new');
+  Self.add_func('mid',       @text_strMid,           'S, pos[, len=1]',         '将字符串S从pos处截取len位字符');
+  Self.add_func('cat',       @text_strCat,           'S, str[,-r]',             '将str加在S的末尾或开头(-r)');
+  Self.add_func('fmt',       @text_strFormat,        'S, s1[, ...]',            '从第2个参数起，连接成字符串赋值给S');
 
 end;
 procedure TAufScript.AdditionFuncDefine_Time;

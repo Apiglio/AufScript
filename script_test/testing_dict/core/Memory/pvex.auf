@@ -1,0 +1,22 @@
+var char a, 64
+var char b, 64
+
+fill a, 41H
+fill b, 5FH
+
+dupdef a, ta
+dupdef b, tb
+ptrmr ta, 1
+ptrmr tb, 1
+
+loo:
+  pvex ta, tb
+  pofr ta, 4
+  pofr tb, 4
+loop :loo, 15
+
+println a
+println b
+
+deldef ta, tb
+unvar a, b

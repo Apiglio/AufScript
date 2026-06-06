@@ -1,0 +1,32 @@
+var int a, 4
+var char s, 7
+var char b, 35
+
+println "测试："
+
+mov a, 41634567H
+fill b, a
+println b
+
+mov s, "Z6e#0K_"
+fill b, s
+println b
+
+fill b, "X"
+println b
+
+fill b, 97
+println b
+
+fill b, 7642H
+println b
+
+unvar a, s, b
+
+println
+println "对照："
+println "gEcAgEcAgEcAgEcAgEcAgEcAgEcAgEcAgEc"
+println "Z6e#0K_Z6e#0K_Z6e#0K_Z6e#0K_Z6e#0K_"
+println "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+println "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+println "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
