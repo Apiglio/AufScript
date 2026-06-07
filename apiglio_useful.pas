@@ -2774,18 +2774,25 @@ procedure text_strMid(Sender:TObject);//mid @str pos,len
 var AufScpt:TAufScript;
     AAuf:TAuf;
     tmp:TAufRamVar;
-    pos,len:dword;
+    pos,len:int32;
     str:string;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
-  if not AAuf.CheckArgs(4) then exit;
+  if not AAuf.CheckArgs(3) then exit;
   if not AAuf.TryArgToARV(1,High(dword),0,[ARV_Char],tmp) then exit;
-  if not AAuf.TryArgToDWord(2,pos) then exit;
-  if not AAuf.TryArgToDWord(3,len) then exit;
+  if not AAuf.TryArgToLong(2,pos) then exit;
+  if AAuf.ArgsCount>=4 then begin
+    if not AAuf.TryArgToLong(3,len) then exit;
+  end else len:=1;
   str:=arv_to_s(tmp);
-  if pos<1 then (Sender as TAufScript).send_error('警告：第2个参数小于等于0，'+AAuf.nargs[0].arg+'语句未执行。',AufsErr_RunTime);
-  delete(str,1,pos-1);
+  if length(str)<=0 then begin
+    AufScpt.send_error('警告：空字符串不能截取。',AufsErr_RunTime);
+    exit;
+  end;
+  if pos<0 then pos:=length(str)+pos;
+  if not AAuf.RangeCheck(pos,0,length(str)-len) then exit;
+  delete(str,1,pos);
   delete(str,len+1,length(str));
   initiate_arv_str(str,tmp);
 end;
@@ -4918,7 +4925,7 @@ end;
 function TAuf.RangeCheck(target,min,max:int64):boolean;
 begin
   if (target>max) or (target<min) then begin
-    Script.send_error('警告：参数应在'+IntToStr(min)+'至'+IntToStr(max)+'范围内，代码未执行。',AufsErr_Unknown);
+    Script.send_error('警告：参数应在'+IntToStr(min)+'至'+IntToStr(max)+'范围内，代码未执行。',AufsErr_RunTime);
     result:=false
   end else result:=true;
 end;
@@ -7039,7 +7046,7 @@ begin
   Self.add_func('len',       @text_strLength,        's, I',                    '将字符串s的长度存入I');
   Self.add_func('srp',       @text_strReplace,       'S, old, new',             '将字符串S中的old替换成new');
   Self.add_func('mid',       @text_strMid,           'S, pos[, len=1]',         '将字符串S从pos处截取len位字符');
-  Self.add_func('cat',       @text_strCat,           'S, str[,-r]',             '将str加在S的末尾或开头(-r)');
+  Self.add_func('cat',       @text_strCat,           'S, str[, -r]',            '将str加在S的末尾或开头(-r)');
   Self.add_func('fmt',       @text_strFormat,        'S, s1[, ...]',            '从第2个参数起，连接成字符串赋值给S');
 
 end;
