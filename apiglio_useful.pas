@@ -495,6 +495,10 @@ type
       procedure AdditionFuncDefine_Image;//图像模块函数定义
       procedure AdditionFuncDefine_Canvas;//图形界面函数定义
       procedure AdditionFuncDefine_SVO;//SVO新语法调用模块，暂时的运行方式
+      procedure AdditionFuncDefine_HTTPS;//只有uses了aufscript_https才会真正有效
+
+    public
+      class var DoFuncDefineHTTP:pFuncAuf;
 
   end;
 
@@ -7002,6 +7006,7 @@ begin
   AdditionFuncDefine_Image;
   AdditionFuncDefine_Canvas;
   AdditionFuncDefine_SVO;
+  AdditionFuncDefine_HTTPS;
 
   //整个InternalFuncDefine不应该在create以外自行调用，运算符创建也不应该在这里
   Self.add_operator('==',    @operator_equal);
@@ -7176,6 +7181,10 @@ begin
   //Self.add_func('svo',@svo_load,'svo_script','运行svo指令');
 end;
 
+procedure TAufScript.AdditionFuncDefine_HTTPS;
+begin
+  if DoFuncDefineHTTP<>nil then DoFuncDefineHTTP(Self);
+end;
 
 { EAufScriptRuntimerError }
 
@@ -7192,6 +7201,8 @@ end;
 //////Class Methods end
 
 INITIALIZATION
+
+  TAufScript.DoFuncDefineHTTP:=nil;
 
   GlobalExpressionList:=TAufExpressionList.Create;
   //这个是共用的，所有AufScript.Expression.Global都应该赋值这个
