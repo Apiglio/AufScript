@@ -2230,6 +2230,7 @@ begin
       if lowercase(AAuf.args[3])='-global' then global:=true;
     end;
   if not AAuf.TryArgToDefName(1, defname) then exit;
+  defname:=lowercase(defname);
   if not AAuf.TryArgToStrParam(2, ['fixnum','int','integer','long','char','string','str','float','real','object','obj'], false, dn_type) then exit;
   try
     if global then begin
@@ -4765,9 +4766,10 @@ begin
   Assert(ArgNumber in [1..args_range],'ArgNumber必须在[1..args_range]范围内。');
   result:=false;
 
+  //以下和DefineNameDecode什么关系？？
   IF nargs[ArgNumber].pre = '' THEN BEGIN
     //增加动态的变量查找
-    tmpUnit:=Script.Expression.Local.Find(args[ArgNumber]);
+    tmpUnit:=Script.Expression.Local.Find(lowercase(args[ArgNumber]));
     if tmpUnit=nil then begin
       Script.send_error('警告：找不到变量定义'+args[ArgNumber]+'，代码未执行。',AufsErr_DefNameNotFound);
       exit;
@@ -4776,7 +4778,6 @@ begin
   END ELSE BEGIN
     res:=Script.RamVar(nargs[ArgNumber]);
   END;
-
   if (res.size=0) then
     begin
       Script.send_error('警告：第'+IntToStr(ArgNumber)+'个参数不是ARV变量，代码未执行。',AufsErr_Unknown);
