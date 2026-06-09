@@ -53,11 +53,53 @@ begin
       client.AllowRedirect:=true;
       client.OnRedirect:=@(AufScriptHttpClient.CheckURI);
       client.AddHeader('User-Agent','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
-      client.Get(EncodeURLElement(url), response);
+      client.Get(url, response);
       initiate_arv_str(response.Text, arv);
     except
       initiate_arv_str('', arv);
-      AufScpt.send_error(Format('警告：http访问错误（%d）',[client.ResponseStatusCode]),AufsErr_RunTime);
+      AufScpt.send_error(Format('警告：http访问错误（%d），%s。',[client.ResponseStatusCode, client.ResponseStatusText]),AufsErr_RunTime);
+    end;
+  finally
+    client.Free;
+    response.Free;
+  end;
+end;
+
+procedure auf_https_post(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    client:TFPHTTPClient;
+    arv:TAufRamVar;
+    url,data:string;
+    response:TStringList;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToARV(1, 1, High(Dword), [ARV_Char], arv) then exit;
+  if not AAuf.TryArgToString(2, url) then exit;
+  if not AAuf.ArgsCount>=4 then begin
+    if not AAuf.TryArgToString(3, data) then exit;
+  end else data:='';
+  client:=TFPHTTPClient.Create(nil);
+  response:=TStringList.Create;
+  try
+    try
+      client.AllowRedirect:=true;
+      client.OnRedirect:=@(AufScriptHttpClient.CheckURI);
+      client.AddHeader('User-Agent','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
+      if data<>'' then begin
+        client.RequestBody:=TStringStream.Create(data);
+        client.Post(url, response);
+        client.RequestBody.Free;
+        client.RequestBody:=nil;
+      end else begin
+        client.Post(url, response);
+      end;
+      initiate_arv_str(response.Text, arv);
+    except
+      initiate_arv_str('', arv);
+      AufScpt.send_error(Format('警告：http访问错误（%d），%s。',[client.ResponseStatusCode, client.ResponseStatusText]),AufsErr_RunTime);
     end;
   finally
     client.Free;
@@ -70,6 +112,7 @@ var AufScpt:TAufScript;
 begin
   AufScpt:=Sender as TAufScript;
   AufScpt.add_func('http.get',  @auf_https_get,  'RESULT, url',   '网络访问url并将结果存到RESULT');
+  AufScpt.add_func('http.post', @auf_https_post, 'RESULT, url',   '网络访问url并将结果存到RESULT');
 
 end;
 
