@@ -2050,11 +2050,16 @@ var AufScpt:TAufScript;
     AAuf:TAuf;
     addr:string;
     script_line_idx:integer;
+    reload_param:string;
+    force_reload:boolean;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(2) then exit;
   if not AAuf.TryArgToString(1,addr) then exit;
+  if AAuf.ArgsCount>2 then begin
+    if not AAuf.TryArgToStrParam(2, ['-reload'], false, reload_param) then exit;
+  end else force_reload:=false;
   {$ifdef WINDOWS}
   if pos(':',addr)<=0 then addr:=ExtractFilePath(AufScpt.PSW.stack[AufScpt.PSW.stack_ptr].scriptname)+addr;
   {$ELSE}
@@ -2062,18 +2067,23 @@ begin
   //这里没有考虑~/
   {$ENDIF}
   if AufScpt.ScriptLinesMap.Find(addr, script_line_idx) then begin
-    tmp:=TAufScriptLines(AufScpt.ScriptLinesMap.Objects[script_line_idx]);
-  end else begin
-    tmp:=TAufScriptLines.Create;
-    try
-      tmp.LoadFromFile(addr);
-    except
-      AufScpt.send_error('警告：文件"'+addr+'"打开失败，该语句未执行。',AufsErr_FileIOFailed);
+    if not force_reload then begin
+      tmp:=TAufScriptLines(AufScpt.ScriptLinesMap.Objects[script_line_idx]);
+      AufScpt.push_addr(tmp, addr, 0);
       exit;
     end;
-    AufScpt.ScriptLinesMap.AddObject(addr, tmp);
-    tmp.AppendCommand('fend');
   end;
+
+  tmp:=TAufScriptLines.Create;
+  try
+    tmp.LoadFromFile(addr);
+  except
+    AufScpt.send_error('警告：文件"'+addr+'"打开失败，该语句未执行。',AufsErr_FileIOFailed);
+    exit;
+  end;
+  AufScpt.ScriptLinesMap.AddObject(addr, tmp);
+  tmp.AppendCommand('fend');
+
   AufScpt.push_addr(tmp, addr, 0);
 end;
 
