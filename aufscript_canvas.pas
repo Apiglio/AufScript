@@ -73,6 +73,7 @@ type
   public
     constructor Create;
     destructor Destroy; override;
+    function AsSVG:string; virtual;
     property Style:TAufStateStyle read FStyle write FStyle;
   end;
 
@@ -88,6 +89,7 @@ type
     constructor Create(APoints:array of TPoint);
     constructor CreateByRect(ARect:TRect);
     destructor Destroy; override;
+    function AsSVG:string; override;
   end;
 
   TAufEllipse = class(TAufShape)
@@ -104,6 +106,7 @@ type
     constructor Create(ACentroid:TPoint; AWidth, AHeight:Integer);
     constructor CreateByRect(ARect:TRect);
     destructor Destroy; override;
+    function AsSVG:string; override;
   end;
 
   TAufPolyline = class(TAufShape)
@@ -118,6 +121,7 @@ type
     constructor Create(APoints:array of TPoint);
     constructor CreateByRect(ARect:TRect);
     destructor Destroy; override;
+    function AsSVG:string; override;
   end;
 
   TAufCaption = class(TAufShape)
@@ -137,6 +141,7 @@ type
     constructor Create(ACentroid:TPoint;ACaption:String;AScale:Integer);
     constructor CreateByRect(ARect:TRect);
     destructor Destroy; override;
+    function AsSVG:string; override;
   end;
 
   TAufImageShape = class(TAufShape)
@@ -153,11 +158,13 @@ type
     destructor Destroy; override;
   end;
 
+  TAufCanvasPanel=class;
   TAufShapeContainer = class
   private
     FList:TList;
     FAutoInc:integer; //始终自增的ID
     FNilCount:integer;//计算空图形数量，达nil数量超过五分之一时清理
+    PPanel:TAufCanvasPanel;
   private
     procedure CheckCompact;inline;
   public
@@ -173,6 +180,8 @@ type
     procedure SendToBack(Shape_ID:Integer);
   public
     function AsString:string;
+    function AsSVG:string;
+    procedure SaveToSVG(filename:string);
   end;
 
   TAufCanvasPanel = class(TCustomPanel)
@@ -199,8 +208,17 @@ type
 var
     _DEFAULT_SHAPE_STYLE_ : TAufStateStyle;
 
+function BGRaToRGBc(color:TColor):dword;
+
 implementation
 uses Apiglio_Useful, auf_ram_var;
+
+function BGRaToRGBc(color:TColor):dword;
+begin
+  result:=dword(color) and $ffffff;
+  result:=SwapEndian(result);
+  result:=result or (255 - dword(color) shr 24);
+end;
 
 { TAufStateStyle }
 
@@ -305,6 +323,11 @@ begin
   inherited Destroy;
 end;
 
+function TAufShape.AsSVG:string;
+begin
+  result:='<!--Unknown AufShape Type-->';
+end;
+
 { TAufPolygon }
 
 procedure TAufPolygon.Draw(ACanvas:TCanvas);
@@ -382,6 +405,25 @@ begin
   inherited Destroy;
 end;
 
+function TAufPolygon.AsSVG:string;
+var len,idx:integer;
+    coords:string;
+begin
+  len:=Length(FCoordinates);
+  coords:='';
+  for idx:=0 to len-1 do begin
+    with TPoint(FCoordinates[idx]) do coords:=coords+Format('%d,%d ',[x,y]);
+  end;
+  result:=Format(
+    '<polygon points="%s" style="fill:#%8.8X;stroke:#%8.8X;stroke-width:%d"></polygon>',
+    [
+      coords,
+      BGRaToRGBc(FStyle.GetColor(assFillColor, assNormal)),
+      BGRaToRGBc(FStyle.GetColor(assBorderColor, assNormal)),
+      FStyle.GetDWord(assBorderWidth, assNormal)
+    ]
+  );
+end;
 
 { TAufEllipse }
 
@@ -440,6 +482,21 @@ begin
   inherited Destroy;
 end;
 
+function TAufEllipse.AsSVG:string;
+begin
+  result:=Format(
+    '<ellipse rx="%d" ry="%d" cx="%d" cy="%d" style="fill:#%8.8X;stroke:#%8.8X;stroke-width:%d"></ellipse>',
+    [
+      FWidth div 2,
+      FHeight div 2,
+      FCentroid.x,
+      FCentroid.y,
+      BGRaToRGBc(FStyle.GetColor(assFillColor, assNormal)),
+      BGRaToRGBc(FStyle.GetColor(assBorderColor, assNormal)),
+      FStyle.GetDWord(assBorderWidth, assNormal)
+    ]
+  );
+end;
 
 { TAufPolyline }
 
@@ -501,6 +558,25 @@ begin
   inherited Destroy;
 end;
 
+function TAufPolyline.AsSVG:string;
+var len,idx:integer;
+    coords:string;
+begin
+  len:=Length(FCoordinates);
+  coords:='';
+  for idx:=0 to len-1 do begin
+    with TPoint(FCoordinates[idx]) do coords:=coords+Format('%d,%d ',[x,y]);
+  end;
+  result:=Format(
+    '<polyline points="%s" style="fill:#%8.8X;stroke:#%8.8X;stroke-width:%d"></polyline>',
+    [
+      coords,
+      BGRaToRGBc(FStyle.GetColor(assFillColor, assNormal)),
+      BGRaToRGBc(FStyle.GetColor(assBorderColor, assNormal)),
+      FStyle.GetDWord(assBorderWidth, assNormal)
+    ]
+  );
+end;
 
 { TAufCaption }
 
@@ -640,6 +716,22 @@ begin
   inherited Destroy;
 end;
 
+function TAufCaption.AsSVG:string;
+begin
+  result:=Format(
+    '<text x="%d" y="%d" textLength="%d" style="font-size:%d;fill:#%8.8X;stroke:#%8.8X;stroke-width:%d">%s</text>',
+    [
+      FCentroid.x,
+      FCentroid.y,
+      FMaxWidth,
+      FStyle.GetDWord(assSymbolWidth, assNormal),
+      BGRaToRGBc(FStyle.GetColor(assFillColor, assNormal)),
+      BGRaToRGBc(FStyle.GetColor(assStrokeColor, assNormal)),
+      FStyle.GetDWord(assStrokeWidth, assNormal),
+      FCaption
+    ]
+  );
+end;
 
 { TAufImageShape }
 
@@ -758,6 +850,7 @@ begin
   FList:=TList.Create;
   FAutoInc:=0;
   FNilCount:=0;
+  PPanel:=nil;
 end;
 
 destructor TAufShapeContainer.Destroy;
@@ -846,6 +939,61 @@ begin
   end;
 end;
 
+function TAufShapeContainer.AsSVG:string;
+var lines:TStringList;
+    idx, len:integer;
+    pw, ph:integer;
+begin
+  result:='';
+  if PPanel<>nil then begin
+    pw:=PPanel.Width;
+    ph:=PPanel.Height;
+  end else begin
+    //应该改成动态更新的bounds
+    pw:=100;
+    ph:=100;
+  end;
+  lines:=TStringList.Create;
+  try
+    lines.Add(Format('<svg width="%d" height="%d" xmlns="http://www.w3.org/2000/svg">',[pw, ph]));
+    len:=FList.Count;
+    for idx:=0 to len-1 do begin
+      lines.Add(Format('  %s',[TAufShape(FList.Items[idx]).AsSVG]));
+    end;
+    lines.Add('</svg>');
+    result:=lines.Text;
+  finally
+    lines.Free;
+  end;
+end;
+
+procedure TAufShapeContainer.SaveToSVG(filename:string);
+var lines:TStringList;
+    idx, len:integer;
+    pw, ph:integer;
+begin
+  if PPanel<>nil then begin
+    pw:=PPanel.Width;
+    ph:=PPanel.Height;
+  end else begin
+    //应该改成动态更新的bounds
+    pw:=100;
+    ph:=100;
+  end;
+  lines:=TStringList.Create;
+  try
+    lines.Add(Format('<svg width="%d" height="%d" xmlns="http://www.w3.org/2000/svg">',[pw, ph]));
+    len:=FList.Count;
+    for idx:=0 to len-1 do begin
+      lines.Add(Format('  %s',[TAufShape(FList.Items[idx]).AsSVG]));
+    end;
+    lines.Add('</svg>');
+    lines.SaveToFile(filename);
+  finally
+    lines.Free;
+  end;
+end;
+
 { TAufCanvasPanel }
 
 procedure TAufCanvasPanel.Paint;
@@ -924,6 +1072,7 @@ constructor TAufCanvasPanel.Create(TheOwner: TComponent);
 begin
   inherited Create(TheOwner);
   FContainer:=TAufShapeContainer.Create;
+  FContainer.PPanel:=Self;
   FHoverShape:=nil;
   DoubleBuffered:=true;
 end;

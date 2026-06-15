@@ -3983,6 +3983,28 @@ begin
   AufScpt.IO_fptr.canvas.Shapes.Clear;
 end;
 
+procedure cav_ScreenShot(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    filename:string;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckCanvas then exit;
+  if AAuf.ArgsCount>1 then begin
+    if not AAuf.TryArgToString(1, filename) then exit;
+    try
+      AufScpt.IO_fptr.canvas.Shapes.SaveToSVG(filename);
+    except
+      on e:Exception do
+        AufScpt.send_error('警告：导出SVG图像时发生错误，'+e.Message, AufsErr_FileIOFailed);
+    end;
+  end else begin
+    AufScpt.writeln(AufScpt.IO_fptr.canvas.Shapes.AsSVG);
+  end;
+end;
+
+
 procedure cav_AddLine(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
@@ -7159,6 +7181,8 @@ procedure TAufScript.AdditionFuncDefine_Canvas;
 begin
   Self.add_func('cav.refresh',        @cav_Refresh,            '',                          '重绘画布');
   Self.add_func('cav.clear',          @cav_Clear,              '',                          '清除画布上的所有图形');
+  Self.add_func('cav.screenshot',     @cav_ScreenShot,         '[filename]',                '将画布上的所有图形保存为svg图像');
+
   //绘制单个要素
   Self.add_func('cav.add_line',       @cav_AddLine,            'shp_id, x0, y0, x1, y1',    '在画布上创建线段并将图形ID保存给shp_id');
   Self.add_func('cav.add_rect',       @cav_AddRect,            'shp_id, x0, y0, x1, y1',    '在画布上创建方形并将图形ID保存给shp_id');
