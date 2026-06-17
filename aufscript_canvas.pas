@@ -719,7 +719,7 @@ end;
 function TAufCaption.AsSVG:string;
 begin
   result:=Format(
-    '<text x="%d" y="%d" textLength="%d" style="font-size:%d;fill:#%8.8X;stroke:#%8.8X;stroke-width:%d">%s</text>',
+    '<text x="%d" y="%d" textLength="%d" text-anchor="middle" paint-order="stroke fill" style="font-size:%d;fill:#%8.8X;stroke:#%8.8X;stroke-width:%d">%s</text>',
     [
       FCentroid.x,
       FCentroid.y,
@@ -943,6 +943,7 @@ function TAufShapeContainer.AsSVG:string;
 var lines:TStringList;
     idx, len:integer;
     pw, ph:integer;
+    tmpShp:TAufShape;
 begin
   result:='';
   if PPanel<>nil then begin
@@ -958,7 +959,9 @@ begin
     lines.Add(Format('<svg width="%d" height="%d" xmlns="http://www.w3.org/2000/svg">',[pw, ph]));
     len:=FList.Count;
     for idx:=0 to len-1 do begin
-      lines.Add(Format('  %s',[TAufShape(FList.Items[idx]).AsSVG]));
+      tmpShp:=TAufShape(FList.Items[idx]);
+      if tmpShp=nil then continue;
+      lines.Add(Format('  %s',[tmpShp.AsSVG]));
     end;
     lines.Add('</svg>');
     result:=lines.Text;
@@ -971,6 +974,7 @@ procedure TAufShapeContainer.SaveToSVG(filename:string);
 var lines:TStringList;
     idx, len:integer;
     pw, ph:integer;
+    tmpShp:TAufShape;
 begin
   if PPanel<>nil then begin
     pw:=PPanel.Width;
@@ -985,7 +989,9 @@ begin
     lines.Add(Format('<svg width="%d" height="%d" xmlns="http://www.w3.org/2000/svg">',[pw, ph]));
     len:=FList.Count;
     for idx:=0 to len-1 do begin
-      lines.Add(Format('  %s',[TAufShape(FList.Items[idx]).AsSVG]));
+      tmpShp:=TAufShape(FList.Items[idx]);
+      if tmpShp=nil then continue;
+      lines.Add(Format('  %s',[tmpShp.AsSVG]));
     end;
     lines.Add('</svg>');
     lines.SaveToFile(filename);
