@@ -142,6 +142,7 @@ type
     constructor CreateByRect(ARect:TRect);
     destructor Destroy; override;
     function AsSVG:string; override;
+    property Caption:string read FCaption write FCaption;
   end;
 
   TAufImageShape = class(TAufShape)
@@ -691,8 +692,8 @@ begin
   //FCache:=TBitmap.Create;
   //FCache.PixelFormat:=pf32bit;
   Style.SetDWord(assSymbolWidth, assAllState, AScale);
-  Style.SetDWord(assStrokeWidth, assAllState, 1);
-  Style.SetColor(assStrokeColor, assAllState, clWhite);
+  //Style.SetDWord(assStrokeWidth, assAllState, 1);
+  //Style.SetColor(assStrokeColor, assAllState, clWhite);
   //BuildCache;
 end;
 
@@ -705,8 +706,8 @@ begin
   //FCache:=TBitmap.Create;
   //FCache.PixelFormat:=pf32bit;
   Style.SetDWord(assSymbolWidth, assAllState, ARect.Height);
-  Style.SetDWord(assStrokeWidth, assAllState ,1);
-  Style.SetColor(assStrokeColor, assAllState, clWhite);
+  //Style.SetDWord(assStrokeWidth, assAllState ,1);
+  //Style.SetColor(assStrokeColor, assAllState, clWhite);
   //BuildCache;
 end;
 
@@ -727,7 +728,7 @@ begin
       FStyle.GetDWord(assSymbolWidth, assNormal),
       BGRaToRGBc(FStyle.GetColor(assFillColor, assNormal)),
       BGRaToRGBc(FStyle.GetColor(assStrokeColor, assNormal)),
-      FStyle.GetDWord(assStrokeWidth, assNormal),
+      FStyle.GetDWord(assStrokeWidth, assNormal)*2,
       FCaption
     ]
   );

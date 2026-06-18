@@ -4091,7 +4091,7 @@ end;
 procedure cav_AddText(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
-    x,y,max_width,shp_id:integer;
+    x,y,font_size,max_width,shp_id,fx,fy:integer;
     caption_text:string;
     shp_id_arv:TAufRamVar;
     tmpShape:TAufShape;
@@ -4104,8 +4104,16 @@ begin
   if not AAuf.TryArgToLong(2, x) then exit;
   if not AAuf.TryArgToLong(3, y) then exit;
   if not AAuf.TryArgToString(4, caption_text) then exit;
-  if not AAuf.TryArgToLong(5, max_width) then exit;
-  tmpShape:=TAufCaption.Create(Classes.Point(x,y),caption_text,max_width);
+  if not AAuf.TryArgToLong(5, font_size) then exit;
+  if AAuf.ArgsCount>6 then begin
+    if not AAuf.TryArgToLong(6, max_width) then exit;
+    fx:=x - max_width div 2;
+    fy:=y - font_size div 2;
+    tmpShape:=TAufCaption.CreateByRect(Classes.Rect(fx, fy, fx+max_width, fy+font_size));
+    TAufCaption(tmpShape).Caption:=caption_text;
+  end else begin
+    tmpShape:=TAufCaption.Create(Classes.Point(x,y),caption_text,font_size);
+  end;
   shp_id:=AufScpt.IO_fptr.canvas.Shapes.AddShape(tmpShape);
   dword_to_arv(shp_id, shp_id_arv);
 end;
@@ -7188,7 +7196,7 @@ begin
   Self.add_func('cav.add_rect',       @cav_AddRect,            'shp_id, x0, y0, x1, y1',    '在画布上创建方形并将图形ID保存给shp_id');
   Self.add_func('cav.add_oval',       @cav_AddOval,            'shp_id, x0, y0, x1, y1',    '在画布上创建椭圆形并将图形ID保存给shp_id');
   Self.add_func('cav.add_point',      @cav_AddPoint,           'shp_id, x, y, scale',       '在画布上创建圆点图形并将图形ID保存给shp_id');
-  Self.add_func('cav.add_text',       @cav_AddText,            'shp_id, x, y, text, max_w', '在画布上创建标注图形并将图形ID保存给shp_id');
+  Self.add_func('cav.add_text',       @cav_AddText,            'shp_id, x, y, text, font_size, max_w',        '在画布上创建标注图形并将图形ID保存给shp_id');
   Self.add_func('cav.add_image',      @cav_AddImage,           'shp_id, pic, x, y[, w, h]', '在画布上创建图片资源并将图形ID保存给shp_id');
 
   //绘制预设的形状组合
