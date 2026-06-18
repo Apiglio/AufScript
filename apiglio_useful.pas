@@ -52,8 +52,7 @@ uses
   {$endif}
   LazUTF8, RegExpr, Variants,
   Auf_Ram_Var, Auf_Ram_Image, aufscript_canvas,
-  auf_type_base, auf_type_array, auf_type_error,
-  kernel;
+  auf_type_base, auf_type_array, auf_type_error;
 
 const
 
@@ -400,7 +399,6 @@ type
       end;
 
 
-      FSVOKernel:TAufKernel;
 
     private
       procedure BeginOF(filename:string);
@@ -6937,7 +6935,6 @@ begin
   Expression.Global:=GlobalExpressionList;
   Expression.Local:=TAufExpressionList.Create;
 
-  FSVOKernel:=TAufKernel.Create;
 
   for i:=0 to func_range-1 do Self.func[i].name:='';
 end;
@@ -6950,7 +6947,6 @@ begin
   var_occupied.Free;
   Expression.Local.Free;
   PSW.message.Free;
-  FSVOKernel.Free;
   for index:=ScriptLinesMap.Count-1 downto 0 do ScriptLinesMap.Objects[index].Free;
   ScriptLinesMap.Free;
   inherited Destroy;

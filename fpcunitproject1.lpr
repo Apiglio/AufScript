@@ -22,7 +22,7 @@ uses
   Classes, StdCtrls, ExtCtrls, Sysutils, Forms, consoletestrunner, Interfaces,
   Controls, Dialogs, LazUTF8, Apiglio_Useful, auf_ram_var, aufscript_frame,
   aufscript_command, auf_ram_syntax, auf_ram_image, aufscript_thread,
-  auf_type_array, auf_type_base, word_tree, svo_tree, auf_type_parser,
+  auf_type_array, auf_type_base, auf_type_parser,
   //aufscript_https,
   aufscript_canvas;
 
@@ -77,7 +77,6 @@ procedure project_test(Sender:TObject);
 var tmp,tmp2,oup,oup2:TAufRamVar;
     AufScpt:TAufScript;
     AAuf:TAuf;
-    tmpNode:TWordTreeNode;
     tmpP:Pointer;
     arr:TAufArray;
     dw1,dw2,dw3:dword;
@@ -124,20 +123,6 @@ begin
   AufScpt.writeln(arr.ToString);
   arr.Free;
 
-  exit;
-
-  tmpNode:=TWordTreeNode.Create;
-  try
-    tmpNode['BB']:=pchar('BB');
-    tmpNode['ASS']:=pchar('ASS');
-    tmpNode['func_o']:=pchar('func_o');
-    tmpNode['func_new']:=pchar('func_new');
-    tmpNode['test']:=pchar('test');
-    tmpNode['test2']:=pchar('test2');
-    for tmpP in tmpNode do AufScpt.writeln(PChar(tmpP))
-  finally
-    tmpNode.Free;
-  end;
 
 end;
 

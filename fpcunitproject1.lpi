@@ -35,7 +35,7 @@
         <PackageName Value="FCL"/>
       </Item3>
     </RequiredPackages>
-    <Units Count="20">
+    <Units Count="17">
       <Unit0>
         <Filename Value="fpcunitproject1.lpr"/>
         <IsPartOfProject Value="True"/>
@@ -90,37 +90,25 @@
         <IsPartOfProject Value="True"/>
       </Unit11>
       <Unit12>
-        <Filename Value="aufkernel\word_tree.pas"/>
+        <Filename Value="icons.rc"/>
         <IsPartOfProject Value="True"/>
       </Unit12>
       <Unit13>
-        <Filename Value="aufkernel\svo_tree.pas"/>
+        <Filename Value="auftype\auf_type_parser.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit13>
       <Unit14>
-        <Filename Value="aufkernel\kernel.pas"/>
+        <Filename Value="aufscript_canvas.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit14>
       <Unit15>
-        <Filename Value="icons.rc"/>
+        <Filename Value="auftype\auf_type_error.pas"/>
         <IsPartOfProject Value="True"/>
       </Unit15>
       <Unit16>
-        <Filename Value="auftype\auf_type_parser.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit16>
-      <Unit17>
-        <Filename Value="aufscript_canvas.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit17>
-      <Unit18>
-        <Filename Value="auftype\auf_type_error.pas"/>
-        <IsPartOfProject Value="True"/>
-      </Unit18>
-      <Unit19>
         <Filename Value="aufscript_https.pas"/>
         <IsPartOfProject Value="True"/>
-      </Unit19>
+      </Unit16>
     </Units>
   </ProjectOptions>
   <CompilerOptions>
@@ -128,7 +116,7 @@
     <PathDelim Value="\"/>
     <SearchPaths>
       <IncludeFiles Value="$(ProjOutDir)"/>
-      <OtherUnitFiles Value="auftype;aufkernel"/>
+      <OtherUnitFiles Value="auftype"/>
     </SearchPaths>
   </CompilerOptions>
   <Debugging>
