@@ -150,8 +150,10 @@ begin
   CanvasForm:=TForm.CreateNew(Self);
   AufCanvasPanel:=TAufCanvasPanel.Create(CanvasForm);
   AufCanvasPanel.Parent:=CanvasForm;
-  AufCanvasPanel.Align:=alClient;
-  CanvasForm.Caption:='AufScript Canvas Test';;
+  AufCanvasPanel.Width:=320;
+  AufCanvasPanel.Height:=240;
+  CanvasForm.AutoSize:=true;
+  CanvasForm.Caption:='AufScript Canvas Test';
   CanvasForm.Show;
 
 

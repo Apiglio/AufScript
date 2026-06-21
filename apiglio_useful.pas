@@ -56,7 +56,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.9.1.1';
+  AufScript_Version='beta 2.9.1.2';
   {$if defined(cpu32)}
   AufScript_CPU='32bits';
   {$elseif defined(cpu64)}
@@ -101,6 +101,13 @@ type
 
   TAufScript = class;
   pRam = {$ifdef cpu64}QWord{$else}DWord{$endif};//内存编号
+  pFunc      = procedure;
+  pFuncStr   = procedure(str:string);
+  pFuncVarStr= procedure(var str:string);
+  pFuncAuf   = procedure(Sender:TObject);
+  pFuncAufStr= procedure(Sender:TObject;str:string);
+  pFuncOper  = function(Sender:TObject;var is_error:boolean):boolean;
+  pAufEventStr = procedure(Sender:TObject;str:string) of object;
 
 
 
@@ -183,6 +190,32 @@ type
     function TryEdit(NewValue:Tnargs):boolean;
   end;
 
+  TEnvVariantList = class
+  private
+    FList:TStringList;
+    FOnChange:pAufEventStr;
+    FAufScript:TObject;
+    FUpdating:Boolean;
+  public
+    function Add(name:string; data:TAufRamVar):boolean;
+    function Find(name:string; out index:integer):boolean;
+    function Update(name:string; data:TAufRamVar):boolean;
+    function GetVariantByName(name:string):TAufRamVar;
+    constructor Create(AOwner:TObject);
+    destructor Destroy; override;
+  public
+    function AddInteger(name:string; data:integer):boolean;
+    function AddDouble(name:string; data:double):boolean;
+    function AddString(name:string; data:string):boolean;
+    function UpdateInteger(name:string; data:integer):boolean;
+    function UpdateDouble(name:string; data:double):boolean;
+    function UpdateString(name:string; data:string):boolean;
+  public
+    procedure BeginUpdate;
+    procedure EndUpdate;
+    property OnChange:pAufEventStr read FOnChange write FOnChange;
+  end;
+
   TAufExpressionList = class(TList)
   public
     function Find(AKey:string):TAufExpressionUnit;
@@ -226,14 +259,7 @@ type
   //用于AufScript的内存读取和计算
 
   {TAufScript}
-  pFunc      = procedure;
-  pFuncStr   = procedure(str:string);
-  pFuncVarStr= procedure(var str:string);
-  pFuncAuf   = procedure(Sender:TObject);
-  pFuncAufStr= procedure(Sender:TObject;str:string);
-  pFuncOper  = function(Sender:TObject;var is_error:boolean):boolean;
   PAufScript = ^TAufScript;
-
   TAufScriptLineMeta = record
     func_pointer:pFuncAuf;
     time_consuming:Double;
@@ -360,7 +386,9 @@ type
         message_info:record
           addr:pRam;
           timeout:TDateTime;
-        end;                               //用于task.wait/wmjc的跳转设置
+          interval:integer;                //task.wait循环检测是否有消息的间隔（ms）
+          max_wait:integer;                //task.wait的最大等待时间（ms）
+        end;                               //用于task.wait的跳转设置
         print_mode:record
           target_file:string;
           is_screen:boolean;
@@ -397,7 +425,8 @@ type
         OperatorCompare:TStringList{of pFuncComp}; //用于if语句中第2参数的自定义对比
         OperatorArray:array of string;     //用于配合TryArgToStrParam
       end;
-
+      EnvVariant:TEnvVariantList;
+      procedure EnvVariantChange(Sender:TObject; name:string);
 
 
     private
@@ -1275,6 +1304,45 @@ begin
     end;
 end;
 
+procedure mov_set(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    idx:integer;
+    parv:PAufRamVar;
+    ltmp:int32;
+    dtmp:double;
+    stmp:string;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(2) then exit;
+  if not (AAuf.nargs[1].pre='@') then begin
+    AufScpt.send_error('警告：第1个参数不是环境变量形式，代码未执行。');
+    exit;
+  end;
+  if not AufScpt.EnvVariant.Find(AAuf.nargs[1].arg, idx) then begin
+    AufScpt.send_error('警告：第1个参数不是有效的环境变量，代码未执行。');
+    exit;
+  end;
+  parv:=PAufRamVar(AufScpt.EnvVariant.FList.Objects[idx]);
+  case parv^.VarType of
+    ARV_FixNum:begin
+      if not AAuf.TryArgToLong(2, ltmp) then exit;
+      dword_to_arv(ltmp, parv^);
+    end;
+    ARV_Float:begin
+      if not AAuf.TryArgToDouble(2, dtmp) then exit;
+      double_to_arv(dtmp, parv^);
+    end;
+    ARV_Char:begin
+      if not AAuf.TryArgToString(2, stmp) then exit;
+      initiate_arv_str(stmp, parv^);
+    end;
+  end;
+  AufScpt.EnvVariant.OnChange(AufScpt, lowercase(AAuf.nargs[1].arg));
+
+end;
+
 procedure mov(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
@@ -1284,6 +1352,12 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
+
+  if AAuf.nargs[1].pre='@' then begin
+    mov_set(Sender);
+    exit;
+  end;
+
   if not AAuf.TryArgToARV(1,1,High(dword),ARV_AllType,tmp) then exit;
   AVarType:=AAuf.TellArgType(1);
   case AVarType of
@@ -5680,6 +5754,7 @@ begin
   case arg.pre of
     '~"','#"','$"':begin result:=arv_to_double(Self.RamVar(arg));exit end;
     '"':raise EAufScriptSyntaxError.Create('TryToDouble不能转换字符串立即数');
+    '@':begin result:=arv_to_double(EnvVariant.GetVariantByName(arg.arg));end;
     else begin result:=SharpToDouble(arg);exit end;
   end;
 end;
@@ -5691,6 +5766,7 @@ begin
   case arg.pre of
     '~"','#"','$"':begin result:=arv_to_dword(Self.RamVar(arg));exit end;
     '"':raise EAufScriptSyntaxError.Create('TryToDWord不能转换字符串立即数');
+    '@':begin result:=arv_to_dword(EnvVariant.GetVariantByName(arg.arg));end;
     else begin result:=SharpToDword(arg);exit end;
   end;
 end;
@@ -5702,6 +5778,7 @@ begin
   case arg.pre of
     '~"','#"','$"':begin result:=longint(arv_to_dword(Self.RamVar(arg)));exit end;
     '"':raise EAufScriptSyntaxError.Create('TryToLong不能转换字符串立即数');
+    '@':begin result:=arv_to_dword(EnvVariant.GetVariantByName(arg.arg));end;
     else begin result:=SharpToLong(arg);exit end;
   end;
 end;
@@ -5713,6 +5790,7 @@ begin
   case arg.pre of
     '~"','#"','$"':begin result:=arv_to_s(Self.RamVar(arg));exit end;
     '"':begin result:=arg.arg;exit end;
+    '@':begin result:=arv_to_s(EnvVariant.GetVariantByName(arg.arg));end;
     else begin result:=SharpToString(arg);exit end;
   end;
 end;
@@ -5962,6 +6040,38 @@ begin
     end;
 
 end;
+
+procedure TAufScript.EnvVariantChange(Sender:TObject; name:string);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    arv:TAufRamVar;
+    ltmp,normalized:int32;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  arv:=EnvVariant.GetVariantByName(name);
+  ltmp:=int32(arv_to_dword(arv));
+  if ltmp<1 then normalized:=1 else normalized:=ltmp;
+  case name of
+    'task[interval]':begin
+      AufScpt.PSW.message_info.interval:=ltmp;
+    end;
+    'task[max_wait]':begin
+      AufScpt.PSW.message_info.max_wait:=ltmp;
+    end;
+    'canvas[width]':begin
+      if AAuf.CheckCanvas then
+        AufScpt.IO_fptr.canvas.Width:=normalized;
+        AufScpt.IO_fptr.canvas.Refresh;
+    end;
+    'canvas[height]':begin
+      if AAuf.CheckCanvas then
+        AufScpt.IO_fptr.canvas.Height:=normalized;
+        AufScpt.IO_fptr.canvas.Refresh;
+    end;
+  end;
+end;
+
 procedure TAufScript.BeginOF(filename:string);
 begin
   if PSW.print_mode.is_screen then begin
@@ -6574,6 +6684,162 @@ begin
 end;
 {$endif}
 
+
+{ TEnvVariantList }
+
+function TEnvVariantList.Add(name:string; data:TAufRamVar):boolean;
+var idx:integer;
+    obj:PAufRamVar;
+begin
+  result:=false;
+  if FList.Find(lowercase(name), idx) then exit;
+  obj:=GetMem(sizeof(TAufRamVar));
+  if data.size>0 then begin
+    obj^.Head:=GetMem(data.size);
+    obj^.size:=data.size;
+    move(data.Head^, obj^.Head^, data.size);
+  end else begin
+    obj^.Head:=nil;
+    obj^.size:=0;
+  end;
+  obj^.VarType:=data.VarType;
+  FList.AddObject(lowercase(name), TObject(obj));
+  result:=true;
+end;
+
+function TEnvVariantList.Find(name:string; out index:integer):boolean;
+begin
+  result:=FList.Find(lowercase(name), index);
+end;
+
+function TEnvVariantList.Update(name:string; data:TAufRamVar):boolean;
+var idx:integer;
+    stored:TAufRamVar;
+begin
+  result:=false;
+  if not FList.Find(lowercase(name), idx) then exit;
+  stored:=PAufRamVar(FList.Objects[idx])^;
+  if data.size<>stored.size then begin
+    if stored.size>0 then FreeMem(stored.Head, stored.size);
+    if data.size>0 then GetMem(stored.Head, data.size);
+    stored.size:=data.size;
+  end else begin
+    move(data.Head, stored.Head, data.size);
+  end;
+  result:=true;
+end;
+
+function TEnvVariantList.GetVariantByName(name:string):TAufRamVar;
+var idx:integer;
+begin
+  result.size:=0;
+  if not FList.Find(lowercase(name), idx) then exit;
+  result:=PAufRamVar(FList.Objects[idx])^;
+end;
+
+constructor TEnvVariantList.Create(AOwner:TObject);
+begin
+  inherited Create;
+  FList:=TStringList.Create;
+  FList.Sorted:=true;
+  FOnChange:=nil;
+  FAufScript:=AOwner;
+  FUpdating:=false;
+end;
+
+destructor TEnvVariantList.Destroy;
+var idx:integer;
+    data:TAufRamVar;
+begin
+  for idx:=FList.Count-1 downto 0 do begin
+    data:=PAufRamVar(FList.Objects[idx])^;
+    with data do if size>0 then FreeMem(Head, size);
+    FreeMemAndNil(data);
+  end;
+  FList.Free;
+end;
+
+function TEnvVariantList.AddInteger(name:string; data:integer):boolean;
+var tmp:TAufRamVar;
+    dat:int32;
+begin
+  dat:=data;
+  tmp.size:=4;
+  tmp.Head:=@dat;
+  tmp.VarType:=ARV_FixNum;
+  result:=Add(name, tmp);
+end;
+
+function TEnvVariantList.AddDouble(name:string; data:double):boolean;
+var tmp:TAufRamVar;
+    dat:double;
+begin
+  dat:=data;
+  tmp.size:=8;
+  tmp.Head:=@dat;
+  tmp.VarType:=ARV_Float;
+  result:=Add(name, tmp);
+end;
+
+function TEnvVariantList.AddString(name:string; data:string):boolean;
+var tmp:TAufRamVar;
+    dat:string;
+begin
+  dat:=data;
+  tmp.size:=length(data);
+  tmp.Head:=@dat[1];
+  tmp.VarType:=ARV_Char;
+  result:=Add(name, tmp);
+end;
+
+function TEnvVariantList.UpdateInteger(name:string; data:integer):boolean;
+var tmp:TAufRamVar;
+    dat:int32;
+begin
+  dat:=data;
+  tmp.size:=4;
+  tmp.Head:=@dat;
+  tmp.VarType:=ARV_FixNum;
+  result:=Update(name, tmp);
+  if (FOnChange<>nil) and (not FUpdating) then FOnChange(FAufScript, lowercase(name));
+end;
+
+function TEnvVariantList.UpdateDouble(name:string; data:double):boolean;
+var tmp:TAufRamVar;
+    dat:double;
+begin
+  dat:=data;
+  tmp.size:=8;
+  tmp.Head:=@dat;
+  tmp.VarType:=ARV_Float;
+  result:=Update(name, tmp);
+  if (FOnChange<>nil) and (not FUpdating) then FOnChange(FAufScript, lowercase(name));
+end;
+function TEnvVariantList.UpdateString(name:string; data:string):boolean;
+var tmp:TAufRamVar;
+    dat:string;
+begin
+  dat:=data;
+  tmp.size:=length(data);
+  tmp.Head:=@dat[1];
+  tmp.VarType:=ARV_Char;
+  result:=Update(name, tmp);
+  if (FOnChange<>nil) and (not FUpdating) then FOnChange(FAufScript, lowercase(name));
+end;
+
+procedure TEnvVariantList.BeginUpdate;
+begin
+  FUpdating:=true;
+end;
+
+procedure TEnvVariantList.EndUpdate;
+begin
+  FUpdating:=false;
+end;
+
+
+{ TAufExpressionUnit }
+
 constructor TAufExpressionUnit.Create(AKey:string;AValue:Tnargs;AReadOnly:boolean=false);
 begin
   inherited Create;
@@ -6855,7 +7121,7 @@ end;
 {$endif}
 
 constructor TAufScript.Create(AOwner:TComponent);
-var i:pRam;
+var idx:pRam;
     default_lines:TAufScriptLines;
 begin
   inherited Create;
@@ -6921,7 +7187,7 @@ begin
   var_occupied:=TMemoryStream.Create;
   var_occupied.SetSize(RAM_RANGE*32);
   var_occupied.Position:=0;
-  for i:=0 to RAM_RANGE*32-1 do var_occupied.WriteByte(0);
+  for idx:=0 to RAM_RANGE*32-1 do var_occupied.WriteByte(0);
   PSW.run_parameter.ram_zero:=var_stream.Memory;
   PSW.run_parameter.ram_size:=RAM_RANGE*256;
   PSW.run_parameter.error_raise:=false;
@@ -6935,8 +7201,15 @@ begin
   Expression.Global:=GlobalExpressionList;
   Expression.Local:=TAufExpressionList.Create;
 
+  EnvVariant:=TEnvVariantList.Create(Self);
+  EnvVariant.OnChange:=@EnvVariantChange;
+  EnvVariant.AddString('kernel[version]',  AufScript_Version);
+  EnvVariant.AddInteger('canvas[width]',   320);
+  EnvVariant.AddInteger('canvas[height]',  240);
+  EnvVariant.AddInteger('task[interval]',  50);
+  EnvVariant.AddInteger('task[max_wait]',  -1);
 
-  for i:=0 to func_range-1 do Self.func[i].name:='';
+  for idx:=0 to func_range-1 do Self.func[i].name:='';
 end;
 
 destructor TAufScript.Destroy;
@@ -6945,6 +7218,7 @@ begin
   Func_process.OperatorCompare.Free;
   var_stream.Free;
   var_occupied.Free;
+  EnvVariant.Free;
   Expression.Local.Free;
   PSW.message.Free;
   for index:=ScriptLinesMap.Count-1 downto 0 do ScriptLinesMap.Objects[index].Free;
@@ -7080,7 +7354,7 @@ begin
   Self.add_func('task.send',      @task_send,          '@var, taskId',          '向其他任务发送协同消息');
   Self.add_func('task.read',      @task_read,          '@var[, taskId]',        '直接读取跨任务协同消息');
   Self.add_func('task.broadcast', @task_broadcast,     '@var',                  '向所有任务广播协同消息');
-  Self.add_func('task.wait,wjmc', @task_wait,          ':addr[, dura[, intv]]', '在dura毫秒时间内每intv毫秒检查是否有跨任务协同消息，有则压栈跳转');
+  Self.add_func('task.wait',      @task_wait,          ':addr[, dura[, intv]]', '在dura毫秒时间内每intv毫秒检查是否有跨任务协同消息，有则压栈跳转');
 
 end;
 procedure TAufScript.AdditionFuncDefine_Text;

@@ -1066,7 +1066,12 @@ end;
 
 procedure TAufCanvasPanel.Resize;
 begin
-
+  if FAufScript<>nil then with TAufScript(FAufScript).EnvVariant do begin
+    BeginUpdate;
+    UpdateInteger('canvas[width]',  Width);
+    UpdateInteger('canvas[height]', Height);
+    EndUpdate;
+  end;
 end;
 
 procedure TAufCanvasPanel.SetAufScript(value:TObject);
