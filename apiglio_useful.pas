@@ -56,7 +56,7 @@ uses
 
 const
 
-  AufScript_Version='beta 2.9.1.2';
+  AufScript_Version='beta 2.9.1.3';
   {$if defined(cpu32)}
   AufScript_CPU='32bits';
   {$elseif defined(cpu64)}
@@ -4680,6 +4680,24 @@ begin
   end;
 end;
 
+function operator_define(Sender:TObject;var is_error:boolean):boolean;
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    defname, mode:string;
+begin
+  result:=false;
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(4) then exit;
+  if not AAuf.TryArgToDefName(1, defname) then exit;
+  defname:=lowercase(defname);
+  if not AAuf.TryArgToStrParam(3, ['local','global'], false, mode) then exit;
+  case mode of
+    'local': result:=AufScpt.Expression.Local.Find(defname)<>nil;
+    'global':result:=AufScpt.Expression.Global.Find(defname)<>nil;
+  end;
+end;
+
 procedure svo_load(Sender:TObject); //svo_load script
 var AufScpt:TAufScript;
     AAuf:TAuf;
@@ -7347,6 +7365,7 @@ begin
   Self.add_operator('reg',   @operator_reg);
   Self.add_operator('~=',    @operator_reg);
   Self.add_operator('file',  @operator_file);
+  Self.add_operator('defined',   @operator_define);
 
 
 end;
