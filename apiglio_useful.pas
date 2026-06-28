@@ -2288,13 +2288,17 @@ begin
     end;
   if not AAuf.TryArgToDefName(1, dn1) then exit;
   if not AAuf.TryArgToDefName(2, dn2) then exit;
+  dn1:=lowercase(dn1);
+  dn2:=lowercase(dn2);
   try
     if global then begin
       tmpAEU:=AufScpt.Expression.Global.Find(dn1);
-      if tmpAEU<>nil then AufScpt.Expression.Global.TryAddExp(dn2,tmpAEU.value);
+      if tmpAEU<>nil then AufScpt.Expression.Global.TryAddExp(dn2,tmpAEU.value)
+      else AufScpt.send_error('警告：找不到宏定义'+dn1+'，不能复制',AufsErr_DefNameNotFound);
     end else begin
       tmpAEU:=AufScpt.Expression.Local.Find(dn1);
-      if tmpAEU<>nil then AufScpt.Expression.Local.TryAddExp(dn2,tmpAEU.value);
+      if tmpAEU<>nil then AufScpt.Expression.Local.TryAddExp(dn2,tmpAEU.value)
+      else AufScpt.send_error('警告：找不到宏定义'+dn1+'，不能复制',AufsErr_DefNameNotFound);
     end;
   except
     AufScpt.send_error('警告：创建宏定义'+dn1+'的副本'+dn2+'时出错',AufsErr_ConflictDefName)
@@ -2421,6 +2425,7 @@ begin
       if lowercase(AAuf.args[3])='-global' then global:=true;
     end;
   if not AAuf.TryArgToDefName(1,defname) then exit;
+  defname:=lowercase(defname);
   if not AAuf.TryArgToAddr(2,addr) then exit;
   if global then tmpExprList:=AufScpt.Expression.Global
   else tmpExprList:=AufScpt.Expression.Local;
