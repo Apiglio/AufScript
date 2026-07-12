@@ -41,7 +41,7 @@ uses
   {$ifdef SynEditMode}
   SynEdit, SynHighlighterAuf,
   {$endif}
-  Classes, SysUtils, Registry, FileUtil, TypInfo,
+  Classes, SysUtils, Registry, FileUtil, TypInfo, LazFileUtils,
   {$ifdef MsgTimerMode}
   ExtCtrls, Controls, Forms,
   {$else}
@@ -7528,7 +7528,9 @@ constructor EAufScriptRuntimerError.Create(Sender:TAufScript; const msg: string)
 begin
   //if Sender.PSW.run_parameter.error_raise then Sender.Stop;
   Sender.send_error(msg,AufsErr_Unknown);
+  {$ifdef MsgTimerMode}
   Application.ProcessMessages;
+  {$endif}
   Sender.Stop;
   inherited Create(msg);
 end;

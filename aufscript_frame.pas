@@ -103,12 +103,11 @@ type
 
 implementation
 {$R *.lfm}
-{$R icons.rc}
 
 procedure SetResourceBitmapToButton(AButton:TBitbtn;AResName:string;create_new:boolean=false);
 begin
   if create_new then AButton.Glyph:=TBitmap.Create;
-  AButton.Glyph.LoadFromResourceName(HINSTANCE,AResName);
+  AButton.Glyph.LoadFromLazarusResource(AResName);
   AButton.Glyph.Transparent:=true;
   AButton.Glyph.TransparentMode:=tmAuto;
 end;
@@ -610,6 +609,10 @@ begin
   //FOnChangeTitle:=nil;
 
 end;
+
+initialization
+
+{$I icons.lrs}
 
 end.
 
