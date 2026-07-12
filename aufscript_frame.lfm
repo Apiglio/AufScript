@@ -1,17 +1,17 @@
 object Frame_AufScript: TFrame_AufScript
   Left = 0
-  Height = 532
+  Height = 355
   Top = 0
-  Width = 392
-  ClientHeight = 532
-  ClientWidth = 392
-  Constraints.MinWidth = 200
-  DesignTimePPI = 144
-  OnResize = FrameResize
+  Width = 261
+  ClientHeight = 355
+  ClientWidth = 261
+  Constraints.MinWidth = 133
+  LCLVersion = '4.9.0.0'
   ParentFont = False
   TabOrder = 0
-  DesignLeft = 1387
-  DesignTop = 434
+  OnResize = FrameResize
+  DesignLeft = 915
+  DesignTop = 353
   object ProgressBar: TProgressBar
     AnchorSideLeft.Control = Button_stop
     AnchorSideLeft.Side = asrBottom
@@ -20,21 +20,21 @@ object Frame_AufScript: TFrame_AufScript
     AnchorSideRight.Side = asrBottom
     AnchorSideBottom.Control = Owner
     AnchorSideBottom.Side = asrBottom
-    Left = 256
-    Height = 16
-    Top = 508
-    Width = 124
+    Left = 171
+    Height = 11
+    Top = 339
+    Width = 82
     Anchors = [akTop, akLeft, akRight, akBottom]
-    BorderSpacing.Left = 12
-    BorderSpacing.Top = 8
-    BorderSpacing.Right = 12
-    BorderSpacing.Bottom = 8
-    OnMouseEnter = ProgressBarMouseEnter
-    OnMouseLeave = ProgressBarMouseLeave
+    BorderSpacing.Left = 8
+    BorderSpacing.Top = 5
+    BorderSpacing.Right = 8
+    BorderSpacing.Bottom = 5
     ParentFont = False
     ParentShowHint = False
     ShowHint = True
     TabOrder = 1
+    OnMouseEnter = ProgressBarMouseEnter
+    OnMouseLeave = ProgressBarMouseLeave
   end
   object Memo_out: TMemo
     AnchorSideLeft.Control = Splitter_Vert
@@ -43,23 +43,23 @@ object Frame_AufScript: TFrame_AufScript
     AnchorSideRight.Control = Owner
     AnchorSideRight.Side = asrBottom
     AnchorSideBottom.Control = Button_ScriptLoad
-    Left = 164
-    Height = 500
+    Left = 109
+    Height = 334
     Top = 0
-    Width = 228
+    Width = 152
     Anchors = [akTop, akLeft, akRight, akBottom]
-    Constraints.MinWidth = 90
+    Constraints.MinWidth = 60
     Font.CharSet = ANSI_CHARSET
-    Font.Height = -14
+    Font.Height = -9
     Font.Name = 'Consolas'
     Font.Pitch = fpFixed
     Font.Quality = fqDraft
-    OnMouseEnter = Memo_outMouseEnter
-    OnMouseLeave = Memo_outMouseLeave
     ParentFont = False
     ScrollBars = ssAutoBoth
     TabOrder = 0
     WordWrap = False
+    OnMouseEnter = Memo_outMouseEnter
+    OnMouseLeave = Memo_outMouseLeave
   end
   inline Memo_cmd: TSynEdit
     AnchorSideLeft.Control = Owner
@@ -67,13 +67,13 @@ object Frame_AufScript: TFrame_AufScript
     AnchorSideRight.Control = Splitter_Vert
     AnchorSideBottom.Control = Button_ScriptLoad
     Left = 0
-    Height = 500
+    Height = 334
     Top = 0
-    Width = 160
+    Width = 106
     Anchors = [akTop, akLeft, akRight, akBottom]
-    Constraints.MinWidth = 90
+    Constraints.MinWidth = 60
     Font.CharSet = ANSI_CHARSET
-    Font.Height = -14
+    Font.Height = -9
     Font.Name = 'Consolas'
     Font.Pitch = fpFixed
     Font.Quality = fqDraft
@@ -83,7 +83,7 @@ object Frame_AufScript: TFrame_AufScript
     OnKeyUp = Memo_cmdKeyUp
     OnMouseEnter = Memo_cmdMouseEnter
     OnMouseLeave = Memo_cmdMouseLeave
-    Gutter.Width = 57
+    Gutter.Width = 59
     Gutter.MouseActions = <>
     RightGutter.Width = 0
     RightGutter.MouseActions = <>
@@ -536,9 +536,13 @@ object Frame_AufScript: TFrame_AufScript
       object SynGutterMarks1: TSynGutterMarks
         Width = 24
         MouseActions = <>
+        MaxExtraMarksColums = 0
+        Options = [sgmoDeDuplicateMarksOnOverflow]
+        MarkupInfo.Background = clBtnFace
+        MarkupInfo.Foreground = clNone
       end
       object SynGutterLineNumber1: TSynGutterLineNumber
-        Width = 17
+        Width = 19
         MouseActions = <>
         MarkupInfo.Background = clBtnFace
         MarkupInfo.Foreground = clNone
@@ -552,6 +556,9 @@ object Frame_AufScript: TFrame_AufScript
         MouseActions = <>
         ModifiedColor = 59900
         SavedColor = clGreen
+        MarkupInfo.Background = clNone
+        MarkupInfo.Foreground = clGreen
+        MarkupInfo.FrameColor = 59900
       end
       object SynGutterSeparator1: TSynGutterSeparator
         Width = 2
@@ -572,14 +579,14 @@ object Frame_AufScript: TFrame_AufScript
     AnchorSideTop.Control = Owner
     AnchorSideBottom.Control = Memo_cmd
     AnchorSideBottom.Side = asrBottom
-    Left = 160
-    Height = 500
+    Left = 106
+    Height = 334
     Top = 0
-    Width = 4
+    Width = 3
     Align = alNone
     Anchors = [akTop, akBottom]
-    OnMoved = Splitter_VertMoved
     ResizeStyle = rsLine
+    OnMoved = Splitter_VertMoved
   end
   object Splitter_Horiz: TSplitter
     AnchorSideLeft.Control = Owner
@@ -587,32 +594,32 @@ object Frame_AufScript: TFrame_AufScript
     AnchorSideRight.Side = asrBottom
     Cursor = crVSplit
     Left = 0
-    Height = 4
-    Top = 376
-    Width = 392
+    Height = 3
+    Top = 251
+    Width = 261
     Align = alNone
     Anchors = [akTop, akLeft, akRight]
-    OnMoved = Splitter_HorizMoved
     ResizeAnchor = akTop
     ResizeStyle = rsLine
+    OnMoved = Splitter_HorizMoved
   end
   object Button_ScriptLoad: TBitBtn
     AnchorSideLeft.Control = Memo_cmd
     AnchorSideBottom.Control = Owner
     AnchorSideBottom.Side = asrBottom
     Left = 0
-    Height = 32
-    Top = 500
-    Width = 48
+    Height = 21
+    Top = 334
+    Width = 32
     Anchors = [akLeft, akBottom]
     GlyphShowMode = gsmAlways
     Margin = 0
-    OnClick = Button_ScriptLoadClick
-    OnMouseEnter = Button_ScriptLoadMouseEnter
-    OnMouseLeave = Button_ScriptLoadMouseLeave
     ParentFont = False
     Spacing = 0
     TabOrder = 5
+    OnClick = Button_ScriptLoadClick
+    OnMouseEnter = Button_ScriptLoadMouseEnter
+    OnMouseLeave = Button_ScriptLoadMouseLeave
   end
   object Button_ScriptSave: TBitBtn
     AnchorSideLeft.Control = Button_ScriptLoad
@@ -621,39 +628,39 @@ object Frame_AufScript: TFrame_AufScript
     AnchorSideRight.Side = asrBottom
     AnchorSideBottom.Control = Owner
     AnchorSideBottom.Side = asrBottom
-    Left = 48
-    Height = 32
-    Top = 500
-    Width = 48
+    Left = 32
+    Height = 21
+    Top = 334
+    Width = 32
     Anchors = [akLeft, akBottom]
     GlyphShowMode = gsmAlways
     Margin = 0
-    OnClick = Button_ScriptSaveClick
-    OnMouseEnter = Button_ScriptSaveMouseEnter
-    OnMouseLeave = Button_ScriptSaveMouseLeave
     ParentFont = False
     Spacing = 0
     TabOrder = 6
+    OnClick = Button_ScriptSaveClick
+    OnMouseEnter = Button_ScriptSaveMouseEnter
+    OnMouseLeave = Button_ScriptSaveMouseLeave
   end
   object Button_run: TBitBtn
     AnchorSideLeft.Control = Button_ScriptSave
     AnchorSideLeft.Side = asrBottom
     AnchorSideBottom.Control = Owner
     AnchorSideBottom.Side = asrBottom
-    Left = 100
-    Height = 32
-    Top = 500
-    Width = 48
+    Left = 67
+    Height = 21
+    Top = 334
+    Width = 32
     Anchors = [akLeft, akBottom]
-    BorderSpacing.Left = 4
+    BorderSpacing.Left = 3
     GlyphShowMode = gsmAlways
     Margin = 0
-    OnClick = Button_runClick
-    OnMouseEnter = Button_runMouseEnter
-    OnMouseLeave = Button_runMouseLeave
     ParentFont = False
     Spacing = 0
     TabOrder = 7
+    OnClick = Button_runClick
+    OnMouseEnter = Button_runMouseEnter
+    OnMouseLeave = Button_runMouseLeave
   end
   object Button_pause: TBitBtn
     AnchorSideLeft.Control = Button_run
@@ -661,19 +668,19 @@ object Frame_AufScript: TFrame_AufScript
     AnchorSideTop.Control = Button_run
     AnchorSideBottom.Control = Owner
     AnchorSideBottom.Side = asrBottom
-    Left = 148
-    Height = 32
-    Top = 500
-    Width = 48
+    Left = 99
+    Height = 21
+    Top = 334
+    Width = 32
     Anchors = [akLeft, akBottom]
     GlyphShowMode = gsmAlways
     Margin = 0
-    OnClick = Button_pauseClick
-    OnMouseEnter = Button_pauseMouseEnter
-    OnMouseLeave = Button_pauseMouseLeave
     ParentFont = False
     Spacing = 0
     TabOrder = 8
+    OnClick = Button_pauseClick
+    OnMouseEnter = Button_pauseMouseEnter
+    OnMouseLeave = Button_pauseMouseLeave
   end
   object Button_stop: TBitBtn
     AnchorSideLeft.Control = Button_pause
@@ -682,26 +689,26 @@ object Frame_AufScript: TFrame_AufScript
     AnchorSideRight.Side = asrBottom
     AnchorSideBottom.Control = Owner
     AnchorSideBottom.Side = asrBottom
-    Left = 196
-    Height = 32
-    Top = 500
-    Width = 48
+    Left = 131
+    Height = 21
+    Top = 334
+    Width = 32
     Anchors = [akLeft, akBottom]
     GlyphShowMode = gsmAlways
     Margin = 0
-    OnClick = Button_stopClick
-    OnMouseEnter = Button_stopMouseEnter
-    OnMouseLeave = Button_stopMouseLeave
     ParentFont = False
     Spacing = 0
     TabOrder = 9
+    OnClick = Button_stopClick
+    OnMouseEnter = Button_stopMouseEnter
+    OnMouseLeave = Button_stopMouseLeave
   end
   object OpenDialog: TOpenDialog
-    left = 167
-    top = 40
+    Left = 111
+    Top = 27
   end
   object SaveDialog: TSaveDialog
-    left = 167
-    top = 100
+    Left = 111
+    Top = 67
   end
 end

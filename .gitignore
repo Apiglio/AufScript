@@ -4,8 +4,8 @@ backup/*
 his/*
 manual/*
 scpt/*
-测试脚本/*
-规划计划/*
+娴嬭瘯鑴氭湰/*
+瑙勫垝璁″垝/*
 *.o
 *.exe
 *.bak
@@ -16,3 +16,8 @@ fpcunitproject1
 fpcunitproject1.or
 docs/*
 *.tmp
+.DS_Store
+*.app/*
+*.lrs
+*.fpcres
+
