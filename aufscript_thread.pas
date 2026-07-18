@@ -63,8 +63,9 @@ begin
     if AufScpt.PSW.haltoff then break;
     if AufScpt.PSW.pause then continue;
     if AufScpt.PSW.inRunNext then continue;
-    Synchronize(@RunNext);
-    //AufScpt.RunNext;//需要修改执行内核，把不涉及IO的指令区分出来，不要synchronize
+    AufScpt.Time.WaitingMSAfterFunc:=0;
+    RunNext;
+    with AufScpt.Time do if WaitingMSAfterFunc>0 then sleep(WaitingMSAfterFunc);
   end;
   Synchronize(@RunClose);
 end;
