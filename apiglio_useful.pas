@@ -2799,7 +2799,7 @@ var AufScpt:TAufScript;
     AAuf:TAuf;
     duration,interval:integer;
     addr:pRam;
-    {$ifdef MsgTimerMode}{$else}
+    {$ifndef MsgTimerMode}
     message_received:boolean;
     {$endif}
 begin
