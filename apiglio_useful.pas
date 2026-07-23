@@ -41,7 +41,7 @@ uses
   {$ifdef SynEditMode}
   SynEdit, SynHighlighterAuf,
   {$endif}
-  Classes, SysUtils, Registry, FileUtil, TypInfo,
+  Classes, SysUtils, Registry, FileUtil, TypInfo, LazFileUtils,
   {$ifdef MsgTimerMode}
   ExtCtrls, Controls, Forms,
   {$else}
@@ -344,6 +344,9 @@ type
         TimerPause:boolean;
         MultiTaskTimer:TTimer;
         MultiTaskTimerPause:boolean;
+        WaitingMSAfterFunc:Integer; //当前MsgTimerMode模式下无效
+        {$else}
+        WaitingMSAfterFunc:Integer; //执行一条指令后等待的时间
         {$endif}
         Synthesis_Mode:(SynMoDelay=0,SynMoTimer=1);
       end;
@@ -414,7 +417,10 @@ type
         pause:pFuncAuf;                    //相当于readln;
         clear:pFuncAuf;                    //清屏
         command_decode:pFuncVarStr;        //在GUI模式中使用utf8编码时需要设置转码函数
-        canvas:TAufCanvasPanel;                  //用于绘制图形，初始值nil时图形指令不可用
+        canvas:TAufCanvasPanel;            //用于绘制图形，初始值nil时图形指令不可用
+        {$ifndef MsgTimerMode}
+        ScreenText:String;                 //由线程同步输出的字符串
+        {$endif}
       end;
       Func_process:record
         pre,post,mid:pFuncAuf;             //执行单条指令前后的额外过程和中途防假死预留
@@ -427,7 +433,23 @@ type
       end;
       EnvVariant:TEnvVariantList;
       procedure EnvVariantChange(Sender:TObject; name:string);
-
+    protected
+      procedure DoEventPre;
+      procedure DoEventMid;
+      procedure DoEventPost;
+      procedure DoEventBeginning;
+      procedure DoEventEnding;
+      procedure DoEventPause;
+      procedure DoEventResume;
+      procedure DoEventRaise;
+      procedure DoEventSet;
+      {$ifndef MsgTimerMode}
+      procedure DoEcho;
+      procedure DoPrint;
+      procedure DoError;
+      {$endif}
+      procedure DoPause;
+      procedure DoClear;
 
     private
       procedure BeginOF(filename:string);
@@ -1069,7 +1091,7 @@ begin
     AufScpt.Time.Timer.Enabled:=true;
     AufScpt.Time.TimerPause:=true;
     {$else}
-    sleep(ms);
+    AufScpt.Time.WaitingMSAfterFunc:=ms;
     {$endif}
   END ELSE BEGIN
     sleep(ms);
@@ -2721,14 +2743,10 @@ begin
   if not AAuf.TryArgToString(2, stmp) then exit;
   uuid:=StringToGUID(stmp);
   send_to:=GlobalMultiTaskList.FindTask(uuid);
-  {$ifdef MsgTimerMode}
   if send_to<>nil then
     AufScpt.SendTaskMessage(send_to, arv, mcNormal)
   else
     AufScpt.send_error('未找到任务：'+stmp+'，协同消息未发出。',AufsErr_TaskNotFound);
-  {$else}
-  AufScpt.send_error('线程模式跨任务协同功能未实现。',AufsErr_PlatformUnimplemented);
-  {$endif}
 end;
 
 procedure task_read(Sender:TObject);
@@ -2783,7 +2801,7 @@ var AufScpt:TAufScript;
     AAuf:TAuf;
     duration,interval:integer;
     addr:pRam;
-    {$ifdef MsgTimerMode}{$else}
+    {$ifndef MsgTimerMode}
     message_received:boolean;
     {$endif}
 begin
@@ -2803,19 +2821,19 @@ begin
   if duration>=0 then begin
     if interval>=(duration div 5) then interval:=duration div 5;
     if interval<0 then interval:=duration div 5;
+    AufScpt.PSW.message_info.timeout:=Now+duration/86400000;
+  end else begin
+    AufScpt.PSW.message_info.timeout:=Now+180; //未指定等待时限时晒足180天
   end;
+  AufScpt.PSW.message_info.addr:=addr;
   //需要处理预设消息，并且SendMultiTaskMessage需要避免阻塞。
   IF AufScpt.Time.Synthesis_Mode=SynMoTimer THEN BEGIN
     {$ifdef MsgTimerMode}
     AufScpt.Time.MultiTaskTimer.Interval:=interval;
     AufScpt.Time.MultiTaskTimer.Enabled:=true;
     AufScpt.Time.MultiTaskTimerPause:=true;
-    AufScpt.PSW.message_info.addr:=addr;
-    if duration<0 then AufScpt.PSW.message_info.timeout:=Now+1000
-    else AufScpt.PSW.message_info.timeout:=Now+duration/86400000;
     AufScpt.push_addr(addr);//如果超时，在MultiTaskTimer中pop_addr
     {$else}
-    //多线程模式还未测试
     message_received:=false;
     while not AufScpt.PSW.haltoff and not AufScpt.PSW.pause do begin
       if AufScpt.PSW.message.Count>0 then begin
@@ -2988,7 +3006,7 @@ begin
       AufScpt.Time.Timer.Enabled:=true;
       AufScpt.Time.TimerPause:=true;
       {$else}
-      sleep(tmp);
+      AufScpt.Time.WaitingMSAfterFunc:=tmp;
       {$endif}
     END ELSE BEGIN
       sleep(tmp);
@@ -6095,6 +6113,66 @@ begin
   end;
 end;
 
+procedure TAufScript.DoEventPre;
+begin
+  if Self.Func_process.pre<>nil then Self.Func_process.pre(Self);
+end;
+procedure TAufScript.DoEventMid;
+begin
+  if Self.Func_process.mid<>nil then Self.Func_process.mid(Self);
+end;
+procedure TAufScript.DoEventPost;
+begin
+  if Self.Func_process.post<>nil then Self.Func_process.post(Self);
+end;
+procedure TAufScript.DoEventBeginning;
+begin
+  if Self.Func_process.beginning<>nil then Self.Func_process.beginning(Self);
+end;
+procedure TAufScript.DoEventEnding;
+begin
+  if Self.Func_process.ending<>nil then Self.Func_process.ending(Self);
+end;
+procedure TAufScript.DoEventPause;
+begin
+  if Self.Func_process.onpause<>nil then Self.Func_process.onpause(Self);
+end;
+procedure TAufScript.DoEventResume;
+begin
+  if Self.Func_process.onresume<>nil then Self.Func_process.onresume(Self);
+end;
+procedure TAufScript.DoEventRaise;
+begin
+  if Self.Func_process.onraise<>nil then Self.Func_process.onraise(Self);
+end;
+procedure TAufScript.DoEventSet;
+begin
+  if Self.Func_process.setting<>nil then Self.Func_process.setting(Self);
+end;
+{$ifndef MsgTimerMode}
+procedure TAufScript.DoEcho;
+begin
+  if Self.IO_fptr.echo<>nil then Self.IO_fptr.echo(Self, Self.IO_fptr.ScreenText);
+end;
+procedure TAufScript.DoPrint;
+begin
+  if Self.IO_fptr.print<>nil then Self.IO_fptr.print(Self, Self.IO_fptr.ScreenText);
+end;
+procedure TAufScript.DoError;
+begin
+  if Self.IO_fptr.error<>nil then Self.IO_fptr.error(Self, Self.IO_fptr.ScreenText);
+end;
+{$endif}
+procedure TAufScript.DoPause;
+begin
+  if Self.IO_fptr.pause<>nil then Self.IO_fptr.pause(Self);
+end;
+procedure TAufScript.DoClear;
+begin
+  if Self.IO_fptr.clear<>nil then Self.IO_fptr.clear(Self);
+end;
+
+
 procedure TAufScript.BeginOF(filename:string);
 begin
   if PSW.print_mode.is_screen then begin
@@ -6142,32 +6220,50 @@ begin
 end;
 procedure TAufScript.write(str:string);
 begin
+  {$ifdef MsgTimerMode}
   if Self.IO_fptr.print<>nil then Self.IO_fptr.print(Self,str);
+  {$else}
+  Self.IO_fptr.ScreenText:=str;
+  TAufScriptThread.Synchronize(AufThread, @Self.DoPrint);
+  {$endif}
 end;
 procedure TAufScript.writeln(str:string);
 begin
+  {$ifdef MsgTimerMode}
   if Self.IO_fptr.echo<>nil then Self.IO_fptr.echo(Self,str);
+  {$else}
+  Self.IO_fptr.ScreenText:=str;
+  TAufScriptThread.Synchronize(AufThread, @Self.DoEcho);
+  {$endif}
 end;
 procedure TAufScript.readln;
 begin
+  {$ifdef MsgTimerMode}
   if Self.IO_fptr.pause<>nil then Self.IO_fptr.pause(Self);
+  {$else}
+  TAufScriptThread.Synchronize(AufThread, @Self.DoPause);
+  {$endif}
 end;
 procedure TAufScript.send_error(str:string; error_type:TAufScriptError=AufsErr_Unknown);
 var ErrStr:string;
     OriginLine, RuntimeLine, DisplayLine:string;
 begin
-  //Self.writeln(''); 这个换行不受IO_fptr.error控制，换成换行符，不确定兼容性如何
   OriginLine:=Self.ScriptLines[Self.currentline];
   RuntimeLine:=Self.ArgLine;
   if OriginLine<>RuntimeLine then DisplayLine:=OriginLine+CRLF+'[Runtime Line] '+RuntimeLine else DisplayLine:=OriginLine;
   ErrStr:=CRLF+'[In "'+Self.ScriptName+'" Line ' + IntToStr(Self.CurrentLine+1)+ '] '
     +GetEnumName(TypeInfo(TAufScriptError),ord(error_type))+': '
     +DisplayLine+CRLF+str;
+  {$ifdef MsgTimerMode}
   if Self.IO_fptr.error<>nil then Self.IO_fptr.error(Self,ErrStr);
+  {$else}
+  Self.IO_fptr.ScreenText:=ErrStr;
+  TAufScriptThread.Synchronize(AufThread, @Self.DoError);
+  {$endif}
 
   if Self.PSW.run_parameter.error_raise then begin
-    if Self.Func_process.mid<>nil then Self.Func_process.mid(Self);
-    if Self.Func_process.OnRaise<>nil then Self.Func_process.OnRaise(Self);
+    {$ifdef MsgTimerMode}DoEventMid;{$else}TAufScriptThread.Synchronize(AufThread,@DoEventMid);{$endif}
+    {$ifdef MsgTimerMode}DoEventRaise;{$else}TAufScriptThread.Synchronize(AufThread,@DoEventRaise);{$endif}
     Self.Stop;
   end;
 end;
@@ -6466,13 +6562,13 @@ begin
     AufThread.Priority:=tpIdle;
     {$endif}
   end;
-  if Self.Func_process.OnPause<>nil then Self.Func_process.OnPause(Self);
+  {$ifdef MsgTimerMode}DoEventPause;{$else}TAufScriptThread.Synchronize(AufThread,@DoEventPause);{$endif}
 end;
 procedure TAufScript.Resume;//人为继续
 begin
   if Self.Time.Synthesis_Mode = SynMoDelay then raise Exception.Create('命令行模式AufScript不能人为暂停或恢复');
   if not Self.PSW.pause then exit;
-  if Self.Func_process.OnResume<>nil then Self.Func_process.OnResume(Self);
+  {$ifdef MsgTimerMode}DoEventResume;{$else}TAufScriptThread.Synchronize(AufThread,@DoEventResume);{$endif}
   Self.PSW.pause:=false;
   with Self.Time do if Synthesis_Mode = SynMoTimer then begin
     {$ifdef MsgTimerMode}
@@ -6510,7 +6606,7 @@ begin
       PSW.print_mode.is_screen:=true;
       PSW.print_mode.target_file:='';
     end;
-  if Self.Func_process.beginning<>nil then Self.Func_process.beginning(Self);//预设的开始过程
+  {$ifdef MsgTimerMode}DoEventBeginning;{$else}TAufScriptThread.Synchronize(AufThread,@DoEventBeginning);{$endif}
   {$ifdef MsgTimerMode}
   Self.Time.TimerPause:=false;
   {$endif}
@@ -6570,7 +6666,7 @@ begin
     //读取栈中地址的指令
     cmd:=ScriptLines.strings[Self.currentline];
     Self.PSW.run_parameter.current_line_number:=currentline;
-    if Self.Func_process.pre<>nil then Self.Func_process.pre(Self);//预设的前置过程
+    {$ifdef MsgTimerMode}DoEventPre;{$else}TAufScriptThread.Synchronize(AufThread,@DoEventPre);{$endif}
     Self.PSW.inRunNext:=true;//过程保护，阻挡新的RunNext消息
 
     //自定义函数执行部分
@@ -6593,7 +6689,7 @@ begin
     //安排下一个地址
     Self.next_addr;
     Self.PSW.inRunNext:=false;//取消过程保护，允许新的RunNext消息
-    if Self.Func_process.post<>nil then Self.Func_process.post(Self);//预设的后置过程
+    {$ifdef MsgTimerMode}DoEventPost;{$else}TAufScriptThread.Synchronize(AufThread,@DoEventPost);{$endif}
     if (not Self.PSW.Pause){$ifdef MsgTimerMode} and (not Self.Time.TimerPause) and (not Self.Time.MultiTaskTimerPause){$endif} and (not Self.PSW.haltoff) then DoRunNext;
   end else begin
     DoRunClose;
@@ -6613,7 +6709,7 @@ begin
   END;
   {$endif}
   if (not PSW.print_mode.is_screen) and (PSW.print_mode.resume_when_run_close) then EndOF;
-  if Self.Func_process.ending<>nil then Self.Func_process.ending(Self);//预设的结束过程
+  {$ifdef MsgTimerMode}DoEventEnding;{$else}TAufScriptThread.Synchronize(AufThread,@DoEventEnding);{$endif}
 end;
 
 function auf_thread_func(parameter:pointer):ptrint;
@@ -6636,7 +6732,7 @@ var idx:dword;
 begin
   if not Self.PSW.haltoff then exit;
   if str.count = 0 then begin
-    if Self.Func_process.ending<>nil then Self.Func_process.ending(Self);
+    {$ifdef MsgTimerMode}DoEventEnding;{$else}TAufScriptThread.Synchronize(AufThread,@DoEventEnding);{$endif}
     exit
   end;
   Self.PSW_reset;
@@ -7528,7 +7624,9 @@ constructor EAufScriptRuntimerError.Create(Sender:TAufScript; const msg: string)
 begin
   //if Sender.PSW.run_parameter.error_raise then Sender.Stop;
   Sender.send_error(msg,AufsErr_Unknown);
+  {$ifdef MsgTimerMode}
   Application.ProcessMessages;
+  {$endif}
   Sender.Stop;
   inherited Create(msg);
 end;
