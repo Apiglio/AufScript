@@ -1,6 +1,9 @@
 AufScript.Tutorial/*
-backup/*
-*/backup/*
+backup
+*/backup
+lib
+*/lib
+*.lps
 his/*
 manual/*
 scpt/*
@@ -19,5 +22,6 @@ docs/*
 .DS_Store
 *.app/*
 *.lrs
+*.res
 *.fpcres
 

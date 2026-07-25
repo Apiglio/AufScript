@@ -1,0 +1,22 @@
+object Form_AufTask_Server: TForm_AufTask_Server
+  Left = 1011
+  Height = 360
+  Top = 508
+  Width = 773
+  Caption = 'Form_AufTask_Server'
+  ClientHeight = 360
+  ClientWidth = 773
+  DesignTimePPI = 144
+  OnCreate = FormCreate
+  Position = poScreenCenter
+  LCLVersion = '1.8.4.0'
+  object Memo_DebugLine: TMemo
+    Left = 0
+    Height = 360
+    Top = 0
+    Width = 773
+    Align = alClient
+    ScrollBars = ssVertical
+    TabOrder = 0
+  end
+end
