@@ -17,6 +17,7 @@ type
 implementation
 uses Apiglio_Useful, auf_ram_var, auf_type_error;
 var AufScriptHttpClient:TAufScriptHttpsClient;
+    CommandLineUA:string;
 
 //Fixed by @wittbo on Lazarus Forum,
 //Source: https://forum.lazarus.freepascal.org/index.php/topic,43553.msg335901.html#msg335901
@@ -52,7 +53,7 @@ begin
     try
       client.AllowRedirect:=true;
       client.OnRedirect:=@(AufScriptHttpClient.CheckURI);
-      client.AddHeader('User-Agent','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
+      client.AddHeader('User-Agent', CommandLineUA);
       client.Get(url, response);
       initiate_arv_str(response.Text, arv);
     except
@@ -87,7 +88,7 @@ begin
     try
       client.AllowRedirect:=true;
       client.OnRedirect:=@(AufScriptHttpClient.CheckURI);
-      client.AddHeader('User-Agent','Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36');
+      client.AddHeader('User-Agent', CommandLineUA);
       if data<>'' then begin
         client.RequestBody:=TStringStream.Create(data);
         client.Post(url, response);
@@ -107,12 +108,41 @@ begin
   end;
 end;
 
+procedure auf_https_set_ua(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    ua:string;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(1) then exit;
+  if not AAuf.TryArgToString(1, ua) then exit;
+  CommandLineUA:=ua;
+end;
+
+procedure auf_https_get_ua(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    ua_arv:TAufRamVar;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if AAuf.ArgsCount<2 then begin
+    AufScpt.writeln('当前UserAgent: '+CommandLineUA);
+  end else begin
+    if not AAuf.TryArgToARV(1, 1, High(Dword), [ARV_Char], ua_arv) then exit;
+    initiate_arv_str(CommandLineUA, ua_arv);
+  end;
+end;
+
 procedure FuncDefineHTTP(Sender:TObject);
 var AufScpt:TAufScript;
 begin
   AufScpt:=Sender as TAufScript;
   AufScpt.add_func('http.get',  @auf_https_get,  'RESULT, url',   '网络访问url并将结果存到RESULT');
   AufScpt.add_func('http.post', @auf_https_post, 'RESULT, url',   '网络访问url并将结果存到RESULT');
+  AufScpt.add_func('http.set_ua', @auf_https_set_ua, 'userAgent', '设置代码工具的访问头');
+  AufScpt.add_func('http.get_ua', @auf_https_get_ua, 'UserAgent', '显示代码工具当前的访问头');
 
 end;
 
@@ -120,6 +150,7 @@ initialization
 
   TAufScript.DoFuncDefineHTTP:=@FuncDefineHTTP;
   AufScriptHttpClient:=TAufScriptHttpsClient.Create;
+  CommandLineUA:='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
 finalization
 
