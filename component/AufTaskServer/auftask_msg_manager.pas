@@ -39,6 +39,31 @@ type
         destructor Destroy; override;
     end;
 
+    TAufTaskMessage = class
+    public
+        Sender :TAufTaskClientId;
+        Target :TAufTaskClientId;
+        Data   :string;
+        Code   :integer;
+    private
+        TimeSending   :TDateTime;
+        TimeReceiving :TDateTime;
+    end;
+
+    TAufTaskMessagePool = class
+    private
+        FMessageList : TList;
+        FCount       : Integer;
+        FTrimNil     : Integer;
+    public
+        function PushMessage(ASender,ATarget:TAufTaskClientId;AData:string;ACode:Integer):TAufTaskMessage;
+        function PopMessage(ATarget:TAufTaskClientId):TAufTaskMessage; //从符合条件的消息中返回最早的一条，并移除，没有任何消息则返回nil
+    public
+        procedure Maintenance; //更新FTrimNil的位置和Count计数，并在nil过多时整理列表
+        constructor Create;
+        destructor Destroy; override;
+    end;
+
 implementation
 
 { TAufTaskPool }
@@ -110,6 +135,65 @@ var idx:integer;
 begin
     for idx:=FTaskList.Count-1 downto 0 do TAufTaskClient(FTaskList.Objects[idx]).Free;
     FTaskList.Free;
+end;
+
+
+{ TAufTaskMessagePool }
+
+function TAufTaskMessagePool.PushMessage(ASender,ATarget:TAufTaskClientId;AData:string;ACode:Integer):TAufTaskMessage;
+var tmpMsg:TAufTaskMessage;
+begin
+    tmpMsg:=TAufTaskMessage.Create;
+    with tmpMsg do begin
+        Target:=ATarget;
+        Sender:=ASender;
+        Data:=AData;
+        Code:=ACode;
+        //TimeSending:=0;
+        TimeReceiving:=Now();
+    end;
+    FMessageList.Add(tmpMsg);
+    inc(FCount);
+end;
+
+function TAufTaskMessagePool.PopMessage(ATarget:TAufTaskClientId):TAufTaskMessage;
+var idx,len:integer;
+    tmpMsg:TAufTaskMessage;
+begin
+    idx:=FTrimNil;
+    len:=FMessageList.Count;
+    for idx:=FTrimNil to len-1 do begin
+        tmpMsg:=TAufTaskMessage(FMessageList[idx]);
+        if tmpMsg=nil then continue;
+        if not IsEqualGUID(tmpMsg.Target,ATarget) then continue;
+        result:=tmpMsg;
+        FMessageList[idx]:=nil;
+        dec(FCount);
+        if idx=FTrimNil then Maintenance;
+        exit;
+    end;
+    result:=nil;
+end;
+
+procedure TAufTaskMessagePool.Maintenance; unimplemented;
+begin
+
+end;
+
+constructor TAufTaskMessagePool.Create;
+begin
+    inherited Create;
+    FMessageList:=TList.Create;
+    FCount:=0;
+    FTrimNil:=0;
+end;
+
+destructor TAufTaskMessagePool.Destroy;
+var idx:integer;
+begin
+    for idx:=FMessageList.Count-1 downto 0 do TAufTaskMessage(FMessageList[idx]).Free;
+    FMessageList.Free;
+    inherited Destroy;
 end;
 
 end.
