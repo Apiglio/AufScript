@@ -2,6 +2,7 @@ unit auftask_msg_webmodule;
 
 {$mode objfpc}{$H+}
 {$label on}
+{$inline on}
 
 interface
 
@@ -64,6 +65,13 @@ begin
 end;
 
 
+procedure teapot_response(var AResponse: TFPHTTPConnectionResponse; const Msg:String);inline;
+begin
+    AResponse.Code:=418;
+    AResponse.ContentType:='application/json';
+    AResponse.Content:=Msg;
+end;
+
 procedure auftask_func_login(var ARequest: TFPHTTPConnectionRequest; var AResponse: TFPHTTPConnectionResponse);
 label FL_INVALID_ARGEMENTS, FL_INVALID_GUID, FL_REPEATED_GUID;
 var idxSenderId, idxName, idxPrompt:integer;
@@ -98,30 +106,19 @@ begin
 EXIT;
 
 FL_INVALID_ARGEMENTS:
-    AResponse.Code:=418;
-    AResponse.ContentType:='application/json';
-    AResponse.Content:=Format(
-        '{"result"="AufTask Function login Error: Incomplete Arguments. %d %d %d"}',
-        [idxSenderId, idxName, idxPrompt]
-    );
-    exit;
+    teapot_response(AResponse, Format(
+        '{"result"="LOGIN Incomplete Arguments. %d %d %d"}', [idxSenderId, idxName, idxPrompt]
+    ));exit;
 
 FL_INVALID_GUID:
-
-    AResponse.Code:=418;
-    AResponse.ContentType:='application/json';
-    AResponse.Content:=Format(
+    teapot_response(AResponse, Format(
         '{"result"="AufTask Function login Error: Invalid GUID: %s."}', [argSenderId]
-    );
-    exit;
+    ));exit;
 
 FL_REPEATED_GUID:
-    AResponse.Code:=418;
-    AResponse.ContentType:='application/json';
-    AResponse.Content:=Format(
+    teapot_response(AResponse, Format(
         '{"result"="AufTask Function login Error: Repeated GUID: %s."}', [argSenderId]
-    );
-    exit;
+    ));exit;
 
 
 end;
@@ -155,38 +152,24 @@ begin
 EXIT;
 
 FL_INVALID_ARGEMENTS:
-    AResponse.Code:=418;
-    AResponse.ContentType:='application/json';
-    AResponse.Content:=Format(
-        '{"result"="AufTask Function logout Error: Incomplete Arguments. %d %d"}',
-        [idxSenderId, idxOutKey]
-    );
-    exit;
+    teapot_response(AResponse, Format(
+        '{"result"="AufTask Function logout Error: Incomplete Arguments. %d %d"}', [idxSenderId, idxOutKey]
+    ));exit;
 
 FL_INVALID_OUTKEY:
-    AResponse.Code:=418;
-    AResponse.ContentType:='application/json';
-    AResponse.Content:=Format(
+    teapot_response(AResponse, Format(
         '{"result"="AufTask Function logout Error: Invalid Outkey: %s."}', [argOutKey]
-    );
-    exit;
+    ));exit;
 
 FL_INVALID_GUID:
-
-    AResponse.Code:=418;
-    AResponse.ContentType:='application/json';
-    AResponse.Content:=Format(
+    teapot_response(AResponse, Format(
         '{"result"="AufTask Function logout Error: Invalid GUID: %s."}', [argSenderId]
-    );
-    exit;
+    ));exit;
 
 FL_TASK_NOT_FOUND:
-    AResponse.Code:=418;
-    AResponse.ContentType:='application/json';
-    AResponse.Content:=Format(
+    teapot_response(AResponse, Format(
         '{"result"="AufTask Function logout Error: Task Not Found: %s."}', [argSenderId]
-    );
-    exit;
+    ));exit;
 
 
 end;
@@ -234,39 +217,27 @@ begin
 EXIT;
 
 FL_INVALID_ARGEMENTS:
-    AResponse.Code:=418;
-    AResponse.ContentType:='application/json';
-    AResponse.Content:=Format(
-        '{"result"="AufTask Function send Error: Incomplete Arguments. %d %d %d %d %d"}',
-        [idxSenderId, idxTargetId, idxData, idxPass, idxCode]
-    );
-    exit;
+    teapot_response(AResponse, Format(
+        '{"result"="AufTask Function send Error: Incomplete Arguments. %d %d %d %d %d"}', [idxSenderId, idxTargetId, idxData, idxPass, idxCode]
+    ));exit;
 
 FL_INVALID_GUID:
-
-    AResponse.Code:=418;
-    AResponse.ContentType:='application/json';
-    AResponse.Content:=Format(
+    teapot_response(AResponse, Format(
         '{"result"="AufTask Function send Error: Invalid GUID(s): %s %s."}', [argSenderId, argTargetId]
-    );
-    exit;
+    ));exit;
 
 FL_TASK_NOT_FOUND:
-    AResponse.Code:=418;
-    AResponse.ContentType:='application/json';
-    AResponse.Content:=Format(
+    teapot_response(AResponse, Format(
         '{"result"="AufTask Function send Error: Task(s) Not Found: %s %s."}', [argSenderId, argTargetId]
-    );
-    exit;
+    ));exit;
 
 
 end;
 
 procedure auftask_func_fetch(var ARequest: TFPHTTPConnectionRequest; var AResponse: TFPHTTPConnectionResponse);
 label FL_INVALID_ARGEMENTS, FL_INVALID_GUID, FL_TASK_NOT_FOUND;
-var idxTargetId, idxOutKey, idxCode:integer;
+var idxTargetId, idxOutKey:integer;
     argTargetId, argOutKey:string;
-    argCode:integer;
     targetID:TAufTaskClientId;
     targetTC:TAufTaskClient;
     tmpMsg:TAufTaskMessage;
@@ -310,31 +281,66 @@ begin
 EXIT;
 
 FL_INVALID_ARGEMENTS:
-    AResponse.Code:=418;
-    AResponse.ContentType:='application/json';
-    AResponse.Content:=Format(
-        '{"result"="AufTask Function fetch Error: Incomplete Arguments. %d %d"}',
-        [idxTargetId, idxOutKey]
-    );
-    exit;
+    teapot_response(AResponse, Format(
+        '{"result"="AufTask Function fetch Error: Incomplete Arguments. %d %d"}', [idxTargetId, idxOutKey]
+    ));exit;
 
 FL_INVALID_GUID:
-
-    AResponse.Code:=418;
-    AResponse.ContentType:='application/json';
-    AResponse.Content:=Format(
+    teapot_response(AResponse, Format(
         '{"result"="AufTask Function fetch Error: Invalid GUID: %s."}', [argTargetId]
-    );
-    exit;
+    ));exit;
 
 FL_TASK_NOT_FOUND:
-    AResponse.Code:=418;
-    AResponse.ContentType:='application/json';
-    AResponse.Content:=Format(
+    teapot_response(AResponse, Format(
         '{"result"="AufTask Function fetch Error: Task Not Found: %s."}', [argTargetId]
-    );
-    exit;
+    ));exit;
 
+end;
+
+
+procedure auftask_func_getlist(var ARequest: TFPHTTPConnectionRequest; var AResponse: TFPHTTPConnectionResponse);
+label FL_INVALID_ARGEMENTS, FL_INVALID_GUID, FL_TASK_NOT_FOUND;
+var idxTargetId, idxOutKey:integer;
+    argTargetId, argOutKey:string;
+    targetID:TAufTaskClientId;
+    targetTC:TAufTaskClient;
+    tmpMsg:TAufTaskMessage;
+begin
+
+    idxTargetId := ARequest.QueryFields.IndexOfName('target_id');
+    idxOutKey   := ARequest.QueryFields.IndexOfName('outkey');
+    if (idxTargetId<0) or (idxOutKey<0) then goto FL_INVALID_ARGEMENTS;
+
+    argTargetId := ARequest.QueryFields.ValueFromIndex[idxTargetId];
+    argOutKey   := ARequest.QueryFields.ValueFromIndex[idxOutKey];
+
+    if not TryStringToGUID(argTargetId, targetID) then goto FL_INVALID_GUID;
+    if IsEqualGUID(targetID, GUID_NULL) then goto FL_INVALID_GUID;
+
+    targetTC:=GlobalAufTaskPool.GetTaskClient(targetID);
+    if targetTC=nil then goto FL_TASK_NOT_FOUND;
+
+    AResponse.Code:=200;
+    AResponse.ContentType:='application/json';
+    AResponse.Content:=Format('{"result":"Success", "messages":%s}',[GlobalAufTaskPool.GetTaskListJSON().FormatJSON()]);
+
+
+EXIT;
+
+FL_INVALID_ARGEMENTS:
+    teapot_response(AResponse, Format(
+        '{"result"="AufTask Function fetch Error: Incomplete Arguments. %d %d"}', [idxTargetId, idxOutKey]
+    ));exit;
+
+FL_INVALID_GUID:
+    teapot_response(AResponse, Format(
+        '{"result"="AufTask Function fetch Error: Invalid GUID: %s."}', [argTargetId]
+    ));exit;
+
+FL_TASK_NOT_FOUND:
+    teapot_response(AResponse, Format(
+        '{"result"="AufTask Function fetch Error: Task Not Found: %s."}', [argTargetId]
+    ));exit;
 
 end;
 
@@ -371,6 +377,7 @@ begin
         'logout':auftask_func_logout(ARequest, AResponse);
         'send':auftask_func_send(ARequest, AResponse);
         'fetch':auftask_func_fetch(ARequest, AResponse);
+        'getlist':auftask_func_getlist(ARequest, AResponse);
         else begin
             AResponse.Code:=405;
             AResponse.ContentType:='application/json';
