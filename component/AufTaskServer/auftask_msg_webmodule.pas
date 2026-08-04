@@ -94,7 +94,8 @@ begin
     tmpTaskClient:=GlobalAufTaskPool.AddTaskClient(senderID);
     if tmpTaskClient=nil then goto FL_REPEATED_GUID;
 
-    outkey:='defaultOutKey';
+    outkey:=GlobalAufTaskPool.GenOutKey;
+
     tmpTaskClient.OutKey := outkey;
     tmpTaskClient.Name   := argName;
     tmpTaskClient.Prompt := argPrompt;
@@ -420,6 +421,7 @@ end;
 initialization
     GlobalAufTaskPool:=TAufTaskPool.Create;
     GlobalAufTaskMessagePool:=TAufTaskMessagePool.Create;
+    Randomize;
 
 finalization
     GlobalAufTaskPool.Free;

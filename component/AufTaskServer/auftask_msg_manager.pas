@@ -34,6 +34,7 @@ type
         function DelTaskClient(TaskId:TAufTaskClientId):boolean;
     public
         function GetTaskListJSON:TJSONData;
+        function GenOutKey:string;
     public
         constructor Create;
         destructor Destroy; override;
@@ -121,6 +122,16 @@ begin
         tmpTaskObject.Strings['guid']:=GUIDToString(tmpTask.TaskId);
         TJSONArray(result).Add(tmpTaskObject);
     end;
+end;
+
+function TAufTaskPool.GenOutKey:string;
+var a,b,c,d:dword;
+begin
+    a:=Random(High(dword));
+    b:=Random(High(dword));
+    c:=Random(High(dword));
+    d:=Random(High(dword));
+    result:=Format('%.08X%.08X%.08X%.08X',[a,b,c,d]);
 end;
 
 constructor TAufTaskPool.Create;
