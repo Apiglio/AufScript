@@ -72,192 +72,197 @@ begin
     AResponse.Content:=Msg;
 end;
 
-procedure auftask_func_login(var ARequest: TFPHTTPConnectionRequest; var AResponse: TFPHTTPConnectionResponse);
-label FL_INVALID_ARGEMENTS, FL_INVALID_GUID, FL_REPEATED_GUID;
-var idxSenderId, idxName, idxPrompt:integer;
-    argSenderId, argName, argPrompt, outkey:string;
+procedure error_response(var AResponse: TFPHTTPConnectionResponse; const ErrorText, Msg:String);inline;
+begin
+    AResponse.Code:=418;
+    AResponse.ContentType:='application/json';
+    AResponse.Content:=Format('{"result":"%s", "info":"%s"}', [ErrorText, Msg]);
+end;
+
+procedure auftask_func_login(var ARequest: TFPHTTPConnectionRequest; var AResponse: TFPHTTPConnectionResponse; var AJSONData:TJSONObject; const ASenderId, ATargetId:string);
+var argName, argPrompt, TaskToken:string;
     senderID:TAufTaskClientId;
     tmpTaskClient:TAufTaskClient;
+    jKey:TJSONData;
 begin
+    with AJSONData do begin
+        jKey:=Find('name',jtString);
+        if jKey<>nil then argName:=jKey.AsString else begin
+            error_response(AResponse, 'ERROR_ARGUMENT_NOT_FOUND', 'name');
+            exit;
+        end;
+        jKey:=Find('prompt',jtString);
+        if jKey<>nil then argPrompt:=jKey.AsString
+        else begin
+            error_response(AResponse, 'ERROR_ARGUMENT_NOT_FOUND', 'prompt');
+            exit;
+        end;
+    end;
 
-    idxSenderId := ARequest.QueryFields.IndexOfName('sender_id');
-    idxName     := ARequest.QueryFields.IndexOfName('name');
-    idxPrompt   := ARequest.QueryFields.IndexOfName('prompt');
-    if (idxSenderId<0) or (idxName<0) or (idxPrompt<0) then goto FL_INVALID_ARGEMENTS;
-
-    argSenderId := ARequest.QueryFields.ValueFromIndex[idxSenderId];
-    argName     := ARequest.QueryFields.ValueFromIndex[idxName];
-    argPrompt   := ARequest.QueryFields.ValueFromIndex[idxPrompt];
-
-    if not TryStringToGUID(argSenderId, senderID) then goto FL_INVALID_GUID;
-    if IsEqualGUID(senderID, GUID_NULL) then goto FL_INVALID_GUID;
+    if not TryStringToGUID(ASenderId, senderID) then begin
+        error_response(AResponse, 'ERROR_GUID_INVALID', '');
+        exit;
+    end;
+    if IsEqualGUID(senderID, GUID_NULL) then begin
+        error_response(AResponse, 'ERROR_GUID_INVALID', '');
+        exit;
+    end;
     tmpTaskClient:=GlobalAufTaskPool.AddTaskClient(senderID);
-    if tmpTaskClient=nil then goto FL_REPEATED_GUID;
+    if tmpTaskClient=nil then begin
+        error_response(AResponse, 'ERROR_GUID_REPEATED', '');
+        exit;
+    end;
 
-    outkey:=GlobalAufTaskPool.GenOutKey;
+    TaskToken:=GlobalAufTaskPool.GenOutKey;
 
-    tmpTaskClient.OutKey := outkey;
-    tmpTaskClient.Name   := argName;
-    tmpTaskClient.Prompt := argPrompt;
+    tmpTaskClient.TaskToken := TaskToken;
+    tmpTaskClient.Name      := argName;
+    tmpTaskClient.Prompt    := argPrompt;
 
     AResponse.Code:=200;
     AResponse.ContentType:='application/json';
-    AResponse.Content:=Format('{"result":"Success", "outkey"="%s"}',[outkey]);
-
-EXIT;
-
-FL_INVALID_ARGEMENTS:
-    teapot_response(AResponse, Format(
-        '{"result"="LOGIN Incomplete Arguments. %d %d %d"}', [idxSenderId, idxName, idxPrompt]
-    ));exit;
-
-FL_INVALID_GUID:
-    teapot_response(AResponse, Format(
-        '{"result"="AufTask Function login Error: Invalid GUID: %s."}', [argSenderId]
-    ));exit;
-
-FL_REPEATED_GUID:
-    teapot_response(AResponse, Format(
-        '{"result"="AufTask Function login Error: Repeated GUID: %s."}', [argSenderId]
-    ));exit;
-
+    AResponse.Content:=Format('{"result":"SUCCESS", "task-token":"%s"}',[TaskToken]);
 
 end;
 
-procedure auftask_func_logout(var ARequest: TFPHTTPConnectionRequest; var AResponse: TFPHTTPConnectionResponse);
-label FL_INVALID_ARGEMENTS, FL_INVALID_OUTKEY, FL_INVALID_GUID, FL_TASK_NOT_FOUND;
-var idxSenderId, idxOutKey:integer;
-    argSenderId, argOutKey:string;
+procedure auftask_func_logout(var ARequest: TFPHTTPConnectionRequest; var AResponse: TFPHTTPConnectionResponse; var AJSONData:TJSONObject; const ASenderId, ATargetId:string);
+var TaskToken:string;
     senderID:TAufTaskClientId;
     tmpTaskClient:TAufTaskClient;
+    jKey:TJSONData;
 begin
+    with AJSONData do begin
+        jKey:=Find('task-token',jtString);
+        if jKey<>nil then TaskToken:=jKey.AsString
+        else begin
+            error_response(AResponse, 'ERROR_ARGUMENT_NOT_FOUND', 'task-token');
+            exit;
+        end;
+    end;
 
-    idxSenderId := ARequest.QueryFields.IndexOfName('sender_id');
-    idxOutKey   := ARequest.QueryFields.IndexOfName('outkey');
-    if (idxSenderId<0) or (idxOutKey<0) then goto FL_INVALID_ARGEMENTS;
-
-    argSenderId := ARequest.QueryFields.ValueFromIndex[idxSenderId];
-    argOutKey   := ARequest.QueryFields.ValueFromIndex[idxOutKey];
-
-    if not TryStringToGUID(argSenderId, senderID) then goto FL_INVALID_GUID;
-    if IsEqualGUID(senderID, GUID_NULL) then goto FL_INVALID_GUID;
+    if not TryStringToGUID(ASenderId, senderID) then begin
+        error_response(AResponse, 'ERROR_GUID_INVALID', '');
+        exit;
+    end;
+    if IsEqualGUID(senderID, GUID_NULL) then begin
+        error_response(AResponse, 'ERROR_GUID_INVALID', '');
+        exit;
+    end;
     tmpTaskClient:=GlobalAufTaskPool.GetTaskClient(senderID);
-    if tmpTaskClient.OutKey<>argOutKey then goto FL_INVALID_OUTKEY;
+    if tmpTaskClient.TaskToken<>TaskToken then begin
+        error_response(AResponse, 'ERROR_TOKEN_INVALID', '');
+        exit;
+    end;
 
-    if not GlobalAufTaskPool.DelTaskClient(senderID) then goto FL_TASK_NOT_FOUND;
+    if not GlobalAufTaskPool.DelTaskClient(senderID) then begin
+        error_response(AResponse, 'ERROR_GUID_NOT_FOUND', '');
+        exit;
+    end;
 
     AResponse.Code:=200;
     AResponse.ContentType:='application/json';
-    AResponse.Content:='{"result":"Success"}';
-
-EXIT;
-
-FL_INVALID_ARGEMENTS:
-    teapot_response(AResponse, Format(
-        '{"result"="AufTask Function logout Error: Incomplete Arguments. %d %d"}', [idxSenderId, idxOutKey]
-    ));exit;
-
-FL_INVALID_OUTKEY:
-    teapot_response(AResponse, Format(
-        '{"result"="AufTask Function logout Error: Invalid Outkey: %s."}', [argOutKey]
-    ));exit;
-
-FL_INVALID_GUID:
-    teapot_response(AResponse, Format(
-        '{"result"="AufTask Function logout Error: Invalid GUID: %s."}', [argSenderId]
-    ));exit;
-
-FL_TASK_NOT_FOUND:
-    teapot_response(AResponse, Format(
-        '{"result"="AufTask Function logout Error: Task Not Found: %s."}', [argSenderId]
-    ));exit;
-
+    AResponse.Content:='{"result":"SUCCESS"}';
 
 end;
 
 
-procedure auftask_func_send(var ARequest: TFPHTTPConnectionRequest; var AResponse: TFPHTTPConnectionResponse);
-label FL_INVALID_ARGEMENTS, FL_INVALID_GUID, FL_TASK_NOT_FOUND;
-var idxSenderId, idxTargetId, idxData, idxPass, idxCode:integer;
-    argSenderId, argTargetId, argData, argPass:string;
+procedure auftask_func_send(var ARequest: TFPHTTPConnectionRequest; var AResponse: TFPHTTPConnectionResponse; var AJSONData:TJSONObject; const ASenderId, ATargetId:string);
+var argData, argPass:string;
     argCode:integer;
     senderID, targetID:TAufTaskClientId;
     senderTC, targetTC:TAufTaskClient;
+    jKey:TJSONData;
 begin
+    with AJSONData do begin
+        jKey:=Find('data',jtString);
+        if jKey<>nil then argData:=jKey.AsString
+        else begin
+            error_response(AResponse, 'ERROR_ARGUMENT_NOT_FOUND', 'data');
+            exit;
+        end;
+        jKey:=Find('pass',jtString);
+        if jKey<>nil then argPass:=jKey.AsString
+        else begin
+            error_response(AResponse, 'ERROR_ARGUMENT_NOT_FOUND', 'pass');
+            exit;
+        end;
+        jKey:=Find('code',jtNumber);
+        if jKey<>nil then argCode:=jKey.AsInteger
+        else begin
+            error_response(AResponse, 'ERROR_ARGUMENT_NOT_FOUND', 'code');
+            exit;
+        end;
+    end;
 
-    idxSenderId := ARequest.QueryFields.IndexOfName('sender_id');
-    idxTargetId := ARequest.QueryFields.IndexOfName('target_id');
-    idxData     := ARequest.QueryFields.IndexOfName('data');
-    idxPass     := ARequest.QueryFields.IndexOfName('pass');
-    idxCode     := ARequest.QueryFields.IndexOfName('code');
-    if (idxSenderId<0) or (idxTargetId<0) or (idxData<0) or (idxPass<0) or (idxCode<0) then goto FL_INVALID_ARGEMENTS;
-
-    argSenderId := ARequest.QueryFields.ValueFromIndex[idxSenderId];
-    argTargetId := ARequest.QueryFields.ValueFromIndex[idxTargetId];
-    argData     := ARequest.QueryFields.ValueFromIndex[idxData];
-    argPass     := ARequest.QueryFields.ValueFromIndex[idxPass];
-    if not TryStrToInt(ARequest.QueryFields.ValueFromIndex[idxCode], argCode) then argCode:=0;
-
-    if not TryStringToGUID(argSenderId, senderID) then goto FL_INVALID_GUID;
-    if IsEqualGUID(senderID, GUID_NULL) then goto FL_INVALID_GUID;
-    if not TryStringToGUID(argTargetId, targetID) then goto FL_INVALID_GUID;
-    if IsEqualGUID(targetID, GUID_NULL) then goto FL_INVALID_GUID;
+    if not TryStringToGUID(ASenderId, senderID) then begin
+        error_response(AResponse, 'ERROR_GUID_INVALID', '');
+        exit;
+    end;
+    if IsEqualGUID(senderID, GUID_NULL) then begin
+        error_response(AResponse, 'ERROR_GUID_INVALID', '');
+        exit;
+    end;
+    if not TryStringToGUID(ATargetId, targetID) then begin
+        error_response(AResponse, 'ERROR_GUID_INVALID', '');
+        exit;
+    end;
+    if IsEqualGUID(targetID, GUID_NULL) then begin
+        error_response(AResponse, 'ERROR_GUID_INVALID', '');
+        exit;
+    end;
 
     senderTC:=GlobalAufTaskPool.GetTaskClient(senderID);
-    if senderTC=nil then goto FL_TASK_NOT_FOUND;
+    if senderTC=nil then begin
+        error_response(AResponse, 'ERROR_TASK_NOT_FOUND', '');
+        exit;
+    end;
     targetTC:=GlobalAufTaskPool.GetTaskClient(targetID);
-    if targetTC=nil then goto FL_TASK_NOT_FOUND;
+    if targetTC=nil then begin
+        error_response(AResponse, 'ERROR_TASK_NOT_FOUND', '');
+        exit;
+    end;
 
     //argPass检验未实现
     GlobalAufTaskMessagePool.PushMessage(senderID, targetID, argData, argCode);
 
     AResponse.Code:=200;
     AResponse.ContentType:='application/json';
-    AResponse.Content:='{"result":"Success"}';
-
-EXIT;
-
-FL_INVALID_ARGEMENTS:
-    teapot_response(AResponse, Format(
-        '{"result"="AufTask Function send Error: Incomplete Arguments. %d %d %d %d %d"}', [idxSenderId, idxTargetId, idxData, idxPass, idxCode]
-    ));exit;
-
-FL_INVALID_GUID:
-    teapot_response(AResponse, Format(
-        '{"result"="AufTask Function send Error: Invalid GUID(s): %s %s."}', [argSenderId, argTargetId]
-    ));exit;
-
-FL_TASK_NOT_FOUND:
-    teapot_response(AResponse, Format(
-        '{"result"="AufTask Function send Error: Task(s) Not Found: %s %s."}', [argSenderId, argTargetId]
-    ));exit;
-
+    AResponse.Content:='{"result":"SUCCESS"}';
 
 end;
 
-procedure auftask_func_fetch(var ARequest: TFPHTTPConnectionRequest; var AResponse: TFPHTTPConnectionResponse);
-label FL_INVALID_ARGEMENTS, FL_INVALID_GUID, FL_TASK_NOT_FOUND;
-var idxTargetId, idxOutKey:integer;
-    argTargetId, argOutKey:string;
+procedure auftask_func_fetch(var ARequest: TFPHTTPConnectionRequest; var AResponse: TFPHTTPConnectionResponse; var AJSONData:TJSONObject; const ASenderId, ATargetId:string);
+var TaskToken:string;
     targetID:TAufTaskClientId;
     targetTC:TAufTaskClient;
     tmpMsg:TAufTaskMessage;
     resJSON:TJSONArray;
     objJSON:TJSONObject;
+    jKey:TJSONData;
 begin
+    with AJSONData do begin
+        jKey:=Find('task-token',jtString);
+        if jKey<>nil then TaskToken:=jKey.AsString
+        else begin
+            error_response(AResponse, 'ERROR_ARGUMENT_NOT_FOUND', 'task-token');
+            exit;
+        end;
+    end;
 
-    idxTargetId := ARequest.QueryFields.IndexOfName('target_id');
-    idxOutKey   := ARequest.QueryFields.IndexOfName('outkey');
-    if (idxTargetId<0) or (idxOutKey<0) then goto FL_INVALID_ARGEMENTS;
-
-    argTargetId := ARequest.QueryFields.ValueFromIndex[idxTargetId];
-    argOutKey   := ARequest.QueryFields.ValueFromIndex[idxOutKey];
-
-    if not TryStringToGUID(argTargetId, targetID) then goto FL_INVALID_GUID;
-    if IsEqualGUID(targetID, GUID_NULL) then goto FL_INVALID_GUID;
+    if not TryStringToGUID(ATargetId, targetID) then begin
+        error_response(AResponse, 'ERROR_GUID_INVALID', '');
+        exit;
+    end;
+    if IsEqualGUID(targetID, GUID_NULL) then begin
+        error_response(AResponse, 'ERROR_GUID_INVALID', '');
+        exit;
+    end;
 
     targetTC:=GlobalAufTaskPool.GetTaskClient(targetID);
-    if targetTC=nil then goto FL_TASK_NOT_FOUND;
+    if targetTC=nil then begin
+        error_response(AResponse, 'ERROR_TASK_NOT_FOUND', '');
+        exit;
+    end;
 
     resJSON:=TJSONArray.Create;
     try
@@ -265,83 +270,55 @@ begin
             tmpMsg:=GlobalAufTaskMessagePool.PopMessage(targetID);
             if tmpMsg=nil then break;
             objJSON:=TJSONObject.Create;
-            objJSON.Strings['sender_id']:=GUIDToString(tmpMsg.Sender);
-            objJSON.Strings['target_id']:=GUIDToString(tmpMsg.Target);
+            objJSON.Strings['sender-id']:=GUIDToString(tmpMsg.Sender);
+            objJSON.Strings['target-id']:=GUIDToString(tmpMsg.Target);
             objJSON.Strings['data']:=tmpMsg.Data;
             objJSON.Integers['code']:=tmpMsg.Code;
             resJSON.Add(objJSON);
         end;
         AResponse.Code:=200;
         AResponse.ContentType:='application/json';
-        AResponse.Content:=Format('{"result":"Success", "messages":%s}',[resJSON.FormatJSON()]);
+        AResponse.Content:=Format('{"result":"SUCCESS", "messages":%s}',[resJSON.FormatJSON()]);
     finally
         resJSON.Free;
     end;
 
-
-EXIT;
-
-FL_INVALID_ARGEMENTS:
-    teapot_response(AResponse, Format(
-        '{"result"="AufTask Function fetch Error: Incomplete Arguments. %d %d"}', [idxTargetId, idxOutKey]
-    ));exit;
-
-FL_INVALID_GUID:
-    teapot_response(AResponse, Format(
-        '{"result"="AufTask Function fetch Error: Invalid GUID: %s."}', [argTargetId]
-    ));exit;
-
-FL_TASK_NOT_FOUND:
-    teapot_response(AResponse, Format(
-        '{"result"="AufTask Function fetch Error: Task Not Found: %s."}', [argTargetId]
-    ));exit;
-
 end;
 
 
-procedure auftask_func_getlist(var ARequest: TFPHTTPConnectionRequest; var AResponse: TFPHTTPConnectionResponse);
-label FL_INVALID_ARGEMENTS, FL_INVALID_GUID, FL_TASK_NOT_FOUND;
-var idxTargetId, idxOutKey:integer;
-    argTargetId, argOutKey:string;
+procedure auftask_func_tasklist(var ARequest: TFPHTTPConnectionRequest; var AResponse: TFPHTTPConnectionResponse; var AJSONData:TJSONObject; const ASenderId, ATargetId:string);
+var TaskToken:string;
     targetID:TAufTaskClientId;
     targetTC:TAufTaskClient;
-    tmpMsg:TAufTaskMessage;
+    jKey:TJSONData;
 begin
+    with AJSONData do begin
+        jKey:=Find('task-token',jtString);
+        if jKey<>nil then TaskToken:=jKey.AsString
+        else begin
+            error_response(AResponse, 'ERROR_ARGUMENT_NOT_FOUND', 'task-token');
+            exit;
+        end;
+    end;
 
-    idxTargetId := ARequest.QueryFields.IndexOfName('target_id');
-    idxOutKey   := ARequest.QueryFields.IndexOfName('outkey');
-    if (idxTargetId<0) or (idxOutKey<0) then goto FL_INVALID_ARGEMENTS;
-
-    argTargetId := ARequest.QueryFields.ValueFromIndex[idxTargetId];
-    argOutKey   := ARequest.QueryFields.ValueFromIndex[idxOutKey];
-
-    if not TryStringToGUID(argTargetId, targetID) then goto FL_INVALID_GUID;
-    if IsEqualGUID(targetID, GUID_NULL) then goto FL_INVALID_GUID;
+    if not TryStringToGUID(ATargetId, targetID) then begin
+        error_response(AResponse, 'ERROR_GUID_INVALID', '');
+        exit;
+    end;
+    if IsEqualGUID(targetID, GUID_NULL) then begin
+        error_response(AResponse, 'ERROR_GUID_INVALID', '');
+        exit;
+    end;
 
     targetTC:=GlobalAufTaskPool.GetTaskClient(targetID);
-    if targetTC=nil then goto FL_TASK_NOT_FOUND;
+    if targetTC=nil then begin
+        error_response(AResponse, 'ERROR_TASK_NOT_FOUND', '');
+        exit;
+    end;
 
     AResponse.Code:=200;
     AResponse.ContentType:='application/json';
-    AResponse.Content:=Format('{"result":"Success", "messages":%s}',[GlobalAufTaskPool.GetTaskListJSON().FormatJSON()]);
-
-
-EXIT;
-
-FL_INVALID_ARGEMENTS:
-    teapot_response(AResponse, Format(
-        '{"result"="AufTask Function fetch Error: Incomplete Arguments. %d %d"}', [idxTargetId, idxOutKey]
-    ));exit;
-
-FL_INVALID_GUID:
-    teapot_response(AResponse, Format(
-        '{"result"="AufTask Function fetch Error: Invalid GUID: %s."}', [argTargetId]
-    ));exit;
-
-FL_TASK_NOT_FOUND:
-    teapot_response(AResponse, Format(
-        '{"result"="AufTask Function fetch Error: Task Not Found: %s."}', [argTargetId]
-    ));exit;
+    AResponse.Content:=Format('{"result":"SUCCESS", "messages":%s}',[GlobalAufTaskPool.GetTaskListJSON().FormatJSON()]);
 
 end;
 
@@ -349,43 +326,62 @@ end;
 procedure TAufTaskServer.HandleRequest(var ARequest: TFPHTTPConnectionRequest; var AResponse: TFPHTTPConnectionResponse);
 const CRLF={$ifdef WINDOWS}#13#10{$else}#10{$endif};
 var UA:string;
-    func:string;
+    func, sender_id, target_id:string;
     query_spliter:integer;
+    jData, jKey:TJSONData;
 
 begin
     UA:=lowercase(ARequest.UserAgent);
     if pos('aufscript task', UA)<=0 then begin
         AResponse.Code:=400;
         AResponse.ContentType:='application/json';
-        Debugline('['+DateTimeToStr(Now())+'] UA dismatch'+CRLF+ARequest.UserAgent);
+        AResponse.Content:='{"result":"ERROR_UNKNOWN"}';
+        Debugline(Format('[%s] Invalid UA: %s', [DateTimeToStr(Now()), ARequest.UserAgent]));
         exit;
     end;
 
     func:=ARequest.URI;
     query_spliter:=pos('?',func);
-    if query_spliter<=0 then begin
-        AResponse.Code:=400;
-        AResponse.ContentType:='application/json';
-        Debugline('['+DateTimeToStr(Now())+'] No query'+CRLF+ARequest.URI);
-        exit;
-    end;
+    if query_spliter>0 then delete(func, query_spliter, length(func));
+    if func<>'' then delete(func,1,1);
+    Debugline(Format('[%s] Func: %s', [DateTimeToStr(Now()), func]));
 
-    delete(func, query_spliter, length(func));
-    delete(func,1,1);
-    Debugline('['+DateTimeToStr(Now())+'] Func'+CRLF+ARequest.QueryString);
-    case lowercase(func) of
-        'login':auftask_func_login(ARequest, AResponse);
-        'logout':auftask_func_logout(ARequest, AResponse);
-        'send':auftask_func_send(ARequest, AResponse);
-        'fetch':auftask_func_fetch(ARequest, AResponse);
-        'getlist':auftask_func_getlist(ARequest, AResponse);
-        else begin
-            AResponse.Code:=405;
-            AResponse.ContentType:='application/json';
-            AResponse.Content:=Format('{"result"="No AufTask Function %s"}',[func]);
-            AResponse.SendContent;
+    TRY
+        try
+            jData:=nil;
+            jData:=GetJSON(ARequest.Content, true);
+        except
+            teapot_response(AResponse,'{"result":"ERROR_FATAL"}');
+            exit;
         end;
-    end;
+        if jData.JSONType <> jtObject then begin
+            teapot_response(AResponse,'{"result":"ERROR_FATAL"}');
+            exit;
+        end;
+        with TJSONObject(jData) do begin
+            jKey:=Find('sender-id',jtString);
+            if jKey=nil then sender_id:='' else sender_id:=jKey.AsString;
+            jKey:=Find('target-id',jtString);
+            if jKey=nil then target_id:='' else target_id:=jKey.AsString;
+        end;
+
+        case lowercase(func) of
+            'login':    auftask_func_login(    ARequest, AResponse, TJSONObject(jData), sender_id, target_id);
+            'logout':   auftask_func_logout(   ARequest, AResponse, TJSONObject(jData), sender_id, target_id);
+            'send':     auftask_func_send(     ARequest, AResponse, TJSONObject(jData), sender_id, target_id);
+            'fetch':    auftask_func_fetch(    ARequest, AResponse, TJSONObject(jData), sender_id, target_id);
+            'tasklist': auftask_func_tasklist( ARequest, AResponse, TJSONObject(jData), sender_id, target_id);
+            else begin
+                AResponse.Code:=405;
+                AResponse.ContentType:='application/json';
+                AResponse.Content:=Format('{"result":"ERROR_FUNC_NOT_FOUND", "info":"No AufTask Function %s"}',[func]);
+                AResponse.SendContent;
+            end;
+        end;
+    FINALLY
+        if jData<>nil then FreeAndNil(jData);
+    END;
+
 
 end;
 

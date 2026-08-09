@@ -15,10 +15,10 @@ type
     //连接到的任务客户端
     TAufTaskClient = class
     public
-        TaskId :TAufTaskClientId;
-        Name   :string;
-        Prompt :string; //任务的呼号，发送消息时只有拥有正确的呼号才会发送给该任务
-        OutKey :string; //主动登出所需的凭证
+        TaskId    :TAufTaskClientId;
+        Name      :string;
+        Prompt    :string; //任务的呼号，发送消息时只有拥有正确的呼号才会发送给该任务
+        TaskToken :string; //主动登出所需的凭证
     private
         TimeLogin     :TDateTime; //登陆的时间
         TimeLastSend  :TDateTime; //最后一次发送消息的时间
