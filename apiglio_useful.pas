@@ -50,7 +50,7 @@ uses
   {$ifdef can_be_removed}
   StdCtrls,
   {$endif}
-  LazUTF8, RegExpr, Variants,
+  LazUTF8, RegExpr, Variants, fpjson,
   Auf_Ram_Var, Auf_Ram_Image, aufscript_canvas,
   auf_type_base, auf_type_array, auf_type_error;
 
@@ -108,6 +108,7 @@ type
   pFuncAufStr= procedure(Sender:TObject;str:string);
   pFuncOper  = function(Sender:TObject;var is_error:boolean):boolean;
   pAufEventStr = procedure(Sender:TObject;str:string) of object;
+  pFuncVarJSON = procedure(url:string; var json:TJSONData);
 
 
 
@@ -231,17 +232,27 @@ type
     function DelTask(AufScpt:TAufscript):boolean;
   public
     constructor Create;
+  public
+    class var HttpServer:string;
+    class var HttpPost:pFuncVarJSON;
   end;
 
   TAufTaskMessageQueue = class
   private
     FUUID:TMsgUuid;
     FUUID_Stored:TMsgUuid;
+    FAccessLocked:Boolean;
+    FOnlined:Boolean;
+    FKeepAlive:Boolean;
+    FTaskToken:String;
     FQueue:array[0..task_range-1] of TMsgItem;
     FFirst:Integer;
     FCount:Integer;
   protected
     function GetQueueItem(Index:Integer):TMsgItem;
+    procedure AccessLock;
+    procedure AccessUnlock;
+
   public
     function Append(Msg:TMsgItem):boolean;
     function Pop:TMsgItem;
@@ -252,6 +263,9 @@ type
     property UUID_Stored:TMsgUuid read FUUID_Stored; //在重新启用时不创建新的ID
     property Count:Integer read FCount;
     property First:Integer read FFirst;
+    property Onlined:Boolean read FOnlined;
+    property KeepAlive:Boolean read FKeepAlive;
+    property TaskToken:String read FTaskToken;
     property Items[Index:Integer]:TMsgItem read GetQueueItem;
   end;
 
@@ -7050,13 +7064,49 @@ end;
 { TAufMultiTaskList }
 function TAufMultiTaskList.AddTask(AufScpt:TAufscript):boolean;
 var new_guid:TGUID;
+    json:TJSONData;
+    str_guid, post_result, task_token:string;
+    retry_counter:integer;
 begin
   result:=false;
   if not IsEqualGUID(AufScpt.PSW.message.UUID, GUID_NULL) then exit;
   if IsEqualGUID(AufScpt.PSW.message.UUID_Stored, GUID_NULL) then begin
-    if CreateGUID(new_guid) <> 0 then exit; //如果UUID没有创建成功，就不会加入TaskList
+    if TAufMultiTaskList.HttpPost<>nil then begin
+      //联机模式多次创建uuid确认在服务器上登录成功
+      retry_counter:=0;
+      repeat
+        if CreateGUID(new_guid) <> 0 then exit;
+        str_guid:=GUIDToString(new_guid);
+        json:=TJSONObject.Create();
+        try
+          TJSONObject(json).Strings['sender-id']:=str_guid;
+          TJSONObject(json).Strings['name']:='';
+          TJSONObject(json).Strings['prompt']:='';
+          TAufMultiTaskList.HttpPost('login',json);
+          if json<>nil then begin
+            post_result:=TJSONObject(json).Strings['result'];
+            task_token:=TJSONObject(json).Strings['task-token'];
+            AufScpt.PSW.message.FTaskToken:=task_token;
+            AufScpt.PSW.message.FOnlined:=true;
+          end;
+        finally
+          json.Free;
+        end;
+        inc(retry_counter);
+        if retry_counter>5 then exit;
+      until post_result='SUCCESS';
+    end else begin
+      //离线模式单次创建uuid
+      if CreateGUID(new_guid) <> 0 then exit; //如果UUID没有创建成功，就不会加入TaskList
+    end;
   end else begin
-    new_guid:=AufScpt.PSW.message.UUID_Stored;
+    if TAufMultiTaskList.HttpPost<>nil then begin
+      //联机模式需要判断uuid是否还有效
+      /////////////////////////////////////////////
+    end else begin
+      //离线模式uuid固定不变
+      new_guid:=AufScpt.PSW.message.UUID_Stored;
+    end;
   end;
   AddObject(GUIDToString(new_guid), AufScpt);
   AufScpt.PSW.message.FUUID:=new_guid;
@@ -7076,9 +7126,22 @@ end;
 function TAufMultiTaskList.DelTask(AufScpt:TAufscript):boolean;
 var str_guid:string;
     index:integer;
+    json:TJSONData;
 begin
   result:=false;
   str_guid:=GUIDToString(AufScpt.PSW.message.UUID);
+  if TAufMultiTaskList.HttpPost<>nil then begin
+    json:=TJSONObject.Create();
+    try
+      TJSONObject(json).Strings['sender-id']:=str_guid;
+      TJSONObject(json).Strings['task-token']:=AufScpt.PSW.message.TaskToken;
+      TAufMultiTaskList.HttpPost('logout', json);
+      if json=nil then exit;
+      if TJSONObject(json).Strings['result']<>'SUCCESS' then exit;
+    finally
+      json.Free;
+    end;
+  end;
   if Find(str_guid, index) then begin
     Delete(index);
   end;
@@ -7100,18 +7163,37 @@ begin
   result:=FQueue[index];
 end;
 
+procedure TAufTaskMessageQueue.AccessLock;
+begin
+  while true do begin
+    if FAccessLocked then continue
+    else begin
+      FAccessLocked:=true;
+      break;
+    end;
+  end;
+end;
+
+procedure TAufTaskMessageQueue.AccessUnlock;
+begin
+  FAccessLocked:=false;
+end;
+
 function TAufTaskMessageQueue.Append(Msg:TMsgItem):boolean;
+var vFirst:integer;
 begin
   result:=false;
   if FCount>=task_range then exit;
+  AccessLock;
   FCount:=FCount+1;
   FFirst:=(FFirst+1) mod task_range;
-
-  FQueue[FFirst].Code:=Msg.Code;
-  FQueue[FFirst].From:=Msg.From;
+  vFirst:=FFirst;
+  AccessUnlock;
+  FQueue[vFirst].Code:=Msg.Code;
+  FQueue[vFirst].From:=Msg.From;
   //以下两行展示了*ARV方法设计究竟有多不合理
-  newARV(FQueue[FFirst].Data, Msg.Data.size);
-  copyARV(Msg.Data, FQueue[FFirst].Data);
+  newARV(FQueue[vFirst].Data, Msg.Data.size);
+  copyARV(Msg.Data, FQueue[vFirst].Data);
 end;
 
 function TAufTaskMessageQueue.Pop:TMsgItem;
@@ -7119,13 +7201,16 @@ var vLast:Integer;
 begin
   result.From:=nil;
   if FCount<=0 then exit;
+  AccessLock;
   vLast:=FFirst-FCount+1;
   if vLast<0 then vLast:=vLast+task_range;
+  dec(FCount);
+  AccessUnlock;
   copyARV(FQueue[vLast].Data, result.Data);
   freeARV(FQueue[vLast].Data);
   result.Code:=FQueue[vLast].Code;
   result.From:=FQueue[vLast].From;
-  dec(FCount);
+
 end;
 
 procedure TAufTaskMessageQueue.Clear;
@@ -7133,12 +7218,14 @@ var len,idx:integer;
 begin
   len:=FCount;
   idx:=FFirst;
+  AccessLock;
   while len>0 do begin
     freeARV(FQueue[idx].Data);
     idx:=(idx+task_range-1) mod task_range;
   end;
   FCount:=0;
   FFirst:=0;
+  AccessUnlock;
 end;
 
 constructor TAufTaskMessageQueue.Create;
@@ -7146,6 +7233,9 @@ begin
   inherited Create;
   FCount:=0;
   FFirst:=0;
+  FAccessLocked:=false;
+  FOnlined:=false;
+  FKeepAlive:=false;
 end;
 
 destructor TAufTaskMessageQueue.Destroy;
@@ -7637,6 +7727,8 @@ end;
 INITIALIZATION
 
   TAufScript.DoFuncDefineHTTP:=nil;
+  TAufMultiTaskList.HttpServer:='apiglio.top:15616';
+  TAufMultiTaskList.HttpPost:=nil;
 
   GlobalExpressionList:=TAufExpressionList.Create;
   //这个是共用的，所有AufScript.Expression.Global都应该赋值这个

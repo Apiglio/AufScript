@@ -5,7 +5,7 @@ unit aufscript_https;
 interface
 
 uses
-  Classes, SysUtils, fphttpclient, URIParser;
+  Classes, SysUtils, fphttpclient, URIParser, fpjson, Dialogs;
 
 type
   TAufScriptHttpsClient = class
@@ -140,9 +140,34 @@ var AufScpt:TAufScript;
 begin
   AufScpt:=Sender as TAufScript;
   AufScpt.add_func('http.get',  @auf_https_get,  'RESULT, url',   '网络访问url并将结果存到RESULT');
-  AufScpt.add_func('http.post', @auf_https_post, 'RESULT, url',   '网络访问url并将结果存到RESULT');
+  AufScpt.add_func('http.post', @auf_https_post, 'RESULT, url[, data]',   '网络访问url并将结果存到RESULT');
   AufScpt.add_func('http.set_ua', @auf_https_set_ua, 'userAgent', '设置代码工具的访问头');
   AufScpt.add_func('http.get_ua', @auf_https_get_ua, 'UserAgent', '显示代码工具当前的访问头');
+
+end;
+
+procedure FuncPostHTTP(url:string; var json:TJSONData);
+const auftask_ua = 'AufScript Task ' + AufScript_Version + ' ' + AufScript_OS + '(' + AufScript_CPU + ')';
+var client:TFPHTTPClient;
+    response:TMemoryStream;
+begin
+  client:=TFPHTTPClient.Create(nil);
+  response:=TMemoryStream.Create;
+  try
+    client.AllowRedirect:=true;
+    client.OnRedirect:=@(AufScriptHttpClient.CheckURI);
+    client.AddHeader('User-Agent', auftask_ua);
+    client.RequestBody:=TStringStream.Create(json.AsJSON);
+    client.Post(Format('http://%s/%s',[TAufMultiTaskList.HttpServer, url]), response);
+    client.RequestBody.Free;
+    client.RequestBody:=nil;
+    FreeAndNil(json);
+    response.Position:=0;
+    if client.ResponseStatusCode=200 then json:=GetJSON(response);
+  finally
+    client.Free;
+    response.Free;
+  end;
 
 end;
 
@@ -151,6 +176,8 @@ initialization
   TAufScript.DoFuncDefineHTTP:=@FuncDefineHTTP;
   AufScriptHttpClient:=TAufScriptHttpsClient.Create;
   CommandLineUA:='Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
+
+  TAufMultiTaskList.HttpPost:=@FuncPostHTTP;
 
 finalization
 
