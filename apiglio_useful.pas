@@ -232,6 +232,7 @@ type
     function DelTask(AufScpt:TAufscript):boolean;
   public
     constructor Create;
+    destructor Destroy; override;
   public
     class var HttpServer:string;
     class var HttpPost:pFuncVarJSON;
@@ -7155,6 +7156,12 @@ begin
   Sorted:=true;
 end;
 
+destructor TAufMultiTaskList.Destroy;
+var idx:integer;
+begin
+  for idx:=Count-1 downto 0 do DelTask(TAufScript(Objects[idx]));
+  Inherited Destroy;
+end;
 
 { TAufTaskMessageQueue }
 
