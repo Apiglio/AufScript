@@ -323,6 +323,62 @@ begin
 end;
 
 
+procedure auftask_func_upd_meta(var ARequest: TFPHTTPConnectionRequest; var AResponse: TFPHTTPConnectionResponse; var AJSONData:TJSONObject; const ASenderId, ATargetId:string);
+var TaskToken, MetaKey, MetaValue:string;
+    targetID:TAufTaskClientId;
+    targetTC:TAufTaskClient;
+    jKey:TJSONData;
+begin
+    with AJSONData do begin
+        jKey:=Find('task-token',jtString);
+        if jKey<>nil then TaskToken:=jKey.AsString
+        else begin
+            error_response(AResponse, 'ERROR_ARGUMENT_NOT_FOUND', 'task-token');
+            exit;
+        end;
+        jKey:=Find('key',jtString);
+        if jKey<>nil then MetaKey:=jKey.AsString
+        else begin
+            error_response(AResponse, 'ERROR_ARGUMENT_NOT_FOUND', 'key');
+            exit;
+        end;
+        jKey:=Find('value',jtString);
+        if jKey<>nil then MetaValue:=jKey.AsString
+        else begin
+            error_response(AResponse, 'ERROR_ARGUMENT_NOT_FOUND', 'value');
+            exit;
+        end;
+    end;
+
+    if not TryStringToGUID(ATargetId, targetID) then begin
+        error_response(AResponse, 'ERROR_GUID_INVALID', '');
+        exit;
+    end;
+    if IsEqualGUID(targetID, GUID_NULL) then begin
+        error_response(AResponse, 'ERROR_GUID_INVALID', '');
+        exit;
+    end;
+
+    targetTC:=GlobalAufTaskPool.GetTaskClient(targetID);
+    if targetTC=nil then begin
+        error_response(AResponse, 'ERROR_TASK_NOT_FOUND', '');
+        exit;
+    end;
+
+    case MetaKey of
+        'name':targetTC.Name:=MetaValue;
+        else begin
+            error_response(AResponse, 'ERROR_METAKEY_INVALID', MetaKey);
+            exit;
+        end;
+    end;
+
+    AResponse.Code:=200;
+    AResponse.ContentType:='application/json';
+    AResponse.Content:='{"result":"SUCCESS"}';
+
+end;
+
 procedure TAufTaskServer.HandleRequest(var ARequest: TFPHTTPConnectionRequest; var AResponse: TFPHTTPConnectionResponse);
 const CRLF={$ifdef WINDOWS}#13#10{$else}#10{$endif};
 var UA:string;
@@ -371,6 +427,7 @@ begin
             'send':     auftask_func_send(     ARequest, AResponse, TJSONObject(jData), sender_id, target_id);
             'fetch':    auftask_func_fetch(    ARequest, AResponse, TJSONObject(jData), sender_id, target_id);
             'tasklist': auftask_func_tasklist( ARequest, AResponse, TJSONObject(jData), sender_id, target_id);
+            'upd_meta': auftask_func_upd_meta( ARequest, AResponse, TJSONObject(jData), sender_id, target_id);
             else begin
                 AResponse.Code:=405;
                 AResponse.ContentType:='application/json';

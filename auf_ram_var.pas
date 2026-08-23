@@ -163,6 +163,9 @@ type
   function arv_to_dword(ina:TAufRamVar):dword;
   function arv_to_double(ina:TAufRamVar):double;
 
+  function arv_to_base64(ina:TAufRamVar):string;
+  procedure base64_to_arv(bas:string; var arv:TAufRamVar);
+
   procedure dec_to_arv(ina:TDecimalStr;oua:TAufRamVar);
 
   procedure s_to_arv(s:string;oup:TAufRamVar);
@@ -202,7 +205,7 @@ var
 
 implementation
 
-uses Apiglio_Useful, auf_ram_image;
+uses Apiglio_Useful, auf_ram_image, base64;
 
 
 function DecimalStr(str:string):TDecimalStr;
@@ -967,7 +970,7 @@ function newARV(out inp:TAufRamVar;Size:dword):TAufScriptError;
 begin
   result:=AufsErr_NoError;
   inp.Is_Temporary:=true;
-  if not assigned(inp.Stream) then inp.Stream.Free;
+  if not assigned(inp.Stream) then inp.Stream.Free; //这是tm为什么？ 20260824
   inp.Stream:=TMemoryStream.Create;
   inp.Stream.Size:=Size;
   inp.Size:=size;
@@ -2476,6 +2479,39 @@ begin
     else begin raise Exception.Create('警告：错误的ARV类型，不能转换为字符串');exit end;
   end;
 end;
+
+function arv_to_base64(ina: TAufRamVar): string;
+var s:string;
+    idx, len:integer;
+begin
+  len:=ina.size;
+  for idx:=0 to ina.size-1 do begin
+    if (ina.Head+idx)^=0 then begin
+      len:=idx;
+      break;
+    end;
+  end;
+  SetLength(s, len+1);
+  move(ina.Head^, pchar(s)^, len);
+  (ina.Head+len)^:=0;
+  result:=EncodeStringBase64(s);
+end;
+
+procedure base64_to_arv(bas:string; var arv:TAufRamVar);
+var s:string;
+begin
+  if not arv.Is_Temporary then raise Exception.Create('base64_to_arv涉及长度变化必须存入临时ARV');
+  s:=DecodeStringBase64(bas);
+  with arv.Stream do begin
+    SetSize(length(s)+1);
+    Position:=0;
+    WriteAnsiString(s);
+    WriteByte(0);
+  end;
+  arv.size:=length(s);
+  arv.Head:=pbyte(arv.Stream.Memory);
+end;
+
 function arv_to_s(ina:TAufRamVar):string;
 var idx,len:dword;
 begin

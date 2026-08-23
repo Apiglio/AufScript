@@ -151,6 +151,7 @@ type
   TMsgCode = (mcUnknown=0, mcNormal=1, mcBroadcast=2, mcCanvas=3);
   TMsgItem = record
     From:TAufScript;
+    FromOnline:TMsgUuid; //如果不是本地任务，From=nil，FromOnline才有效，否则为''
     Data:TAufRamVar;
     Code:TMsgCode;
   end;
@@ -231,6 +232,8 @@ type
     function FindTask(task_id:TMsgUuid):TAufScript;
     function DelTask(AufScpt:TAufscript):boolean;
   public
+    function SendOnlineMessage(Sender:TAufscript;TargetId:TMsgUuid;Data:TAufRamVar;Code:TMsgCode):boolean;
+    function FetchOnlineMessage(Target:TAufscript):boolean; //如果没有拉取到消息则返回false
     constructor Create;
     destructor Destroy; override;
   public
@@ -2760,8 +2763,10 @@ begin
   send_to:=GlobalMultiTaskList.FindTask(uuid);
   if send_to<>nil then
     AufScpt.SendTaskMessage(send_to, arv, mcNormal)
-  else
-    AufScpt.send_error('未找到任务：'+stmp+'，协同消息未发出。',AufsErr_TaskNotFound);
+  else begin
+    if not GlobalMultiTaskList.SendOnlineMessage(AufScpt, uuid, arv, mcNormal)
+    then AufScpt.send_error('未找到任务：'+stmp+'，协同消息未发出。',AufsErr_TaskNotFound);
+  end;
 end;
 
 procedure task_read(Sender:TObject);
@@ -2786,7 +2791,11 @@ begin
   if aufs_from<>nil then begin
     str_uuid:=GUIDToString(aufs_from.PSW.message.UUID);
     if arv_uuid.size>0 then initiate_arv_str(str_uuid, arv_uuid);
-  end else {AufScpt.send_error('协同消息队列中无条目。',AufsErr_TaskNoMsg)};
+  end else begin
+    //task.read需要拉取网络吗？还是说强制必须task.wait拉取？
+    //!!! 目前采用task.wait拉取网络消息，单独的task.read只会读取本地消息
+    //AufScpt.send_error('协同消息队列中无条目。',AufsErr_TaskNoMsg);
+  end;
 end;
 
 procedure task_broadcast(Sender:TObject);
@@ -2852,8 +2861,15 @@ begin
     message_received:=false;
     while not AufScpt.PSW.haltoff and not AufScpt.PSW.pause do begin
       if AufScpt.PSW.message.Count>0 then begin
+        //有本地消息直接退出等待
         message_received:=true;
         break;
+      end else if AufScpt.PSW.message.Onlined then begin
+        //没有本地消息且自身是联机任务时，从网络拉取
+        if GlobalMultiTaskList.FetchOnlineMessage(AufScpt) then begin
+          message_received:=true;
+          break;
+        end;
       end;
       sleep(interval);
       if Now>AufScpt.PSW.message_info.timeout then break;
@@ -7150,6 +7166,74 @@ begin
   result:=true;
 end;
 
+function TAufMultiTaskList.SendOnlineMessage(Sender:TAufscript;TargetId:TMsgUuid;Data:TAufRamVar;Code:TMsgCode):boolean;
+var json:TJSONData;
+begin
+  result:=false;
+  if HttpPost=nil then exit;
+  json:=TJSONObject.Create;
+  try
+    TJSONObject(json).Strings['sender-id']:=GUIDToString(Sender.PSW.message.FUUID);
+    TJSONObject(json).Strings['target-id']:=GUIDToString(TargetId);
+    TJSONObject(json).Strings['task-token']:=Sender.PSW.message.FTaskToken;
+    TJSONObject(json).Strings['data']:=arv_to_base64(Data);
+    //TJSONObject(json).Integers['code']:=GetEnumValue(TypeInfo(TMsgCode), GetEnumName(TypeInfo(TMsgCode), Integer(Code)));
+    TJSONObject(json).Integers['code']:=Integer(Code);
+    TJSONObject(json).Strings['pass']:='';
+    HttpPost('send', json);
+    if json=nil then exit;
+    if TJSONObject(json).Strings['result']<>'SUCCESS' then exit;
+  finally
+    json.Free;
+  end;
+  result:=true;
+end;
+
+function TAufMultiTaskList.FetchOnlineMessage(Target:TAufscript):boolean;
+var json:TJSONData;
+    item:TJSONObject;
+    idx,len,invalid_message_count:integer;
+    MsgTemplate:TMsgItem;
+begin
+  result:=false;
+  if HttpPost=nil then exit;
+  json:=TJSONObject.Create;
+  try
+    TJSONObject(json).Strings['target-id']:=GUIDToString(Target.PSW.message.FUUID);
+    TJSONObject(json).Strings['task-token']:=Target.PSW.message.FTaskToken;
+    HttpPost('fetch', json);
+    if json=nil then exit;
+    if TJSONObject(json).Strings['result']<>'SUCCESS' then exit;
+    if TJSONObject(json).Find('messages', jtArray)=nil then exit;
+    with TJSONObject(json).Arrays['messages'] do begin
+      len:=Count;
+      MsgTemplate.From:=nil;
+      invalid_message_count:=0;
+      Target.PSW.message.AccessLock;
+      for idx:=0 to len-1 do begin
+        if Items[idx].JSONType<>jtObject then continue;
+        item:=TJSONObject(Items[idx]);
+        if item.Find('sender-id', jtString)=nil then continue
+        else MsgTemplate.FromOnline:=StringToGUID(item.Strings['sender-id']);
+        if item.Find('code', jtNumber)=nil then continue
+        else MsgTemplate.Code:=TMsgCode(item.Integers['code']);
+        if item.Find('data', jtString)=nil then continue
+        else begin
+          if newARV(MsgTemplate.Data, 0)<>AufsErr_NoError then continue;
+          base64_to_arv(item.Strings['data'], MsgTemplate.Data);
+        end;
+        Target.PSW.message.Append(MsgTemplate);
+        freeARV(MsgTemplate.Data);
+        inc(invalid_message_count);
+      end;
+      Target.PSW.message.AccessUnlock;
+    end;
+  finally
+    json.Free;
+  end;
+  if invalid_message_count>0 then result:=true;
+end;
+
 constructor TAufMultiTaskList.Create;
 begin
   Inherited Create;
@@ -7273,19 +7357,33 @@ procedure TAufMultiTaskTimer.OnTimerResume(Sender:TObject);
 var auf:TAufScript;
     msgQueue:TAufTaskMessageQueue;
     tmpMsg:TMsgItem;
+
+    procedure DoQuitWaitingWithMessage;
+    begin
+      auf.Time.MultiTaskTimerPause:=false;
+      Self.Enabled:=false;
+      auf.send(AufProcessControl_RunNext);
+    end;
+    procedure DoQuitWaitingWithTimeout;
+    begin
+      auf.Time.MultiTaskTimerPause:=false;
+      Self.Enabled:=false;
+      auf.pop_addr;
+      auf.next_addr;
+      auf.send(AufProcessControl_RunNext);
+    end;
+
 begin
   auf:=(Sender as TAufMultiTaskTimer).AufScript as TAufScript;
   msgQueue:=auf.PSW.message;
   if msgQueue.Count>0 then begin
-    auf.Time.MultiTaskTimerPause:=false;
-    Self.Enabled:=false;
-    auf.send(AufProcessControl_RunNext);
+    DoQuitWaitingWithMessage;
+  end else if auf.PSW.message.Onlined then begin
+    if GlobalMultiTaskList.FetchOnlineMessage(auf) then begin
+      DoQuitWaitingWithMessage;
+    end;
   end else if Now>=auf.PSW.message_info.timeout then begin
-    auf.Time.MultiTaskTimerPause:=false;
-    Self.Enabled:=false;
-    auf.pop_addr;
-    auf.next_addr;
-    auf.send(AufProcessControl_RunNext);
+    DoQuitWaitingWithTimeout;
   end;
 end;
 constructor TAufMultiTaskTimer.Create(AOwner:TComponent;AAufScript:TObject);
