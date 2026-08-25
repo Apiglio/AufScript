@@ -258,7 +258,7 @@ type
     procedure AccessUnlock;
 
   public
-    function Append(Msg:TMsgItem):boolean;
+    function Append(Msg:TMsgItem; IgnoreAccessLock:boolean=false):boolean;
     function Pop:TMsgItem;
     procedure Clear;
     constructor Create;
@@ -7222,7 +7222,7 @@ begin
           if newARV(MsgTemplate.Data, 0)<>AufsErr_NoError then continue;
           base64_to_arv(item.Strings['data'], MsgTemplate.Data);
         end;
-        Target.PSW.message.Append(MsgTemplate);
+        Target.PSW.message.Append(MsgTemplate, true);
         freeARV(MsgTemplate.Data);
         inc(invalid_message_count);
       end;
@@ -7270,16 +7270,16 @@ begin
   FAccessLocked:=false;
 end;
 
-function TAufTaskMessageQueue.Append(Msg:TMsgItem):boolean;
+function TAufTaskMessageQueue.Append(Msg:TMsgItem; IgnoreAccessLock:boolean=false):boolean;
 var vFirst:integer;
 begin
   result:=false;
   if FCount>=task_range then exit;
-  AccessLock;
+  if not IgnoreAccessLock then AccessLock;
   FCount:=FCount+1;
   FFirst:=(FFirst+1) mod task_range;
   vFirst:=FFirst;
-  AccessUnlock;
+  if not IgnoreAccessLock then AccessUnlock;
   FQueue[vFirst].Code:=Msg.Code;
   FQueue[vFirst].From:=Msg.From;
   //以下两行展示了*ARV方法设计究竟有多不合理
