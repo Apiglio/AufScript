@@ -2759,7 +2759,10 @@ begin
   if not AAuf.CheckArgs(3) then exit;
   if not AAuf.TryArgToARV(1, 0, High(dword), ARV_AllType, arv) then exit;
   if not AAuf.TryArgToString(2, stmp) then exit;
-  uuid:=StringToGUID(stmp);
+  if not TryStringToGUID(stmp, uuid) then begin
+    AufScpt.send_error('无效的任务ID：'+stmp+'，协同消息未发出。',AufsErr_TaskNotFound);
+    exit;
+  end;
   send_to:=GlobalMultiTaskList.FindTask(uuid);
   if send_to<>nil then
     AufScpt.SendTaskMessage(send_to, arv, mcNormal)
@@ -7214,7 +7217,7 @@ begin
         if Items[idx].JSONType<>jtObject then continue;
         item:=TJSONObject(Items[idx]);
         if item.Find('sender-id', jtString)=nil then continue
-        else MsgTemplate.FromOnline:=StringToGUID(item.Strings['sender-id']);
+        else if not TryStringToGUID(item.Strings['sender-id'], MsgTemplate.FromOnline) then continue;
         if item.Find('code', jtNumber)=nil then continue
         else MsgTemplate.Code:=TMsgCode(item.Integers['code']);
         if item.Find('data', jtString)=nil then continue
