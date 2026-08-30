@@ -108,6 +108,7 @@ type
   pFuncAufStr= procedure(Sender:TObject;str:string);
   pFuncOper  = function(Sender:TObject;var is_error:boolean):boolean;
   pAufEventStr = procedure(Sender:TObject;str:string) of object;
+  pAufFuncStrArv = function(Sender:TObject;str:string;arv:TAufRamVar):boolean of object;
   pFuncVarJSON = procedure(url:string; var json:TJSONData);
 
 
@@ -195,6 +196,7 @@ type
   TEnvVariantList = class
   private
     FList:TStringList;
+    FOnChanging:pAufFuncStrArv;
     FOnChange:pAufEventStr;
     FAufScript:TObject;
     FUpdating:Boolean;
@@ -215,6 +217,7 @@ type
   public
     procedure BeginUpdate;
     procedure EndUpdate;
+    property OnChanging:pAufFuncStrArv read FOnChanging write FOnChanging;
     property OnChange:pAufEventStr read FOnChange write FOnChange;
   end;
 
@@ -228,12 +231,22 @@ type
   end;
 
   TAufMultiTaskList = class(TStringList)
+  private
+    FAccessLocked:Boolean;
+    FOnlineTaskList:TStringList;
+  private
+    procedure AccessLock;
+    procedure AccessUnlock;
     function AddTask(AufScpt:TAufscript):boolean;
     function FindTask(task_id:TMsgUuid):TAufScript;
     function DelTask(AufScpt:TAufscript):boolean;
+    function AddOnlineTask(guid, name:string):boolean;
+    procedure ClearOnlineTask;
   public
     function SendOnlineMessage(Sender:TAufscript;TargetId:TMsgUuid;Data:TAufRamVar;Code:TMsgCode):boolean;
     function FetchOnlineMessage(Target:TAufscript):boolean; //如果没有拉取到消息则返回false
+    function UpdateOnlineTaskList(Target:TAufscript):boolean;
+    function UpdateOnlineTaskName(Target:TAufscript):boolean;
     constructor Create;
     destructor Destroy; override;
   public
@@ -246,6 +259,7 @@ type
     FUUID:TMsgUuid;
     FUUID_Stored:TMsgUuid;
     FAccessLocked:Boolean;
+    FName:string;
     FOnlined:Boolean;
     FKeepAlive:Boolean;
     FTaskToken:String;
@@ -450,6 +464,7 @@ type
         OperatorArray:array of string;     //用于配合TryArgToStrParam
       end;
       EnvVariant:TEnvVariantList;
+      function EnvVariantChanging(Sender:TObject; name:string; arv:TAufRamVar):boolean;
       procedure EnvVariantChange(Sender:TObject; name:string);
     protected
       procedure DoEventPre;
@@ -1368,18 +1383,17 @@ begin
   case parv^.VarType of
     ARV_FixNum:begin
       if not AAuf.TryArgToLong(2, ltmp) then exit;
-      dword_to_arv(ltmp, parv^);
+      AufScpt.EnvVariant.UpdateInteger(AAuf.nargs[1].arg, ltmp);
     end;
     ARV_Float:begin
       if not AAuf.TryArgToDouble(2, dtmp) then exit;
-      double_to_arv(dtmp, parv^);
+      AufScpt.EnvVariant.UpdateDouble(AAuf.nargs[1].arg, dtmp);
     end;
     ARV_Char:begin
       if not AAuf.TryArgToString(2, stmp) then exit;
-      initiate_arv_str(stmp, parv^);
+      AufScpt.EnvVariant.UpdateString(AAuf.nargs[1].arg, stmp);
     end;
   end;
-  AufScpt.EnvVariant.OnChange(AufScpt, lowercase(AAuf.nargs[1].arg));
 
 end;
 
@@ -2727,22 +2741,79 @@ begin
   AufScpt.DisableTaskMessage;
 end;
 
-procedure task_list(Sender:TObject);
+procedure task_msgs(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
     idx,len:integer;
     tmpMI:TMsgItem;
+    arr:TObject;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
-  AufScpt.writeln('TaskQueue '+GUIDToString(AufScpt.PSW.message.UUID)+':');
-  len:=AufScpt.PSW.message.Count;
-  idx:=AufScpt.PSW.message.First;
-  while len>0 do begin
-    dec(len);
-    tmpMI:=AufScpt.PSW.message.Items[idx];
-    AufScpt.writeln('  F:'+GUIDToString(tmpMI.From.PSW.message.UUID)+' S:'+IntToStr(tmpMI.Data.size));
-    idx:=(idx-1) mod task_range;
+  if AAuf.ArgsCount<2 then begin
+    AufScpt.writeln('TaskQueue '+GUIDToString(AufScpt.PSW.message.UUID)+':');
+    len:=AufScpt.PSW.message.Count;
+    idx:=AufScpt.PSW.message.First;
+    while len>0 do begin
+      dec(len);
+      tmpMI:=AufScpt.PSW.message.Items[idx];
+      AufScpt.writeln(Format('  from:%s  '+#9+' size:%s', [GUIDToString(tmpMI.From.PSW.message.UUID), IntToStr(tmpMI.Data.size)]));
+      idx:=(idx-1) mod task_range;
+    end;
+  end else begin
+    if not AAuf.TryArgToObject(1, TAufArray, arr) then exit;
+    TAufArray(arr).Clear;
+    len:=AufScpt.PSW.message.Count;
+    idx:=AufScpt.PSW.message.First;
+    while len>0 do begin
+      dec(len);
+      tmpMI:=AufScpt.PSW.message.Items[idx];
+      TAufArray(arr).Append(TAufBase.CreateAsString(GUIDToString(tmpMI.From.PSW.message.UUID)));
+      idx:=(idx-1) mod task_range;
+    end;
+  end;
+end;
+
+procedure task_list(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    idx:integer;
+    arr:TObject;
+    task_name, task_guid_str:string;
+    task_guid:TMsgUuid;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  GlobalMultiTaskList.UpdateOnlineTaskList(AufScpt);
+
+  if AAuf.ArgsCount<2 then begin
+    AufScpt.writeln('TaskList(local):');
+    for idx:=GlobalMultiTaskList.Count-1 downto 0 do begin
+      task_name:=TAufScript(GlobalMultiTaskList.Objects[idx]).PSW.message.FName;
+      task_guid:=TAufScript(GlobalMultiTaskList.Objects[idx]).PSW.message.FUUID;
+      AufScpt.writeln(Format('  name:%s  '+#9+' guid:%s', [task_name, GUIDToString(task_guid)]));
+    end;
+    AufScpt.writeln('');
+    AufScpt.writeln('TaskList(online):');
+    for idx:=GlobalMultiTaskList.FOnlineTaskList.Count-1 downto 0 do begin
+      task_name:=GlobalMultiTaskList.FOnlineTaskList.ValueFromIndex[idx];
+      task_guid_str:=GlobalMultiTaskList.FOnlineTaskList.Names[idx];
+      AufScpt.writeln(Format('  name:%s  '+#9+' guid:%s', [task_name, task_guid_str]));
+    end;
+  end else begin
+    if not AAuf.TryArgToObject(1, TAufArray, arr) then exit;
+    TAufArray(arr).Clear;
+    for idx:=GlobalMultiTaskList.Count-1 downto 0 do begin
+      task_name:=TAufScript(GlobalMultiTaskList.Objects[idx]).PSW.message.FName;
+      task_guid:=TAufScript(GlobalMultiTaskList.Objects[idx]).PSW.message.FUUID;
+      TAufArray(arr).Append(TAufBase.CreateAsString(GUIDToString(task_guid)));
+    end;
+    AufScpt.writeln('');
+    for idx:=GlobalMultiTaskList.FOnlineTaskList.Count-1 downto 0 do begin
+      task_name:=GlobalMultiTaskList.FOnlineTaskList.ValueFromIndex[idx];
+      task_guid_str:=GlobalMultiTaskList.FOnlineTaskList.Names[idx];
+      TAufArray(arr).Append(TAufBase.CreateAsString(task_guid_str));
+    end;
   end;
 end;
 
@@ -6116,17 +6187,73 @@ begin
 
 end;
 
+function TAufScript.EnvVariantChanging(Sender:TObject; name:string; arv:TAufRamVar):boolean;
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    ltmp,normalized:int32;
+    stmp:string;
+    ftmp:double;
+begin
+  result:=false;
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  case arv.VarType of
+    ARV_FixNum:begin
+      ltmp:=int32(arv_to_dword(arv));
+      if ltmp<1 then normalized:=1 else normalized:=ltmp;
+    end;
+    ARV_Char:begin
+      stmp:=arv_to_s(arv);
+    end;
+    ARV_Float:begin
+      ftmp:=arv_to_double(arv);
+    end;
+  end;
+
+  case name of
+    'task[host]':begin
+      GlobalMultiTaskList.HttpServer:=stmp;
+      //这里应该实现修改host的时候自动logout全部再重新login
+    end;
+    'task[name]':begin
+      AufScpt.PSW.message.FName:=stmp;
+      result:=true;
+      //以下条件视为可修改：
+      if TAufMultiTaskList.HttpPost=nil then exit;
+      if IsEqualGUID(AufScpt.PSW.message.UUID, GUID_NULL) then exit;
+      if GlobalMultiTaskList.UpdateOnlineTaskName(AufScpt) then exit;
+      //以上均不满足则报错：
+      AufScpt.send_error('警告：当前任务名字修改后未能与服务器同步，请确认网络连接后重复修改。', AufsErr_TaskOnlineServerDisconnected);
+      exit;
+    end;
+  end;
+  result:=true;
+end;
+
 procedure TAufScript.EnvVariantChange(Sender:TObject; name:string);
 var AufScpt:TAufScript;
     AAuf:TAuf;
     arv:TAufRamVar;
     ltmp,normalized:int32;
+    stmp:string;
+    ftmp:double;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   arv:=EnvVariant.GetVariantByName(name);
-  ltmp:=int32(arv_to_dword(arv));
-  if ltmp<1 then normalized:=1 else normalized:=ltmp;
+  case arv.VarType of
+    ARV_FixNum:begin
+      ltmp:=int32(arv_to_dword(arv));
+      if ltmp<1 then normalized:=1 else normalized:=ltmp;
+    end;
+    ARV_Char:begin
+      stmp:=arv_to_s(arv);
+    end;
+    ARV_Float:begin
+      ftmp:=arv_to_double(arv);
+    end;
+  end;
+
   case name of
     'task[interval]':begin
       AufScpt.PSW.message_info.interval:=ltmp;
@@ -6895,6 +7022,7 @@ begin
   inherited Create;
   FList:=TStringList.Create;
   FList.Sorted:=true;
+  FOnChanging:=nil;
   FOnChange:=nil;
   FAufScript:=AOwner;
   FUpdating:=false;
@@ -6949,10 +7077,14 @@ function TEnvVariantList.UpdateInteger(name:string; data:integer):boolean;
 var tmp:TAufRamVar;
     dat:int32;
 begin
+  result:=false;
   dat:=data;
   tmp.size:=4;
   tmp.Head:=@dat;
   tmp.VarType:=ARV_FixNum;
+  if (FOnChanging<>nil) and (not FUpdating) then begin
+    if not FOnChanging(FAufScript, LowerCase(name), tmp) then exit;
+  end;
   result:=Update(name, tmp);
   if (FOnChange<>nil) and (not FUpdating) then FOnChange(FAufScript, lowercase(name));
 end;
@@ -6961,10 +7093,14 @@ function TEnvVariantList.UpdateDouble(name:string; data:double):boolean;
 var tmp:TAufRamVar;
     dat:double;
 begin
+  result:=false;
   dat:=data;
   tmp.size:=8;
   tmp.Head:=@dat;
   tmp.VarType:=ARV_Float;
+  if (FOnChanging<>nil) and (not FUpdating) then begin
+    if not FOnChanging(FAufScript, LowerCase(name), tmp) then exit;
+  end;
   result:=Update(name, tmp);
   if (FOnChange<>nil) and (not FUpdating) then FOnChange(FAufScript, lowercase(name));
 end;
@@ -6972,10 +7108,14 @@ function TEnvVariantList.UpdateString(name:string; data:string):boolean;
 var tmp:TAufRamVar;
     dat:string;
 begin
+  result:=false;
   dat:=data;
   tmp.size:=length(data);
   tmp.Head:=@dat[1];
   tmp.VarType:=ARV_Char;
+  if (FOnChanging<>nil) and (not FUpdating) then begin
+    if not FOnChanging(FAufScript, LowerCase(name), tmp) then exit;
+  end;
   result:=Update(name, tmp);
   if (FOnChange<>nil) and (not FUpdating) then FOnChange(FAufScript, lowercase(name));
 end;
@@ -7082,8 +7222,25 @@ begin
 end;
 
 { TAufMultiTaskList }
+
+procedure TAufMultiTaskList.AccessLock;
+begin
+  while true do begin
+    if FAccessLocked then continue
+    else begin
+      FAccessLocked:=true;
+      break;
+    end;
+  end;
+end;
+
+procedure TAufMultiTaskList.AccessUnlock;
+begin
+  FAccessLocked:=false;
+end;
+
 function TAufMultiTaskList.AddTask(AufScpt:TAufscript):boolean;
-var new_guid:TGUID;
+var new_guid:TMsgUuid;
     json:TJSONData;
     str_guid, post_result, task_token:string;
     retry_counter:integer;
@@ -7169,6 +7326,17 @@ begin
   result:=true;
 end;
 
+function TAufMultiTaskList.AddOnlineTask(guid, name:string):boolean;
+begin
+  FOnlineTaskList.Values[guid]:=name;
+  result:=true;
+end;
+
+procedure TAufMultiTaskList.ClearOnlineTask;
+begin
+  FOnlineTaskList.Clear;
+end;
+
 function TAufMultiTaskList.SendOnlineMessage(Sender:TAufscript;TargetId:TMsgUuid;Data:TAufRamVar;Code:TMsgCode):boolean;
 var json:TJSONData;
 begin
@@ -7237,16 +7405,81 @@ begin
   if invalid_message_count>0 then result:=true;
 end;
 
+function TAufMultiTaskList.UpdateOnlineTaskList(Target:TAufscript):boolean;
+var json:TJSONData;
+    item:TJSONObject;
+    idx,len,invalid_message_count:integer;
+    task_name:string;
+    task_guid:TMsgUuid;
+begin
+  result:=false;
+  if HttpPost=nil then exit;
+  json:=TJSONObject.Create;
+  try
+    TJSONObject(json).Strings['target-id']:=GUIDToString(Target.PSW.message.FUUID);
+    TJSONObject(json).Strings['task-token']:=Target.PSW.message.FTaskToken;
+    HttpPost('tasklist', json);
+    if json=nil then exit;
+    if TJSONObject(json).Strings['result']<>'SUCCESS' then exit;
+    if TJSONObject(json).Find('tasks', jtArray)=nil then exit;
+    with TJSONObject(json).Arrays['tasks'] do begin
+      len:=Count;
+      invalid_message_count:=0;
+      GlobalMultiTaskList.AccessLock;
+      //清楚之前的列表（临时方案）
+      ClearOnlineTask;
+      //通过服务器返回的信息重建列表（临时方案）
+      for idx:=0 to len-1 do begin
+        if Items[idx].JSONType<>jtObject then continue;
+        item:=TJSONObject(Items[idx]);
+        if item.Find('guid', jtString)=nil then continue
+        else if not TryStringToGUID(item.Strings['guid'], task_guid) then continue;
+        if item.Find('name', jtString)=nil then continue
+        else task_name:=item.Strings['name'];
+        GlobalMultiTaskList.AddOnlineTask(GUIDToString(task_guid), task_name);
+        inc(invalid_message_count);
+      end;
+      GlobalMultiTaskList.AccessUnlock;
+    end;
+  finally
+    json.Free;
+  end;
+  if invalid_message_count>0 then result:=true;
+end;
+
+function TAufMultiTaskList.UpdateOnlineTaskName(Target:TAufscript):boolean;
+var json:TJSONData;
+begin
+  result:=false;
+  if HttpPost=nil then exit;
+  json:=TJSONObject.Create;
+  try
+    TJSONObject(json).Strings['target-id']:=GUIDToString(Target.PSW.message.FUUID);
+    TJSONObject(json).Strings['task-token']:=Target.PSW.message.FTaskToken;
+    TJSONObject(json).Strings['key']:='name';
+    TJSONObject(json).Strings['value']:=Target.PSW.message.FName;
+    HttpPost('upd_meta', json);
+    if json=nil then exit;
+    if TJSONObject(json).Strings['result']<>'SUCCESS' then exit;
+  finally
+    json.Free;
+  end;
+  result:=true;
+end;
+
 constructor TAufMultiTaskList.Create;
 begin
   Inherited Create;
   Sorted:=true;
+  FOnlineTaskList:=TStringList.Create;
+  FOnlineTaskList.Sorted:=true;
 end;
 
 destructor TAufMultiTaskList.Destroy;
 var idx:integer;
 begin
   for idx:=Count-1 downto 0 do DelTask(TAufScript(Objects[idx]));
+  FOnlineTaskList.Free;
   Inherited Destroy;
 end;
 
@@ -7519,12 +7752,15 @@ begin
   Expression.Local:=TAufExpressionList.Create;
 
   EnvVariant:=TEnvVariantList.Create(Self);
+  EnvVariant.OnChanging:=@EnvVariantChanging;
   EnvVariant.OnChange:=@EnvVariantChange;
   EnvVariant.AddString('kernel[version]',  AufScript_Version);
   EnvVariant.AddInteger('canvas[width]',   320);
   EnvVariant.AddInteger('canvas[height]',  240);
   EnvVariant.AddInteger('task[interval]',  50);
   EnvVariant.AddInteger('task[max_wait]',  -1);
+  EnvVariant.AddString('task[name]',  '');
+  EnvVariant.AddString('task[host]',  TAufMultiTaskList.HttpServer);
 
   for idx:=0 to func_range-1 do Self.func[i].name:='';
 end;
@@ -7668,7 +7904,8 @@ procedure TAufScript.AdditionFuncDefine_Task;
 begin
   Self.add_func('task.enable',    @task_enable,        '[@var]',        '开始多任务协同，并将当前TaskID返回给var');
   Self.add_func('task.disable',   @task_disable,       '',              '结束多任务协同');
-  Self.add_func('task.list',      @task_list,          '',              '调试查看多任务协同消息队列');
+  Self.add_func('task.msgs',      @task_msgs,          '[@arr]',        '调试查看多任务协同消息队列',      TAufArray);
+  Self.add_func('task.list',      @task_list,          '[@arr]',        '调试查看可连接的协同任务',        TAufArray);
   Self.add_func('task.send',      @task_send,          '@var, taskId',          '向其他任务发送协同消息');
   Self.add_func('task.read',      @task_read,          '@var[, taskId]',        '直接读取跨任务协同消息');
   Self.add_func('task.broadcast', @task_broadcast,     '@var',                  '向所有任务广播协同消息');

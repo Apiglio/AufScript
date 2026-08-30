@@ -39,6 +39,7 @@ type
     AufsErr_TaskNotFound,
     AufsErr_TaskNotEnabled,
     AufsErr_TaskNoMsg,
+    AufsErr_TaskOnlineServerDisconnected,
     AufsErr_DefTime,
     AufsErr_EncTime,
     AufsErr_RunTime,
