@@ -24,4 +24,4 @@ docs/*
 *.lrs
 *.res
 *.fpcres
-
+makefile.local
