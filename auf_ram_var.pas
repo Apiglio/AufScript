@@ -2281,7 +2281,7 @@ begin
       arv.size:=size;
       arv.VarType:=ARV_Char;
       arv.Stream.Free;
-      arv.Stream.Create;
+      arv.Stream:=TMemoryStream.Create;
       arv.Stream.Size:=size;
       arv.Head:=arv.Stream.Memory;
     end
@@ -2482,18 +2482,8 @@ end;
 
 function arv_to_base64(ina: TAufRamVar): string;
 var s:string;
-    idx, len:integer;
 begin
-  len:=ina.size;
-  for idx:=0 to ina.size-1 do begin
-    if (ina.Head+idx)^=0 then begin
-      len:=idx;
-      break;
-    end;
-  end;
-  SetLength(s, len+1);
-  move(ina.Head^, pchar(s)^, len);
-  (ina.Head+len)^:=0;
+  s:=arv_to_s(ina);
   result:=EncodeStringBase64(s);
 end;
 
@@ -2502,14 +2492,9 @@ var s:string;
 begin
   if not arv.Is_Temporary then raise Exception.Create('base64_to_arv涉及长度变化必须存入临时ARV');
   s:=DecodeStringBase64(bas);
-  with arv.Stream do begin
-    SetSize(length(s)+1);
-    Position:=0;
-    WriteAnsiString(s);
-    WriteByte(0);
-  end;
   arv.size:=length(s);
-  arv.Head:=pbyte(arv.Stream.Memory);
+  arv.Stream.SetSize(arv.size);
+  initiate_arv_str(s, arv);
 end;
 
 function arv_to_s(ina:TAufRamVar):string;

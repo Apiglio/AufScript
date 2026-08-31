@@ -68,14 +68,14 @@ end;
 procedure teapot_response(var AResponse: TFPHTTPConnectionResponse; const Msg:String);inline;
 begin
     AResponse.Code:=418;
-    AResponse.ContentType:='application/json';
+    AResponse.ContentType:='application/json; charset=utf-8';
     AResponse.Content:=Msg;
 end;
 
 procedure error_response(var AResponse: TFPHTTPConnectionResponse; const ErrorText, Msg:String);inline;
 begin
     AResponse.Code:=418;
-    AResponse.ContentType:='application/json';
+    AResponse.ContentType:='application/json; charset=utf-8';
     AResponse.Content:=Format('{"result":"%s", "info":"%s"}', [ErrorText, Msg]);
 end;
 
@@ -120,7 +120,7 @@ begin
     tmpTaskClient.Prompt    := argPrompt;
 
     AResponse.Code:=200;
-    AResponse.ContentType:='application/json';
+    AResponse.ContentType:='application/json; charset=utf-8';
     AResponse.Content:=Format('{"result":"SUCCESS", "task-token":"%s"}',[TaskToken]);
 
 end;
@@ -160,7 +160,7 @@ begin
     end;
 
     AResponse.Code:=200;
-    AResponse.ContentType:='application/json';
+    AResponse.ContentType:='application/json; charset=utf-8';
     AResponse.Content:='{"result":"SUCCESS"}';
 
 end;
@@ -226,7 +226,7 @@ begin
     GlobalAufTaskMessagePool.PushMessage(senderID, targetID, argData, argCode);
 
     AResponse.Code:=200;
-    AResponse.ContentType:='application/json';
+    AResponse.ContentType:='application/json; charset=utf-8';
     AResponse.Content:='{"result":"SUCCESS"}';
 
 end;
@@ -277,7 +277,7 @@ begin
             resJSON.Add(objJSON);
         end;
         AResponse.Code:=200;
-        AResponse.ContentType:='application/json';
+        AResponse.ContentType:='application/json; charset=utf-8';
         AResponse.Content:=Format('{"result":"SUCCESS", "messages":%s}',[resJSON.FormatJSON()]);
     finally
         resJSON.Free;
@@ -291,6 +291,7 @@ var TaskToken:string;
     targetID:TAufTaskClientId;
     targetTC:TAufTaskClient;
     jKey:TJSONData;
+    allowEmptyName:boolean;
 begin
     with AJSONData do begin
         jKey:=Find('task-token',jtString);
@@ -299,6 +300,8 @@ begin
             error_response(AResponse, 'ERROR_ARGUMENT_NOT_FOUND', 'task-token');
             exit;
         end;
+        jKey:=Find('allow-empty-name',jtBoolean);
+        if jKey<>nil then allowEmptyName:=jKey.AsBoolean else allowEmptyName:=false;
     end;
 
     if not TryStringToGUID(ATargetId, targetID) then begin
@@ -317,8 +320,8 @@ begin
     end;
 
     AResponse.Code:=200;
-    AResponse.ContentType:='application/json';
-    AResponse.Content:=Format('{"result":"SUCCESS", "messages":%s}',[GlobalAufTaskPool.GetTaskListJSON().FormatJSON()]);
+    AResponse.ContentType:='application/json; charset=utf-8';
+    AResponse.Content:=Format('{"result":"SUCCESS", "tasks":%s}',[GlobalAufTaskPool.GetTaskListJSON(allowEmptyName).FormatJSON()]);
 
 end;
 
@@ -367,6 +370,8 @@ begin
 
     case MetaKey of
         'name':targetTC.Name:=MetaValue;
+        'prompt':targetTC.Prompt:=MetaValue;
+        'task-token':targetTC.TaskToken:=MetaValue;
         else begin
             error_response(AResponse, 'ERROR_METAKEY_INVALID', MetaKey);
             exit;
@@ -374,7 +379,7 @@ begin
     end;
 
     AResponse.Code:=200;
-    AResponse.ContentType:='application/json';
+    AResponse.ContentType:='application/json; charset=utf-8';
     AResponse.Content:='{"result":"SUCCESS"}';
 
 end;
@@ -390,7 +395,7 @@ begin
     UA:=lowercase(ARequest.UserAgent);
     if pos('aufscript task', UA)<=0 then begin
         AResponse.Code:=400;
-        AResponse.ContentType:='application/json';
+        AResponse.ContentType:='application/json; charset=utf-8';
         AResponse.Content:='{"result":"ERROR_UNKNOWN"}';
         Debugline(Format('[%s] Invalid UA: %s', [DateTimeToStr(Now()), ARequest.UserAgent]));
         exit;
@@ -400,7 +405,7 @@ begin
     query_spliter:=pos('?',func);
     if query_spliter>0 then delete(func, query_spliter, length(func));
     if func<>'' then delete(func,1,1);
-    Debugline(Format('[%s] Func: %s', [DateTimeToStr(Now()), func]));
+    Debugline(Format('[%s] Func: %s '+#9+' %s', [DateTimeToStr(Now()), func, ARequest.Content]));
 
     TRY
         try
@@ -430,7 +435,7 @@ begin
             'upd_meta': auftask_func_upd_meta( ARequest, AResponse, TJSONObject(jData), sender_id, target_id);
             else begin
                 AResponse.Code:=405;
-                AResponse.ContentType:='application/json';
+                AResponse.ContentType:='application/json; charset=utf-8';
                 AResponse.Content:=Format('{"result":"ERROR_FUNC_NOT_FOUND", "info":"No AufTask Function %s"}',[func]);
                 AResponse.SendContent;
             end;
