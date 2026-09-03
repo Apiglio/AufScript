@@ -154,6 +154,8 @@ type
   operator <>(ina,inb:TAufRamVar):boolean;
   }
 
+  function arv_hash(ina:TAufRamVar):dword;
+
   function arv_to_s(ina:TAufRamVar):string;
   function arv_to_hex(ina:TAufRamVar):string;
   function arv_to_bin(ina:TAufRamVar):string;
@@ -2495,6 +2497,37 @@ begin
   arv.size:=length(s);
   arv.Stream.SetSize(arv.size);
   initiate_arv_str(s, arv);
+end;
+
+function arv_hash(ina:TAufRamVar):dword;
+var idx:integer;
+    offset, byt:dword;
+begin
+  result:=0;
+  case ina.VarType of
+    ARV_Char:begin
+      idx:=0;
+      while idx<ina.size do begin
+        byt:=pbyte(ina.Head+idx)^;
+        if byt<>0 then begin
+          offset:=(idx+2)*(idx+1) div 2;
+          inc(result, byt*offset);
+        end else break; //字符串遇到\0直接退出
+        inc(idx);
+      end;
+    end;
+    else begin
+      idx:=0;
+      while idx<ina.size do begin
+        byt:=pbyte(ina.Head+idx)^;
+        if byt<>0 then begin
+          offset:=(idx+2)*(idx+1) div 2;
+          inc(result, byt*offset);
+        end;
+        inc(idx);
+      end;
+    end;
+  end;
 end;
 
 function arv_to_s(ina:TAufRamVar):string;

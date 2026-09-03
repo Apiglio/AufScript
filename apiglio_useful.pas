@@ -1261,11 +1261,16 @@ begin
       ARV_Char:AufScpt.writeln(Format('  arv = {type:char, head:%d, size:%d}',[qtmp,atmp.size]));
       else AufScpt.writeln(Format('  arv = {type:unknown, head:%d, size:%d}',[qtmp,atmp.size]));
     end;
+    AufScpt.writeln(Format('  arv.hash = %d',[arv_hash(atmp)]));
   end;
+  //arv_to_obj会出现assign的问题
+  AufScpt.writeln('  obj = {unimplemented}');
+  {
   if AAuf.TryArgToObject(1,TAufBase, otmp) then begin
     if otmp<>nil then AufScpt.writeln('  obj = '+otmp.ClassName)
     else AufScpt.writeln('  obj = nil');
   end;
+  }
   AufScpt.IO_fptr.error:=tmp_error_pfunc;
 
 end;
@@ -2156,7 +2161,9 @@ begin
   end;
   init_command:=lowercase(non_space(AufScpt.ScriptLines.Strings[addr-1]));
   len_command:=length(init_command);
-  if init_command[len_command]=':' then begin
+  if init_command='' then begin
+    //使用@line[+n]形式跳转
+  end else if init_command[len_command]=':' then begin
     //第一次执行loop
     delete(init_command,len_command,1);
     AufScpt.ScriptLines.Strings[addr-1]:='init &"'+pRamToRawStr(AufScpt.currentline)+'" "'+init_command+'"';
