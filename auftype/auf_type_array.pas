@@ -15,7 +15,7 @@ type
 
   PAufBaseBoolFunc = function(item:TAufBase):boolean;
   PAufBaseBaseFunc = function(item:TAufBase):TAufBase;
-  TAufArray = class(TAufBase)
+  TAufArray = class(TAufObject)
   private
     FArray:array of TAufBase;
     FParentArray:TAufArray;
@@ -47,7 +47,7 @@ type
     function Copy:TAufBase; override;
     function ToString: ansistring; override;
   public
-    constructor Create;                               //创建不定长数组
+    constructor Create(DefineARV:TAufRamVar);         //创建不定长数组
     destructor Destroy; override;                     //释放不定长数组
     class function AufTypeName:String; override;
   end;
@@ -199,7 +199,7 @@ end;
 
 function TAufArray.Copy:TAufBase;
 begin
-  result:=TAufArray.Create;
+  result:=TAufArray.Create(ARV_Nil);
   (result as TAufArray).Assign(Self);
 end;
 
@@ -279,19 +279,15 @@ begin
   SetLength(FArray,0);
 end;
 
-constructor TAufArray.Create;
+constructor TAufArray.Create(DefineARV:TAufRamVar);
 begin
-  inherited Create;
+  inherited Create(DefineARV);
   FParentArray:=nil;
-  FARV.Head:=@Self;
-  FARV.size:={$ifdef cpu64}8{$else}4{$endif};
 end;
 
 destructor TAufArray.Destroy;
 begin
   Clear;
-  FARV.Head:=nil;
-  FARV.size:=0;
   inherited Destroy;
 end;
 

@@ -186,6 +186,7 @@ type
 
 const
   ARV_AllType:TAufRamVarTypeSet = [ARV_FixNum,ARV_Float,ARV_Char];
+  ARV_Nil:TAufRamVar = (VarType:ARV_Raw; Head:nil; size:0);
 
 var
 

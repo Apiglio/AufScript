@@ -32,7 +32,7 @@ type
     destructor Destroy; override;
   public
     class function AufTypeName:string; virtual;
-    class var Class_InstanceList:TList;                             //实例列表地址会发生变化
+    class var Class_InstanceList:TList;                              //实例列表地址会发生变化
     class function ClassInstancesCount:Integer; virtual;             //返回自身实例数
     class function TotalInstancesCount:Integer; virtual;             //返回自身及所有子类实例数
     class function ClearClassInstances:boolean; virtual;             //释放自身的实例
@@ -58,8 +58,20 @@ type
 
   TAufBaseClass = class of TAufBase;
 
+  //对象数据
+  //数据不储存在FARV中，FARV只表示内存空间内存储该对象指针的位置
+  //在创建时，如果不是直接定义在内存空间里，而是对象内的对象，FARV.size=0；
+  //          如果直接定义在内存空间里，FARV指向对应的8字节FixNum空间。
+  //指向Self，析构时置0。
+  TAufObject = class(TAufBase)
+  public
+    constructor Create(DefineARV:TAufRamVar);
+    destructor Destroy; override;
+  end;
+
 implementation
 uses auf_type_array;
+
 
 { TAufBase }
 
@@ -291,6 +303,49 @@ begin
     ARV_Char:initiate_arv_str(value,FARV);
     else raise TAufBaseError.Create('TAufBase.GetString: FARV.VarType <> ARV_Char.');
   end;
+end;
+
+
+{ TAufObject }
+
+constructor TAufObject.Create(DefineARV:TAufRamVar);
+begin
+  inherited Create;
+  FARV:=DefineARV;
+  case FARV.size of
+    0:;
+    8:begin
+      {$ifdef cpu64}
+        PQWord(arv.Head)^:=QWord(@Self);
+      {$else}
+        {$ifdef cpu32}
+          PDWord(arv.Head)^:=DWord(@Self);
+        {$else}
+          raise Exception.Create('cpu位数不支持。');
+        {$endif}
+      {$endif}
+    end;
+    else begin
+      raise Exception.Create('不支持8位以外的Object ARV');
+    end;
+  end;
+end;
+
+destructor TAufObject.Destroy;
+begin
+  if FARV.size<>0 then begin
+    {$ifdef cpu64}
+      PQWord(FARV.Head)^:=0;
+    {$else}
+      {$ifdef cpu32}
+        PDWord(FARV.Head)^:=0;
+      {$else}
+        raise Exception.Create('cpu位数不支持。');
+      {$endif}
+    {$endif}
+    FARV.Head:=nil;
+  end;
+  inherited Destroy;
 end;
 
 

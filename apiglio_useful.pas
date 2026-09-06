@@ -184,13 +184,26 @@ type
   end;
   {$endif}
 
+  TAufExpressionUnitState = (
+    aeusConstant,      //不指向内存区域的片段定义，不可修改，系统常量
+    aeusDefinition,    //不指向内存区域的片段定义，可修改，由define创建
+    aeusMemory,        //指向内存区域但不设置独占，由define创建
+    aeusVariable,      //指向内存区域并设置独占，但保存非对象数据，由var创建
+    aeusObject,        //指向内存区域并设置独占，保存对象数据，由var object创建，需要手动unvar
+    aeusTrustorObject  //指向内存区域并设置独占，保存对象数据，由赋值语法=创建，执行del或freeall时自动删除
+  );
+
   TAufExpressionUnit = class(TObject)
-  public
+  private
     key:string;
     value:Tnargs;
-    readonly:boolean;
-    constructor Create(AKey:string;AValue:Tnargs;AReadOnly:boolean=false);
+    state:TAufExpressionUnitState;
+  protected
+    function GetReadOnly:boolean;
+  public
+    constructor Create(AKey:string;AValue:Tnargs;AState:TAufExpressionUnitState);
     function TryEdit(NewValue:Tnargs):boolean;
+    property ReadOnly:boolean read GetReadOnly;
   end;
 
   TEnvVariantList = class
@@ -225,7 +238,7 @@ type
   public
     function Find(AKey:string):TAufExpressionUnit;
     function Translate(AKey:string):Tnargs;
-    function TryAddExp(AKey:string;AValue:Tnargs;readonly:boolean=false):boolean;
+    function TryAddExp(AKey:string;AValue:Tnargs;AState:TAufExpressionUnitState):boolean;
     function TryRenameExp(OldKey,NewKey:string):boolean;
     function TryDeleteExp(Key:string):boolean;
   end;
@@ -2285,6 +2298,7 @@ procedure _define(Sender:TObject);
 var AufScpt:TAufScript;
     AAuf:TAuf;
     global:boolean;
+    state:TAufExpressionUnitState;
     defname, mode:string;
 begin
   AufScpt:=Sender as TAufScript;
@@ -2296,15 +2310,18 @@ begin
     if mode='-global' then global:=true;
   end else global:=false;
   if not AAuf.TryArgToDefName(1, defname) then exit;
-  if global then begin
-    case AAuf.nargs[2].pre of '$"','~"','#"','&"':begin
-      AufScpt.send_error('警告：不能将内存地址或行地址定义为全局宏定义',AufsErr_GlobalRamVar);
-      exit;
-    end;end;
+
+  case AAuf.nargs[2].pre of
+    '$"','~"','#"','&"':state:=aeusMemory;
+    else state:=aeusDefinition;
+  end;
+  if global and (state=aeusMemory) then begin
+    AufScpt.send_error('警告：不能将内存地址或行地址定义为全局宏定义',AufsErr_GlobalRamVar);
+    exit;
   end;
   try
-    if global then AufScpt.Expression.Global.TryAddExp(defname,AAuf.nargs[2])
-    else AufScpt.Expression.Local.TryAddExp(defname,AAuf.nargs[2]);
+    if global then AufScpt.Expression.Global.TryAddExp(defname,AAuf.nargs[2],state)
+    else AufScpt.Expression.Local.TryAddExp(defname,AAuf.nargs[2],state);
   except
     AufScpt.send_error('警告：创建宏定义名'+defname+'时出错',AufsErr_InvalidDefName);
   end;
@@ -2354,11 +2371,11 @@ begin
   try
     if global then begin
       tmpAEU:=AufScpt.Expression.Global.Find(dn1);
-      if tmpAEU<>nil then AufScpt.Expression.Global.TryAddExp(dn2,tmpAEU.value)
+      if tmpAEU<>nil then AufScpt.Expression.Global.TryAddExp(dn2,tmpAEU.value,aeusMemory)
       else AufScpt.send_error('警告：找不到宏定义'+dn1+'，不能复制',AufsErr_DefNameNotFound);
     end else begin
       tmpAEU:=AufScpt.Expression.Local.Find(dn1);
-      if tmpAEU<>nil then AufScpt.Expression.Local.TryAddExp(dn2,tmpAEU.value)
+      if tmpAEU<>nil then AufScpt.Expression.Local.TryAddExp(dn2,tmpAEU.value,aeusMemory)
       else AufScpt.send_error('警告：找不到宏定义'+dn1+'，不能复制',AufsErr_DefNameNotFound);
     end;
   except
@@ -2511,17 +2528,38 @@ var AufScpt:TAufScript;
     exp:Tnargs;
     exp_type,var_name:string;
     arv:TAufRamVar;
+    state:TAufExpressionUnitState;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
   if not AAuf.TryArgToStrParam(1,['fixnum','int','integer','long','char','string','str','float','real','object','obj'],false,exp_type) then exit;
   case lowercase(exp_type) of
-    'fixnum','int','integer','long' :exp.pre:='$"';
-    'char','string','str'           :exp.pre:='#"';
-    'float','real'                  :exp.pre:='~"';
-    'object','obj'                  :exp.pre:='$"';
-    else exp.pre:='$"';
+    'fixnum','int','integer','long':
+      begin
+        exp.pre:='$"';
+        state:=aeusVariable;
+      end;
+    'char','string','str':
+      begin
+        exp.pre:='#"';
+        state:=aeusVariable;
+      end;
+    'float','real':
+      begin
+        exp.pre:='~"';
+        state:=aeusVariable;
+      end;
+    'object','obj':
+      begin
+        exp.pre:='$"';
+        state:=aeusObject;
+      end;
+    else
+      begin
+        exp.pre:='$"';
+        state:=aeusVariable;
+      end;
   end;
   if not AAuf.TryArgToDefName(2,var_name) then exit;
   var_name:=lowercase(var_name);
@@ -2537,7 +2575,7 @@ begin
   exp.arg:=pRamToRawStr(head)+'|'+pRamToRawStr(size);
   exp.post:='"';
   try
-    AufScpt.Expression.Local.TryAddExp(var_name,exp,true);
+    AufScpt.Expression.Local.TryAddExp(var_name,exp, state);
   except
     AufScpt.send_error('警告：创建变量'+var_name+'时出错',AufsErr_ConflictDefName)
   end;
@@ -3378,7 +3416,7 @@ begin
   end;
   arv.Head:=AufScpt.PSW.run_parameter.ram_zero + hhh;
   arv.size:=sss;
-  AufScpt.Expression.Local.TryAddExp(exprname,AufScpt.RamVarToNargs(arv));
+  AufScpt.Expression.Local.TryAddExp(exprname,AufScpt.RamVarToNargs(arv),aeusMemory);
   exit;
 
 ErrOver_O:
@@ -3455,13 +3493,9 @@ begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
-  method_name:=AAuf.args[1];
-  define_name:=AAuf.args[2];
 
-  if (length(define_name)<1) or not (define_name[1] in ['a'..'z','A'..'Z','_']) then begin
-    AufScpt.send_error('警告：无效变量名。赋值语法需要以@开头，且变量名需要以字母或下划线开头',AufsErr_InvalidDefName);
-    exit;
-  end;
+  if not AAuf.TryArgToDefName(2,define_name) then exit;
+  method_name:=AAuf.args[1];
   auftype:=AufScpt.type_func(method_name);
   if auftype=nil then begin
     AufScpt.send_error('警告：'+method_name+'指令不包含返回类型，未成功赋值',AufsErr_EncTime);
@@ -3476,37 +3510,38 @@ begin
       AufScpt.send_error('警告：变量名'+define_name+'已存在，且长度不为8，因而无法修改，未成功赋值',AufsErr_ConflictDefName);
       exit;
     end;
-
-    //变量覆盖不析构，析构全部交给AufBase的ClearTotalInstance
-    //obj:=arv_to_obj(arv);
-    //obj.Free;
-
-    if not AufScpt.Expression.Local.TryDeleteExp(define_name) then begin
-      AufScpt.send_error('警告：变量名'+define_name+'无法删除，未成功赋值',AufsErr_ConflictDefName);
+    if arv_to_dword(arv)<>0 then begin
+      AufScpt.send_error('警告：对象变量'+define_name+'已被占用，未创建对象。',AufsErr_ObjectAssigned);
       exit;
     end;
-  end;
+    obj:=arv_to_obj(arv);
+    if not (TObject(obj) is auftype) then begin
+      AufScpt.send_error('警告：对象变量'+define_name+'类型不是'+auftype.ClassName+'，未创建对象。',AufsErr_ObjectTypeDismatch);
+      exit;
+      //也可以释放掉，或者强制赋值0后把析构交给AufBase的ClearTotalInstance
+      //暂时只报错
+    end;
 
-  exp.pre:='$"';
-  head:=AufScpt.FindRamVacant(8);
-  exp.arg:=pRamToRawStr(head)+'|'+pRamToRawStr(8);
-  exp.post:='"';
-  arv.Head:=pbyte(head+AufScpt.PSW.run_parameter.ram_zero);
-  arv.size:=8;
-  arv.VarType:=ARV_FixNum;
-  arv.Is_Temporary:=false;
-  arv.Stream:=nil;
-  fillARV(0,arv);
-  try
-    AufScpt.Expression.Local.TryAddExp(define_name,exp);
-  except
-    AufScpt.send_error('警告：定义名创建错误，未正确执行',AufsErr_InvalidDefName);
-    exit;
-  end;
-  AufScpt.RamOccupation[head,8]:=true;
 
-  obj:=auftype.Create;
-  obj_to_arv(obj,arv);
+  end else begin
+    exp.pre:='$"';
+    head:=AufScpt.FindRamVacant(8);
+    exp.arg:=pRamToRawStr(head)+'|'+pRamToRawStr(8);
+    exp.post:='"';
+    arv.Head:=pbyte(head+AufScpt.PSW.run_parameter.ram_zero);
+    arv.size:=8;
+    arv.VarType:=ARV_FixNum;
+    arv.Is_Temporary:=false;
+    arv.Stream:=nil;
+    fillARV(0,arv);
+    try
+      AufScpt.Expression.Local.TryAddExp(define_name,exp,aeusTrustorObject);
+    except
+      AufScpt.send_error('警告：定义名创建错误，未正确执行',AufsErr_InvalidDefName);
+      exit;
+    end;
+    AufScpt.RamOccupation[head,8]:=true;
+  end;
 
   AAuf.nargs[0]:=narg('',method_name,'');
   AAuf.args[0]:=method_name;
@@ -3527,8 +3562,9 @@ var AAuf:TAuf;
     AufScpt:TAufScript;
     obj:TObject;
     obj_class:TClass;
-    method_name,method_name_with_class:string;
+    method_name,class_name,full_name:string;
     idx,len:integer;
+    found_func:boolean;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
@@ -3538,10 +3574,18 @@ begin
   assert(not (obj is TAufBase),'_syntax_property中第二个参数obj必须是TAufBase及其子类');
   obj_class:=obj.ClassType;
   repeat
-    method_name_with_class:=TAufBaseClass(obj_class).AufTypeName+'.'+method_name;
-    if AufScpt.have_func(method_name_with_class) then break;
-    obj_class:=obj_class.ClassParent;
+    class_name  := TAufBaseClass(obj_class).AufTypeName;
+    full_name   := class_name+'.'+method_name;
+    found_func  := AufScpt.have_func(full_name);
+    if found_func then break;
+    obj_class   := obj_class.ClassParent;
   until obj_class=TAufBase;
+
+  if not found_func then begin
+    AufScpt.send_error(Format('警告：对象变量类型%s未找到%s指令，代码未执行。',[TAufBaseClass(obj.ClassType).AufTypeName,method_name]),AufsErr_EncTime);
+    exit;
+  end;
+
   AAuf.nargs[0]:=narg('',method_name,'');
   AAuf.args[0]:=method_name;
   len:=AAuf.ArgsCount;
@@ -3552,7 +3596,7 @@ begin
   AAuf.nargs[len-1]:=narg('','','');
   AAuf.args[len-1]:='';
   dec(AAuf.ArgsCount);
-  AufScpt.run_func(method_name_with_class);
+  AufScpt.run_func(full_name);
 end;
 
 procedure array_newArray(Sender:TObject); //array.new @arr  ||  array.new = arr
@@ -3565,7 +3609,11 @@ begin
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(2) then exit;
   if not AAuf.TryArgToARV(1,8,8,[ARV_FixNum],arv) then exit;
-  obj:=TAufArray.Create;
+  if arv_to_dword(arv)<>0 then begin
+    AufScpt.send_error('警告：对象变量'+AAuf.args[1]+'已被占用，未创建对象。',AufsErr_ObjectAssigned);
+    exit;
+  end;
+  obj:=TAufArray.Create(arv);
   obj_to_arv(obj,arv);
 end;
 
@@ -5146,9 +5194,10 @@ var arv:TAufRamVar;
 begin
   result:=false;
   if not TryArgToARV(ArgNumber,8,8,[ARV_FixNum],arv) then exit;
+  if arv_to_dword(arv)=0 then exit;
   obj:=arv_to_obj(arv);
   if not (obj is ObjectClass) then begin
-    Script.send_error('警告：第'+IntToStr(ArgNumber)+'个参数无法对应'+ObjectClass.ClassName+'实例，代码未执行。',AufsErr_Unknown);
+    Script.send_error('警告：第'+IntToStr(ArgNumber)+'个参数无法对应'+ObjectClass.ClassName+'实例，代码未执行。',AufsErr_ObjectUnassigned);
     exit;
   end;
   result:=true;
@@ -6103,7 +6152,9 @@ var i:word;
 begin
   func_name:=lowercase(func_name);
   if func_name='' then exit;;
-  for i:=0 to func_range-1 do if Self.func[i].name=func_name then break;
+  for i:=0 to func_range-1 do begin
+    if pos(','+func_name+',',','+Self.func[i].name+',')>0 then break;
+  end;
   if (i=func_range-1) and (Self.func[i].name<>func_name) then begin result:=false;exit end;
   result:=true;
 end;
@@ -6168,9 +6219,17 @@ end;
 procedure TAufScript.define_helper;
 var i:word;
     tmp:TAufExpressionUnit;
-    function boolexpr(b:boolean):string;
+    function state_expr(state:TAufExpressionUnitState):string;
     begin
-      if b then result:='  [R.]' else result:='  [RW]';
+      case state of
+        aeusConstant:       result:='  [常量定义]';
+        aeusDefinition:     result:='  [可变定义]';
+        aeusMemory:         result:='  [内存地址]';
+        aeusVariable:       result:='  [内存变量]';
+        aeusObject:         result:='  [对象变量]';
+        aeusTrustorObject:  result:='  [代理对象]';
+        else ;
+      end;
     end;
 
 begin
@@ -6180,7 +6239,7 @@ begin
   while i<Self.Expression.Global.Count do
     begin
       tmp:=TAufExpressionUnit(Self.Expression.Global.Items[i]);
-      Self.writeln(boolexpr(tmp.readonly)+'@'+Usf.left_adjust(tmp.key,16)+' = '+tmp.value.pre+tmp.value.arg+tmp.value.post);
+      Self.writeln(state_expr(tmp.state)+'@'+Usf.left_adjust(tmp.key,16)+' = '+tmp.value.pre+tmp.value.arg+tmp.value.post);
       inc(i);
     end;
   Self.writeln('[局部]');
@@ -6188,7 +6247,7 @@ begin
   while i<Self.Expression.Local.Count do
     begin
       tmp:=TAufExpressionUnit(Self.Expression.Local.Items[i]);
-      Self.writeln(boolexpr(tmp.readonly)+'@'+Usf.left_adjust(tmp.key,16)+' = '+tmp.value.pre+tmp.value.arg+tmp.value.post);
+      Self.writeln(state_expr(tmp.state)+'@'+Usf.left_adjust(tmp.key,16)+' = '+tmp.value.pre+tmp.value.arg+tmp.value.post);
       inc(i);
     end;
 
@@ -7140,12 +7199,17 @@ end;
 
 { TAufExpressionUnit }
 
-constructor TAufExpressionUnit.Create(AKey:string;AValue:Tnargs;AReadOnly:boolean=false);
+function TAufExpressionUnit.GetReadOnly:boolean;
+begin
+  result := not (state in [aeusDefinition, aeusMemory]);
+end;
+
+constructor TAufExpressionUnit.Create(AKey:string;AValue:Tnargs;AState:TAufExpressionUnitState);
 begin
   inherited Create;
   Self.key:=lowercase(AKey);
   Self.value:=AValue;
-  Self.readonly:=AReadOnly;
+  Self.state:=AState;
 end;
 function TAufExpressionUnit.TryEdit(NewValue:Tnargs):boolean;
 begin
@@ -7179,7 +7243,7 @@ begin
   if tmp=nil then result:=narg('','~Error','')
   else result:=tmp.value;
 end;
-function TAufExpressionList.TryAddExp(AKey:string;AValue:Tnargs;readonly:boolean=false):boolean;
+function TAufExpressionList.TryAddExp(AKey:string;AValue:Tnargs;AState:TAufExpressionUnitState):boolean;
 var tmp:TAufExpressionUnit;
     lowkey:string;
 begin
@@ -7187,7 +7251,7 @@ begin
   tmp:=Self.Find(lowkey);
   if tmp=nil then
     begin
-      tmp:=TAufExpressionUnit.Create(lowkey,AValue,readonly);
+      tmp:=TAufExpressionUnit.Create(lowkey,AValue,AState);
       Self.Add(tmp);
     end
   else
@@ -7207,8 +7271,10 @@ begin
   if tmp=nil then begin
     raise EAufScriptSyntaxError.Create('不能给不存在的表达式更名')
   end else begin
-    if tmp.readonly then raise EAufScriptSyntaxError.Create('不能修改只读表达式')
-    else tmp.key:=newLowKey;
+    case tmp.state of
+      aeusConstant: raise EAufScriptSyntaxError.Create('不能修改常量定义');
+      else tmp.key:=newLowKey;
+    end;
   end;
   result:=true;
 end;
@@ -8084,10 +8150,8 @@ INITIALIZATION
 
   GlobalExpressionList:=TAufExpressionList.Create;
   //这个是共用的，所有AufScript.Expression.Global都应该赋值这个
-  GlobalExpressionList.TryAddExp('AufScriptAuthor',narg('"','Apiglio&Apemiro','"'));
-  GlobalExpressionList.TryAddExp('AufScriptVersion',narg('"',AufScript_Version,'"'));
-  TAufExpressionUnit(GlobalExpressionList.Items[0]).readonly:=true;
-  TAufExpressionUnit(GlobalExpressionList.Items[1]).readonly:=true;
+  GlobalExpressionList.TryAddExp('AufScriptAuthor',narg('"','Apiglio&Apemiro','"'),aeusConstant);
+  GlobalExpressionList.TryAddExp('AufScriptVersion',narg('"',AufScript_Version,'"'),aeusConstant);
   GlobalMultiTaskList:=TAufMultiTaskList.Create;
   RegCalc:=TRegExpr.Create;
 
