@@ -6,7 +6,7 @@ interface
 
 uses
   Classes, SysUtils,
-  auf_type_base, auf_type_array;
+  auf_ram_var, auf_type_base, auf_type_array;
 
 type
   AufScriptParserError = class(Exception)
@@ -81,7 +81,7 @@ begin
       '[':
         begin
           parent_array:=current_array;
-          current_array:=TAufArray.Create;
+          current_array:=TAufArray.Create(ARV_Nil);
           current_array.ParentArray:=parent_array;
           if parent_array<>nil then parent_array.LinkAppend(current_array);
           current_line:='';

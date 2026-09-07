@@ -46,6 +46,10 @@ type
     AufsErr_PlatformUnimplemented,
     AufsErr_CanvasNotFound,
 
+    AufsErr_ObjectAssigned,
+    AufsErr_ObjectUnassigned,
+    AufsErr_ObjectTypeDismatch,
+
     AufsErr_TemporaryARVRelease,
     AufsErr_ConvertSameVarType,
     AufsErr_PlatformUnimplementedFloat,
