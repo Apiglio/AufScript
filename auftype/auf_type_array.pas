@@ -38,6 +38,7 @@ type
     function Draw:TAufBase;                           //抽牌：随机返回一个元素并从数组中移除
     procedure Reinsert(element:TAufBase);             //插牌：将元素随机插入数组中的一个位置
     procedure Shuffle;                                //洗牌：随机打乱数组顺序
+    procedure Sort;                                   //排序：按arv的字节值排序
     procedure Clear;                                  //清空：清除所有元素
 
   public
@@ -257,6 +258,13 @@ begin
     FArray[rand]:=FArray[pi];
     FArray[pi]:=tmp;
   end;
+end;
+
+procedure TAufArray.Sort;
+var len,pi,rand:Integer;
+    tmp:TAufBase;
+begin
+
 end;
 
 procedure TAufArray.Clear;
