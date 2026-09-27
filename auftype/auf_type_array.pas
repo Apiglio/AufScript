@@ -38,7 +38,7 @@ type
     function Draw:TAufBase;                           //抽牌：随机返回一个元素并从数组中移除
     procedure Reinsert(element:TAufBase);             //插牌：将元素随机插入数组中的一个位置
     procedure Shuffle;                                //洗牌：随机打乱数组顺序
-    procedure Sort;                                   //排序：按arv的字节值排序
+    procedure Sort(DoCompare:TAufBaseCompare);        //排序：按arv的字节值排序
     procedure Clear;                                  //清空：清除所有元素
 
   public
@@ -120,7 +120,7 @@ begin
   if len<=0 then exit;
   index:=getValidReadIndex(index);
   result:=FArray[index];
-  for pi:=index to len-1 do begin
+  for pi:=index to len-2 do begin
     FArray[pi]:=FArray[pi+1];
   end;
   SetLength(FArray,len-1);
@@ -260,11 +260,33 @@ begin
   end;
 end;
 
-procedure TAufArray.Sort;
-var len,pi,rand:Integer;
-    tmp:TAufBase;
-begin
+//由gemini实现
+procedure TAufArray.Sort(DoCompare:TAufBaseCompare);
+  procedure QuickSort(L,R:Integer);
+  var i,j:Integer;
+      Pivot,Tmp:TAufBase;
+  begin
+    if L>=R then exit;
+    i:=L;
+    j:=R;
+    Pivot:=FArray[(L+R) div 2];
+    repeat
+      while DoCompare(FArray[i],Pivot) < 0 do Inc(i);
+      while DoCompare(FArray[j],Pivot) > 0 do Dec(j);
+      if i<=j then begin
+        Tmp:=FArray[i];
+        FArray[i]:=FArray[j];
+        FArray[j]:=Tmp;
+        Inc(i);
+        Dec(j);
+      end;
+    until i>j;
+    if L<j then QuickSort(L,j);
+    if i<R then QuickSort(i,R);
+  end;
 
+begin
+  if (Length(FArray)>1) and Assigned(DoCompare) then QuickSort(Low(FArray), High(FArray));
 end;
 
 procedure TAufArray.Clear;
