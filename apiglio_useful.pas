@@ -7320,41 +7320,44 @@ var new_guid:TMsgUuid;
 begin
   result:=false;
   if not IsEqualGUID(AufScpt.PSW.message.UUID, GUID_NULL) then exit;
-  if IsEqualGUID(AufScpt.PSW.message.UUID_Stored, GUID_NULL) then begin
-    if TAufMultiTaskList.HttpPost<>nil then begin
-      //联机模式多次创建uuid确认在服务器上登录成功
-      retry_counter:=0;
-      repeat
-        if CreateGUID(new_guid) <> 0 then exit;
-        str_guid:=GUIDToString(new_guid);
-        json:=TJSONObject.Create();
-        try
-          TJSONObject(json).Strings['sender-id']:=str_guid;
-          TJSONObject(json).Strings['name']:='';
-          TJSONObject(json).Strings['prompt']:='';
-          TAufMultiTaskList.HttpPost('login',json);
-          if json<>nil then begin
-            post_result:=TJSONObject(json).Strings['result'];
-            task_token:=TJSONObject(json).Strings['task-token'];
-            AufScpt.PSW.message.FTaskToken:=task_token;
-            AufScpt.PSW.message.FOnlined:=true;
-          end;
-        finally
-          json.Free;
-        end;
-        inc(retry_counter);
-        if retry_counter>5 then exit;
-      until post_result='SUCCESS';
+
+  if TAufMultiTaskList.HttpPost<>nil then begin
+    //联机模式：优先使用先前的uuid重新登录，未创建过uuid则生成
+    if IsEqualGUID(AufScpt.PSW.message.UUID_Stored, GUID_NULL) then begin
+      if CreateGUID(new_guid) <> 0 then exit;
     end else begin
-      //离线模式单次创建uuid
-      if CreateGUID(new_guid) <> 0 then exit; //如果UUID没有创建成功，就不会加入TaskList
+      new_guid:=AufScpt.PSW.message.FUUID_Stored;
     end;
+    //多次创建uuid确认在服务器上登录成功
+    retry_counter:=0;
+    str_guid:='';
+    repeat
+      if str_guid<>'' then if CreateGUID(new_guid) <> 0 then exit;
+      str_guid:=GUIDToString(new_guid);
+      json:=TJSONObject.Create();
+      try
+        TJSONObject(json).Strings['sender-id']:=str_guid;
+        TJSONObject(json).Strings['name']:='';
+        TJSONObject(json).Strings['prompt']:='';
+        TAufMultiTaskList.HttpPost('login',json);
+        if json<>nil then begin
+          post_result:=TJSONObject(json).Strings['result'];
+          task_token:=TJSONObject(json).Strings['task-token'];
+          AufScpt.PSW.message.FTaskToken:=task_token;
+          AufScpt.PSW.message.FOnlined:=true;
+        end;
+      finally
+        json.Free;
+      end;
+      inc(retry_counter);
+      if retry_counter>5 then exit;
+    until post_result='SUCCESS';
   end else begin
-    if TAufMultiTaskList.HttpPost<>nil then begin
-      //联机模式需要判断uuid是否还有效
-      /////////////////////////////////////////////
+    //离线模式：单次创建uuid
+    if IsEqualGUID(AufScpt.PSW.message.UUID_Stored, GUID_NULL) then begin
+      if CreateGUID(new_guid) <> 0 then exit;
+      //如果UUID没有创建成功，就不会加入TaskList
     end else begin
-      //离线模式uuid固定不变
       new_guid:=AufScpt.PSW.message.UUID_Stored;
     end;
   end;
