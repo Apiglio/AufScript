@@ -70,9 +70,17 @@ type
     destructor Destroy; override;
   end;
 
+
+  function ABCompareDefault(const Data1,Data2:TAufBase):Integer;
+
+
 implementation
 uses auf_type_array;
 
+function ABCompareDefault(const Data1,Data2:TAufBase):Integer;
+begin
+  result:=ARV_comp(Data1.FARV, Data2.FARV);
+end;
 
 { TAufBase }
 
