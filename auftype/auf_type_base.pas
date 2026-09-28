@@ -57,6 +57,7 @@ type
   end;
 
   TAufBaseClass = class of TAufBase;
+  TAufBaseCompare = function(const Data1,Data2:TAufBase):Integer;
 
   //对象数据
   //数据不储存在FARV中，FARV只表示内存空间内存储该对象指针的位置
