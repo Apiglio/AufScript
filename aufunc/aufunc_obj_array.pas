@@ -19,6 +19,7 @@ procedure array_Draw(Sender:TObject);//array.draw @arr[,@res]
 procedure array_Clear(Sender:TObject);
 procedure array_Print(Sender:TObject);
 procedure array_Count(Sender:TObject);
+procedure array_Index(Sender:TObject);
 procedure array_CheckElement(Sender:TObject);//array.valid? @array, :addr || array.empty?
 
 
@@ -238,6 +239,53 @@ begin
   if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
   if not AAuf.TryArgToARV(2,1,High(longint),[ARV_FixNum],arv) then exit;
   dword_to_arv(TAufArray(obj).Count,arv);
+end;
+
+procedure array_Index(Sender:TObject);
+var AAuf:TAuf;
+    AufScpt:TAufScript;
+    obj:TObject;
+    arv_idx, arv_elem:TAufRamVar;
+    len, idx:integer;
+    base_elem:TAufBase;
+    arv_type:TAufRamVarType;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
+  if not AAuf.TryArgToARV(3,1,High(DWord),[ARV_FixNum],arv_idx) then exit;
+  arv_type:=AAuf.TellArgType(2);
+  case arv_type of
+    ARV_Raw:begin
+      newARV(arv_elem,length(AAuf.args[2]));
+      if AAuf.nargs[2].pre='"' then arv_elem.VarType:=ARV_Char
+      else if pos('.', AAuf.args[2])>0 then arv_elem.VarType:=ARV_Float
+      else if pos('e', lowercase(AAuf.args[2]))>0 then arv_elem.VarType:=ARV_Float
+      else arv_elem.VarType:=ARV_FixNum;
+      initiate_arv(AAuf.args[2], arv_elem);
+      base_elem:=TAufBase.CreateAsARV(arv_elem);
+      freeARV(arv_elem);
+    end;
+    else begin
+      if not AAuf.TryArgToARV(2,1,High(longint),[ARV_FixNum],arv_elem) then exit;
+      base_elem:=TAufBase.CreateAsARV(arv_elem);
+    end;
+  end;
+
+  try with TAufArray(obj) do begin
+    len:=Count;
+    idx:=Find(base_elem);
+    if len=idx then begin
+      AufScpt.send_error('警告：数组内不包含给定元素，下标结果未赋值', AufsErr_RunTime);
+      exit;
+    end;
+    dword_to_arv(idx, arv_idx);
+  end;
+  finally
+    base_elem.Free;
+  end;
+
 end;
 
 procedure array_CheckElement(Sender:TObject);//array.valid? @array, :addr || array.empty?

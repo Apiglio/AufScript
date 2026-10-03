@@ -7149,6 +7149,7 @@ begin
   Self.add_func('array.draw',         @array_Draw,             'arr[,element]', '从arr数组中随机抽取元素并从数组中移除');
   Self.add_func('array.clear',        @array_Clear,            'arr',           '清空arr数组');
   Self.add_func('array.count',        @array_Count,            'arr,out',       '返回arr数组的元素数量');
+  Self.add_func('array.index',        @array_Index,            'arr,elem,IDX',  '返回arr数组中第一个elem的下标，不包含elem时报错');
   Self.add_func('array.valid?',       @array_CheckElement,     'arr, :label',   '如果arr数组中有元素则跳转');
   Self.add_func('array.empty?',       @array_CheckElement,     'arr, :label',   '如果arr数组中无元素则跳转');
   Self.add_func('array.valid?c',      @array_CheckElement,     'arr, :label',   '如果arr数组中有元素则跳转，并压栈');
