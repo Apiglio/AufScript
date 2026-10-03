@@ -18,6 +18,7 @@ procedure array_Reinsert(Sender:TObject);     //array.reinsert @arr, elem
 procedure array_Delete(Sender:TObject);       //array.delete   @arr, idx[,@res]
 procedure array_Draw(Sender:TObject);         //array.draw     @arr[,@res]
 procedure array_Clear(Sender:TObject);
+procedure array_Sort(Sender:TObject);
 procedure array_Print(Sender:TObject);
 procedure array_Count(Sender:TObject);
 procedure array_Index(Sender:TObject);
@@ -113,13 +114,16 @@ var AAuf:TAuf;
     index:integer;
     element:TAufBase;
     arv:TAufRamVar;
+    arvType:TAufRamVarType;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(3) then exit;
   if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
-  element:=AufBaseParser(AAuf.args[2]);
-  if element=nil then begin
+  arvType:=AAuf.TellArgType(2);
+  if arvType=ARV_Raw then begin
+    element:=AufBaseParser(AAuf.args[2]);
+  end else begin
     if not AAuf.TryArgToARV(2,1,High(dword),[ARV_FixNum, ARV_Float, ARV_Char],arv) then exit;
     element:=TAufBase.CreateAsARV(arv);
   end;
@@ -210,6 +214,18 @@ begin
   if not AAuf.CheckArgs(2) then exit;
   if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
   TAufArray(obj).Clear;
+end;
+
+procedure array_Sort(Sender:TObject);
+var AAuf:TAuf;
+    AufScpt:TAufScript;
+    obj:TObject;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(2) then exit;
+  if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
+  TAufArray(obj).Sort(@ABCompareDefault);
 end;
 
 procedure array_Print(Sender:TObject);

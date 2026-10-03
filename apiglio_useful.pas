@@ -2131,13 +2131,14 @@ begin
   case arvtype of
     ARV_Raw:begin
       AAuf.TryArgToString(2,total_string);
+      total_string:=UTF8ToWinCP(total_string);//enum里中文强制转回cp936
       t_size:=length(total_string);
       p1:=idx*s_size;
       p2:=p1+s_size;
       if p2>t_size then p2:=t_size;
       delete(total_string,p2+1,t_size);
       delete(total_string,1,p1);
-      initiate_arv_str(total_string, seg);
+      initiate_arv_str(WinCPToUTF8(total_string), seg); //enum里中文强制转回cp936
       if (idx+1)*s_size>=t_size then AufScpt.ScriptLines.LineStatuses[AufScpt.currentline]:=-1;
     end;
     else begin
@@ -7151,6 +7152,7 @@ begin
   Self.add_func('array.clear',        @array_Clear,            'arr',           '清空arr数组');
   Self.add_func('array.count',        @array_Count,            'arr,IDX',       '返回arr数组的元素数量');
   Self.add_func('array.index',        @array_Index,            'arr,elem,IDX',  '返回arr数组中第一个elem的下标，不包含elem时报错');
+  Self.add_func('array.sort',         @array_Sort,             'arr',           '排序arr数组');
   Self.add_func('array.valid?',       @array_CheckElement,     'arr, :label',   '如果arr数组中有元素则跳转');
   Self.add_func('array.empty?',       @array_CheckElement,     'arr, :label',   '如果arr数组中无元素则跳转');
   Self.add_func('array.valid?c',      @array_CheckElement,     'arr, :label',   '如果arr数组中有元素则跳转，并压栈');
