@@ -21,6 +21,7 @@ procedure array_Clear(Sender:TObject);
 procedure array_Read(Sender:TObject);         //array.read     @arr, idx, ELEM
 procedure array_Write(Sender:TObject);        //array.write    @arr, idx, elem
 procedure array_Sort(Sender:TObject);
+procedure array_Shuffle(Sender:TObject);
 procedure array_Print(Sender:TObject);
 procedure array_Count(Sender:TObject);
 procedure array_Index(Sender:TObject);
@@ -288,6 +289,18 @@ begin
   if not AAuf.CheckArgs(2) then exit;
   if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
   TAufArray(obj).Sort(@ABCompareDefault);
+end;
+
+procedure array_Shuffle(Sender:TObject);
+var AAuf:TAuf;
+    AufScpt:TAufScript;
+    obj:TObject;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(2) then exit;
+  if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
+  TAufArray(obj).Sort(@ABCompareRandom);
 end;
 
 procedure array_Print(Sender:TObject);

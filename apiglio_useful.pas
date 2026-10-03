@@ -7155,6 +7155,7 @@ begin
   Self.add_func('array.length,array.count',   @array_Count,    'arr,IDX',       '返回arr数组的元素数量');
   Self.add_func('array.find,array.index',     @array_Index,    'arr,elem,IDX',  '返回arr数组中第一个elem的下标，不包含elem时报错');
   Self.add_func('array.sort',         @array_Sort,             'arr',           '排序arr数组');
+  Self.add_func('array.shuffle',      @array_Shuffle,          'arr',           '随机打乱arr数组');
   Self.add_func('array.valid?',       @array_CheckElement,     'arr, :label',   '如果arr数组中有元素则跳转');
   Self.add_func('array.empty?',       @array_CheckElement,     'arr, :label',   '如果arr数组中无元素则跳转');
   Self.add_func('array.valid?c',      @array_CheckElement,     'arr, :label',   '如果arr数组中有元素则跳转，并压栈');
