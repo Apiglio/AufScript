@@ -18,6 +18,8 @@ procedure array_Reinsert(Sender:TObject);     //array.reinsert @arr, elem
 procedure array_Delete(Sender:TObject);       //array.delete   @arr, idx[,@res]
 procedure array_Draw(Sender:TObject);         //array.draw     @arr[,@res]
 procedure array_Clear(Sender:TObject);
+procedure array_Read(Sender:TObject);         //array.read     @arr, idx, ELEM
+procedure array_Write(Sender:TObject);        //array.write    @arr, idx, elem
 procedure array_Sort(Sender:TObject);
 procedure array_Print(Sender:TObject);
 procedure array_Count(Sender:TObject);
@@ -214,6 +216,66 @@ begin
   if not AAuf.CheckArgs(2) then exit;
   if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
   TAufArray(obj).Clear;
+end;
+
+procedure array_Read(Sender:TObject);//array.read @arr, idx, ELEM
+var AAuf:TAuf;
+    AufScpt:TAufScript;
+    obj:TObject;
+    idx, len:integer;
+    arv:TAufRamVar;
+    element:TAufBase;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(3) then exit;
+  if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
+  len:=TAufArray(obj).Count;
+  if not AAuf.TryArgToLong(2,idx) then exit;
+  if not AAuf.RangeCheck(idx, -len, len) then exit;
+  element:=TAufArray(obj).Items[idx];
+  if AAuf.ArgsCount<4 then begin
+    AufScpt.writeln('数组元素['+IntToStr(idx)+']：'+arv_to_s(element.ARV));
+  end else begin
+    if not AAuf.TryArgToARV(3,1,High(dword),[ARV_FixNum, ARV_Float, ARV_Char],arv) then exit;
+    copyARV(element.ARV,arv);
+  end;
+end;
+
+procedure array_Write(Sender:TObject);//array.write @arr, idx, elem
+var AAuf:TAuf;
+    AufScpt:TAufScript;
+    obj:TObject;
+    idx, len:integer;
+    arv:TAufRamVar;
+    arv_type:TAufRamVarType;
+    element:TAufBase;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(4) then exit;
+  if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
+  len:=TAufArray(obj).Count;
+  if not AAuf.TryArgToLong(2,idx) then exit;
+  if not AAuf.RangeCheck(idx, -len, len) then exit;
+  arv_type:=AAuf.TellArgType(3);
+  case arv_type of
+    ARV_Raw:begin
+      element:=AufBaseParser(AAuf.args[3]);
+      if element<>nil then begin
+        TAufArray(obj).Items[idx].Free;
+        TAufArray(obj).Items[idx]:=element;
+      end else begin
+        AufScpt.send_error('警告：'+AAuf.args[3]+'无法创建有效数组元素，数组未修改', AufsErr_RunTime);
+      end;
+    end
+    else begin
+      if not AAuf.TryArgToARV(3,1,High(dword),[ARV_FixNum, ARV_Float, ARV_Char],arv) then exit;
+      element:=TAufBase.CreateAsARV(arv);
+      TAufArray(obj).Items[idx].Free;
+      TAufArray(obj).Items[idx]:=element;
+    end;
+  end;
 end;
 
 procedure array_Sort(Sender:TObject);
