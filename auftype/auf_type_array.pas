@@ -97,9 +97,7 @@ begin
   for pi:=len-1 downto index do begin
     FArray[pi+1]:=FArray[pi];
   end;
-  //FArray[index]:=TAufBase.Create;
-  //FArray[index].Assign(element);
-  FArray[len]:=element.Copy;
+  FArray[index]:=element.Copy;
 end;
 
 procedure TAufArray.Append(element:TAufBase);
@@ -107,8 +105,6 @@ var len:Integer;
 begin
   len:=Length(FArray);
   SetLength(FArray,len+1);
-  //FArray[len]:=TAufBase.Create;
-  //FArray[len].Assign(element);
   FArray[len]:=element.Copy;
 end;
 

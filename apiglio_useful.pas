@@ -7143,8 +7143,9 @@ begin
   Self.add_func('array.copy',         @array_copyArray,        'dst,src',       '复制src数组到dst', TAufArray);
   Self.add_func('array.freeall',      @array_ClearArrayList,   '',              '清除所有array');
 
-  Self.add_func('array.insert',       @array_Insert,           'arr,element[,index]',  '在arr数组的index处插入element');
-  Self.add_func('array.delete',       @array_Delete,           'arr,index[,element]',  '返回arr数组在index处的元素并从数组中移除');
+  Self.add_func('array.append',       @array_Append,           'arr,elem',      '在arr数组的末尾追加元素elem');
+  Self.add_func('array.insert',       @array_Insert,           'arr,idx,elem',  '在arr数组的index处插入elem');
+  Self.add_func('array.delete',       @array_Delete,           'arr,idx[,ELEM]','返回arr数组在index处的元素并从数组中移除');
   Self.add_func('array.reinsert',     @array_Reinsert,         'arr,element',   '在arr数组中随机插入element');
   Self.add_func('array.draw',         @array_Draw,             'arr[,element]', '从arr数组中随机抽取元素并从数组中移除');
   Self.add_func('array.clear',        @array_Clear,            'arr',           '清空arr数组');
