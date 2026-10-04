@@ -5,7 +5,7 @@ unit aufunc_operator;
 interface
 
 uses
-  Classes, SysUtils, Apiglio_Useful, auf_ram_var, auf_type_error;
+  Classes, SysUtils, Apiglio_Useful, auf_ram_var, auf_type_error, auf_type_base;
 
 function operator_equal(Sender:TObject;var is_error:boolean):boolean;
 function operator_not_equal(Sender:TObject;var is_error:boolean):boolean;
@@ -17,9 +17,11 @@ function operator_in(Sender:TObject;var is_error:boolean):boolean;
 function operator_reg(Sender:TObject;var is_error:boolean):boolean;
 function operator_file(Sender:TObject;var is_error:boolean):boolean;
 function operator_define(Sender:TObject;var is_error:boolean):boolean;
+function operator_array(Sender:TObject;var is_error:boolean):boolean;
 
 
 implementation
+uses auf_type_array, auf_type_parser;
 
 function operator_compare_numeric(Sender:TObject;var is_error:boolean):smallint;
 var AufScpt:TAufScript;
@@ -113,13 +115,40 @@ function operator_in(Sender:TObject;var is_error:boolean):boolean;
 var AufScpt:TAufScript;
     AAuf:TAuf;
     s1,s2:string;
+    t1,t2:TAufRamVarType;
+    c1,c2:TAufBaseClass;
+    adr_1,adr_2:pRam;
+    obj_1,obj_2:TAufBase;
 begin
   result:=false;
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
-  if not AAuf.TryArgToString(1,s1) then exit;
-  if not AAuf.TryArgToString(3,s2) then exit;
-  result:=pos(s1,s2)>0;
+  t1:=AAuf.TellArgType(1);
+  t2:=AAuf.TellArgType(3);
+  case t2 of
+    ARV_Char, ARV_Raw:
+      begin
+        if not AAuf.TryArgToString(1,s1) then exit;
+        if not AAuf.TryArgToString(3,s2) then exit;
+        result:=pos(s1,s2)>0;
+      end;
+    ARV_FixNum:
+      begin
+        if not AAuf.TryArgToPRam(3,adr_2) then exit;
+        obj_2:=TAufBase.InstancesByAddress(adr_2);
+        if obj_2=nil then begin
+          is_error:=true;
+          exit;
+        end;
+        obj_1:=auf_type_parser.AufBaseParser(AAuf.args[1]);
+        case obj_2.ClassName of
+          'TAufArray': with TAufArray(obj_2) do result:=Find(obj_1)<>Count;
+          else is_error:=true;
+        end;
+        obj_1.Free;
+      end;
+    else is_error:=true;
+  end;
 end;
 
 function operator_reg(Sender:TObject;var is_error:boolean):boolean;
@@ -171,6 +200,24 @@ begin
   case mode of
     'local': result:=AufScpt.Expression.Local.Find(defname)<>nil;
     'global':result:=AufScpt.Expression.Global.Find(defname)<>nil;
+  end;
+end;
+
+function operator_array(Sender:TObject;var is_error:boolean):boolean;
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    obj:TObject;
+    mode:string;
+begin
+  result:=false;
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckArgs(4) then exit;
+  if not AAuf.TryArgToObject(1, TAufArray, obj) then exit;
+  if not AAuf.TryArgToStrParam(3, ['empty', 'valid'], false, mode) then exit;
+  case mode of
+    'empty':result:=TAufArray(obj).Count=0;
+    'valid':result:=TAufArray(obj).Count<>0;
   end;
 end;
 

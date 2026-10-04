@@ -7074,6 +7074,7 @@ begin
   Self.add_operator('~=',    @operator_reg);
   Self.add_operator('file',  @operator_file);
   Self.add_operator('defined',   @operator_define);
+  Self.add_operator('array',     @operator_array);
 
 
 end;

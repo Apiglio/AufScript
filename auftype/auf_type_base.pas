@@ -37,6 +37,13 @@ type
     class function TotalInstancesCount:Integer; virtual;             //返回自身及所有子类实例数
     class function ClearClassInstances:boolean; virtual;             //释放自身的实例
     class function ClearTotalInstances:boolean; virtual;             //释放自身及所有子类的实例
+    {$if defined(cpu64)}
+    class function InstancesByAddress(address:QWORD):TAufBase;
+    {$elseif defined(cpu32)}
+    class function InstancesByAddress(address:DWORD):TAufBase;
+    {$else}
+    {$warn 'cpu位数不支持'}
+    {$endif}
     class constructor CreateClass;
     class destructor DestoryClass;
   protected
@@ -212,6 +219,39 @@ begin
   Class_InstanceList.Free;
   Class_InstanceList:=new_list;
 end;
+
+{$if defined(cpu64)}
+class function TAufBase.InstancesByAddress(address:QWORD):TAufBase;
+var idx:integer;
+    tmp_obj:TAufBase;
+begin
+  for idx:=Class_InstanceList.Count-1 downto 0 do begin
+    tmp_obj:=TAufBase(Class_InstanceList.Items[idx]);
+    if QWORD(TAufBase(tmp_obj)) = address then begin
+      result:=tmp_obj;
+      exit;
+    end;
+  end;
+  result:=nil;
+end;
+
+{$elseif defined(cpu32)}
+class function TAufBase.InstancesByAddress(address:DWORD):TAufBase;
+var idx:integer;
+    tmp_obj:TObject;
+begin
+  for idx:=Class_InstanceList.Count-1 downto 0 do begin
+    tmp_obj:=TAufBase(Class_InstanceList.Items[idx]);
+    if DWORD(TAufBase(tmp_obj)) = address then begin
+      result:=tmp_obj;
+      exit;
+    end;
+  end;
+  result:=nil;
+end;
+{$else}
+{$warn 'cpu位数不支持'}
+{$endif}
 
 class constructor TAufBase.CreateClass;
 begin
