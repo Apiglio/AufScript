@@ -561,7 +561,7 @@ type
       procedure EnableTaskMessage;
       procedure DisableTaskMessage;
       function SendTaskMessage(SendTo:TAufScript;Data:TAufRamVar;Code:TMsgCode):boolean;
-      procedure ReadTaskMessage(var From:TAufScript; var Data:TAufRamVar; var Code:TMsgCode); //没有消息时返回nil
+      procedure ReadTaskMessage(var From:TAufScript; var Data:TAufRamVar; var Code:TMsgCode; var OnlineGuid:TMsgUuid); //没有消息时返回nil
       function CountTaskMessage:integer;
       property TaskMessageEnabled:boolean read GetTaskMessageEnabled;
 
@@ -2900,6 +2900,7 @@ var AufScpt:TAufScript;
     str_uuid:string;
     aufs_from:TAufScript;
     msg_code:TMsgCode;
+    msg_online_uuid:TMsgUuid;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
@@ -2911,11 +2912,13 @@ begin
     arv_uuid.size:=0;
   end;
   aufs_from:=nil;
-  AufScpt.ReadTaskMessage(aufs_from, arv_data, msg_code);
+  AufScpt.ReadTaskMessage(aufs_from, arv_data, msg_code, msg_online_uuid);
   if aufs_from<>nil then begin
     str_uuid:=GUIDToString(aufs_from.PSW.message.UUID);
     if arv_uuid.size>0 then initiate_arv_str(str_uuid, arv_uuid);
   end else begin
+    str_uuid:=GUIDToString(msg_online_uuid);
+    if arv_uuid.size>0 then initiate_arv_str(str_uuid, arv_uuid);
     //task.read需要拉取网络吗？还是说强制必须task.wait拉取？
     //!!! 目前采用task.wait拉取网络消息，单独的task.read只会读取本地消息
     //AufScpt.send_error('协同消息队列中无条目。',AufsErr_TaskNoMsg);
@@ -5856,7 +5859,7 @@ begin
   result:=SendTo.PSW.message.Append(tmpMI);
 end;
 
-procedure TAufScript.ReadTaskMessage(var From:TAufScript; var Data:TAufRamVar; var Code:TMsgCode);
+procedure TAufScript.ReadTaskMessage(var From:TAufScript; var Data:TAufRamVar; var Code:TMsgCode; var OnlineGuid:TMsgUuid);
 var tmpMI:TMsgItem;
 begin
   From:=nil;
@@ -5865,6 +5868,7 @@ begin
   tmpMI:=Self.PSW.message.Pop;
   From:=tmpMI.From;
   Code:=tmpMI.Code;
+  OnlineGuid:=tmpMI.FromOnline;
 end;
 
 function TAufScript.CountTaskMessage:integer;
@@ -6700,6 +6704,7 @@ begin
   if not IgnoreAccessLock then AccessUnlock;
   FQueue[vFirst].Code:=Msg.Code;
   FQueue[vFirst].From:=Msg.From;
+  FQueue[vFirst].FromOnline:=Msg.FromOnline;
   //以下两行展示了*ARV方法设计究竟有多不合理
   newARV(FQueue[vFirst].Data, Msg.Data.size);
   copyARV(Msg.Data, FQueue[vFirst].Data);
@@ -6719,7 +6724,7 @@ begin
   freeARV(FQueue[vLast].Data);
   result.Code:=FQueue[vLast].Code;
   result.From:=FQueue[vLast].From;
-
+  result.FromOnline:=FQueue[vLast].FromOnline;
 end;
 
 procedure TAufTaskMessageQueue.Clear;

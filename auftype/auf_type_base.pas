@@ -283,7 +283,7 @@ end;
 function TAufBase.Equal(ACompare:TAufBase):boolean;
 begin
   result:=false;
-  if FARV.VarType<>ACompare.FARV.VarType then exit;
+    if FARV.VarType<>ACompare.FARV.VarType then exit;
   result:=ARV_comp(FARV,ACompare.FARV)=0;
 end;
 

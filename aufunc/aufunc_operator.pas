@@ -116,6 +116,7 @@ var AufScpt:TAufScript;
     AAuf:TAuf;
     s1,s2:string;
     t1,t2:TAufRamVarType;
+    a1,a2:TAufRamVar;
     c1,c2:TAufBaseClass;
     adr_1,adr_2:pRam;
     obj_1,obj_2:TAufBase;
@@ -140,7 +141,19 @@ begin
           is_error:=true;
           exit;
         end;
-        obj_1:=auf_type_parser.AufBaseParser(AAuf.args[1]);
+        AufScpt.DefineNameDecode(AAuf.nargs[1]);
+        t1:=AAuf.TellArgType(1);
+        case t1 of
+          ARV_Raw:
+            begin
+              obj_1:=auf_type_parser.AufBaseParser(AAuf.nargs[1].arg);
+            end;
+          else
+            begin
+              if not AAuf.TryArgToARV(1, 1, High(dword), ARV_AllType, a1) then exit;
+              obj_1:=TAufBase.CreateAsARV(a1);
+            end;
+        end;
         case obj_2.ClassName of
           'TAufArray': with TAufArray(obj_2) do result:=Find(obj_1)<>Count;
           else is_error:=true;
