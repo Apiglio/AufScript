@@ -24,7 +24,7 @@ uses
   aufscript_command, auf_ram_syntax, auf_ram_image, aufscript_thread,
   auf_type_array, auf_type_base, auf_type_parser,
   //aufscript_https,
-  aufscript_canvas;
+  aufscript_canvas, auf_type_map;
 
 type
 

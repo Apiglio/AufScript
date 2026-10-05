@@ -82,7 +82,7 @@ begin
         begin
           parent_array:=current_array;
           current_array:=TAufArray.Create(ARV_Nil);
-          current_array.ParentArray:=parent_array;
+          current_array.Parent:=parent_array;
           if parent_array<>nil then parent_array.LinkAppend(current_array);
           current_line:='';
         end;
@@ -94,7 +94,8 @@ begin
             current_line:='';
           end;
           last_array:=current_array;
-          current_array:=current_array.ParentArray;
+          current_array:=TAufArray(current_array.Parent);
+          //从ParentArray拓展为ParentObject，原逻辑没有变，目前仍然只生成数组套数组
         end;
       ',',';':
         begin
@@ -116,7 +117,8 @@ begin
   if current_array<>nil then begin
     repeat
       last_array:=current_array;
-      current_array:=current_array.ParentArray;
+      current_array:=TAufArray(current_array.Parent);
+      //从ParentArray拓展为ParentObject，原逻辑没有变，目前仍然只生成数组套数组
     until current_array=nil;
     last_array.Free;
     result:=nil;

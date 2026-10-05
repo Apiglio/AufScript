@@ -316,7 +316,7 @@ begin
   AAuf:=AufScpt.Auf as TAuf;
   if not AAuf.CheckArgs(2) then exit;
   if not AAuf.TryArgToObject(1,TAufArray,obj) then exit;
-  ln_mode:=lowercase(AAuf.args[0])='array.println';
+  ln_mode:=pos('println',lowercase(AAuf.args[0]))>0;
   if not ln_mode then begin
     stmp:='[';
     split:=',';

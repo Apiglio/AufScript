@@ -13,12 +13,9 @@ type
 
   end;
 
-  PAufBaseBoolFunc = function(item:TAufBase):boolean;
-  PAufBaseBaseFunc = function(item:TAufBase):TAufBase;
   TAufArray = class(TAufObject)
   private
     FArray:array of TAufBase;
-    FParentArray:TAufArray;
   protected
     function getValidReadIndex(index:Integer):Integer;
     function getValidWriteIndex(index:Integer):Integer;
@@ -33,7 +30,6 @@ type
     function Find(element:TAufBase):Integer;          //查找element，并返回所在位置下标，找不到则返回元素总数
     function Count:Integer;                           //返回元素个数
     property Items[Index:Integer]:TAufBase read GetItem write SetItem; default;
-    property ParentArray:TAufArray read FParentArray write FParentArray;
   public
     function Draw:TAufBase;                           //抽牌：随机返回一个元素并从数组中移除
     procedure Reinsert(element:TAufBase);             //插牌：将元素随机插入数组中的一个位置
@@ -296,7 +292,7 @@ begin
       //非基本类型，不属于子数组的不析构
       if elem is TAufArray then
         with elem as TAufArray do
-          if ParentArray=Self then Free;
+          if Parent=Self then Free;
     end else begin
       //基本类型析构
       elem.Free;
@@ -308,7 +304,6 @@ end;
 constructor TAufArray.Create(DefineARV:TAufRamVar);
 begin
   inherited Create(DefineARV);
-  FParentArray:=nil;
 end;
 
 destructor TAufArray.Destroy;

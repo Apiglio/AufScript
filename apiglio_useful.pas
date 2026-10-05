@@ -52,7 +52,7 @@ uses
   {$endif}
   LazUTF8, RegExpr, Variants, fpjson,
   Auf_Ram_Var, Auf_Ram_Image, aufscript_canvas,
-  auf_type_base, auf_type_array, auf_type_error;
+  auf_type_base, auf_type_array, auf_type_map, auf_type_error;
 
 const
 
@@ -676,7 +676,7 @@ var
 
 
 IMPLEMENTATION
-uses auf_type_parser, aufunc_operator, aufunc_canvas, aufunc_obj_array;
+uses auf_type_parser, aufunc_operator, aufunc_canvas, aufunc_obj_array, aufunc_obj_map;
 
 procedure de_decoder(var str:string);
 begin
@@ -7163,6 +7163,20 @@ begin
   Self.add_func('array.empty?c',      @array_CheckElement,     'arr, :label',   '如果arr数组中无元素则跳转，并压栈');
 
   Self.add_func('array.print,array.println',  @array_Print,    'arr',           '在屏幕中打印arr数组');
+
+  Self.add_func('map.new',            @map_newMap,             'dic',           '创建map',            TAufMap);
+  Self.add_func('map.del',            @map_delMap,             'dic',           '删除map');
+  Self.add_func('map.copy',           @map_copyMap,            'dst,src',       '复制src散列表到dst', TAufMap);
+  Self.add_func('map.freeall',        @map_ClearMapList,       '',              '清除所有map');
+
+  Self.add_func('map.delete',         @map_Delete,             'dic,key[,VALUE]',   '返回dic散列表中key键名对应的值，并从散列表中移除');
+  Self.add_func('map.read',           @map_Read,               'dic,key[,VALUE]',   '返回dic散列表中key键名对应的值');
+  Self.add_func('map.write',          @map_Write,              'dic,key,value',     '将dic散列表中key键名对应的值修改为value');
+  Self.add_func('map.clear',          @map_Clear,              'dic',               '清空dic散列表');
+  Self.add_func('map.length,map.count',       @map_Count,      'dic,IDX',           '返回dic散列表的项目数量');
+
+  Self.add_func('map.print,map.println',      @map_Print,      'dic',               '在屏幕中打印dic散列表');
+
 
 end;
 

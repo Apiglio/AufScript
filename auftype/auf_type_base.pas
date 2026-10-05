@@ -65,6 +65,8 @@ type
 
   TAufBaseClass = class of TAufBase;
   TAufBaseCompare = function(const Data1,Data2:TAufBase):Integer;
+  PAufBaseBoolFunc = function(item:TAufBase):boolean;
+  PAufBaseBaseFunc = function(item:TAufBase):TAufBase;
 
   //对象数据
   //数据不储存在FARV中，FARV只表示内存空间内存储该对象指针的位置
@@ -72,9 +74,12 @@ type
   //          如果直接定义在内存空间里，FARV指向对应的8字节FixNum空间。
   //指向Self，析构时置0。
   TAufObject = class(TAufBase)
+  protected
+    FParentObject:TAufObject;
   public
     constructor Create(DefineARV:TAufRamVar);
     destructor Destroy; override;
+    property Parent:TAufObject read FParentObject write FParentObject;
   end;
 
 
@@ -366,6 +371,7 @@ end;
 constructor TAufObject.Create(DefineARV:TAufRamVar);
 begin
   inherited Create;
+  FParentObject:=nil;
   FARV:=DefineARV;
   case FARV.size of
     0:;
