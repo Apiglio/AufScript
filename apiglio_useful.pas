@@ -2825,7 +2825,7 @@ var AufScpt:TAufScript;
     AAuf:TAuf;
     idx:integer;
     arr:TObject;
-    task_name, task_guid_str:string;
+    task_name, task_guid_str, searchKey:string;
     task_guid:TMsgUuid;
 begin
   AufScpt:=Sender as TAufScript;
@@ -2848,16 +2848,20 @@ begin
     end;
   end else begin
     if not AAuf.TryArgToObject(1, TAufArray, arr) then exit;
+    if AAuf.ArgsCount>2 then begin
+      if not AAuf.TryArgToString(2, searchKey) then exit;
+    end else searchKey:='';
     TAufArray(arr).Clear;
     for idx:=GlobalMultiTaskList.Count-1 downto 0 do begin
       task_name:=TAufScript(GlobalMultiTaskList.Objects[idx]).PSW.message.FName;
       task_guid:=TAufScript(GlobalMultiTaskList.Objects[idx]).PSW.message.FUUID;
+      if (searchKey<>'') and (pos(searchKey, task_name)<=0) then continue;
       TAufArray(arr).Append(TAufBase.CreateAsString(GUIDToString(task_guid)));
     end;
-    AufScpt.writeln('');
     for idx:=GlobalMultiTaskList.FOnlineTaskList.Count-1 downto 0 do begin
       task_name:=GlobalMultiTaskList.FOnlineTaskList.ValueFromIndex[idx];
       task_guid_str:=GlobalMultiTaskList.FOnlineTaskList.Names[idx];
+      if (searchKey<>'') and (pos(searchKey, task_name)<=0) then continue;
       TAufArray(arr).Append(TAufBase.CreateAsString(task_guid_str));
     end;
   end;

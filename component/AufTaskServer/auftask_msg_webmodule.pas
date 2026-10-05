@@ -287,7 +287,7 @@ end;
 
 
 procedure auftask_func_tasklist(var ARequest: TFPHTTPConnectionRequest; var AResponse: TFPHTTPConnectionResponse; var AJSONData:TJSONObject; const ASenderId, ATargetId:string);
-var TaskToken:string;
+var TaskToken, searchKey:string;
     targetID:TAufTaskClientId;
     targetTC:TAufTaskClient;
     jKey:TJSONData;
@@ -300,6 +300,8 @@ begin
             error_response(AResponse, 'ERROR_ARGUMENT_NOT_FOUND', 'task-token');
             exit;
         end;
+        jKey:=Find('filter',jtString);
+        if jKey<>nil then searchKey:=jKey.AsString else searchKey:='';
         jKey:=Find('allow-empty-name',jtBoolean);
         if jKey<>nil then allowEmptyName:=jKey.AsBoolean else allowEmptyName:=false;
     end;
@@ -321,7 +323,7 @@ begin
 
     AResponse.Code:=200;
     AResponse.ContentType:='application/json; charset=utf-8';
-    AResponse.Content:=Format('{"result":"SUCCESS", "tasks":%s}',[GlobalAufTaskPool.GetTaskListJSON(allowEmptyName).FormatJSON()]);
+    AResponse.Content:=Format('{"result":"SUCCESS", "tasks":%s}',[GlobalAufTaskPool.GetTaskListJSON(searchKey, allowEmptyName).FormatJSON()]);
 
 end;
 

@@ -33,7 +33,7 @@ type
         function AddTaskClient(TaskId:TAufTaskClientId):TAufTaskClient;
         function DelTaskClient(TaskId:TAufTaskClientId):boolean;
     public
-        function GetTaskListJSON(AllowEmptyName:boolean):TJSONData;
+        function GetTaskListJSON(SearchKey:string; AllowEmptyName:boolean):TJSONData;
         function GenOutKey:string;
     public
         constructor Create;
@@ -108,7 +108,7 @@ begin
     end;
 end;
 
-function TAufTaskPool.GetTaskListJSON(AllowEmptyName:boolean):TJSONData;
+function TAufTaskPool.GetTaskListJSON(SearchKey:string; AllowEmptyName:boolean):TJSONData;
 var idx,len:integer;
     tmpTask:TAufTaskClient;
     tmpTaskObject:TJSONObject;
@@ -118,6 +118,7 @@ begin
     for idx:=0 to len-1 do begin
         tmpTask:=TAufTaskClient(FTaskList.Objects[idx]);
         if (tmpTask.Name='') and not AllowEmptyName then continue;
+        if (SearchKey<>'') and (pos(lowercase(SearchKey), lowercase(tmpTask.Name))<=0) then continue;
         tmpTaskObject:=TJSONObject.Create;
         tmpTaskObject.Strings['name']:=tmpTask.Name;
         tmpTaskObject.Strings['guid']:=GUIDToString(tmpTask.TaskId);
