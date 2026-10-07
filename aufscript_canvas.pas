@@ -179,6 +179,7 @@ type
     function PickShape(pick:TPoint):TAufShape;
     procedure BringToTop(Shape_ID:Integer);
     procedure SendToBack(Shape_ID:Integer);
+    function Remove(Shape_ID:Integer):Boolean;
   public
     function AsString:string;
     function AsSVG:string;
@@ -925,6 +926,17 @@ begin
     FList[idx]:=nil;
   end;
   CheckCompact;
+end;
+
+function TAufShapeContainer.Remove(Shape_ID:Integer):Boolean;
+var idx,len,last_head_nil,tmp_idx:integer;
+begin
+  result:=false;
+  if FindShapeByID(Shape_ID, idx) = nil then exit;
+  TAufShape(FList[idx]).Free;
+  FList[idx]:=nil;
+  CheckCompact;
+  result:=true;
 end;
 
 function TAufShapeContainer.AsString:string;

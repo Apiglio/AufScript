@@ -24,6 +24,7 @@ procedure cav_ToTop(Sender:TObject);
 procedure cav_ToBottom(Sender:TObject);
 procedure cav_MoveBy(Sender:TObject);
 procedure cav_MoveTo(Sender:TObject);
+procedure cav_Remove(Sender:TObject);
 procedure cav_SetStyle(Sender:TObject);
 procedure cav_GetStyle(Sender:TObject);
 procedure cav_SetTemplateStyle(Sender:TObject);
@@ -363,6 +364,23 @@ begin
   if not AAuf.TryArgToLong(3, yPos) then exit;
   tmpShape:=AufScpt.IO_fptr.canvas.Shapes.FindShapeByID(shp_id,shp_idx);
   tmpShape.Translation(Classes.Point(xPos,yPos)-tmpShape.VertexCentroid);
+end;
+
+procedure cav_Remove(Sender:TObject);
+var AufScpt:TAufScript;
+    AAuf:TAuf;
+    shp_id,shp_idx:integer;
+    xPos,yPos:integer;
+    tmpShape:TAufShape;
+begin
+  AufScpt:=Sender as TAufScript;
+  AAuf:=AufScpt.Auf as TAuf;
+  if not AAuf.CheckCanvas then exit;
+  if not AAuf.CheckArgs(2) then exit;
+  if not AAuf.TryArgToLong(1, shp_id) then exit;
+  tmpShape:=AufScpt.IO_fptr.canvas.Shapes.FindShapeByID(shp_id,shp_idx);
+  if tmpShape=nil then AufScpt.send_error('警告：未找到ID='+IntToStr(shp_id)+'的图形，未移除任何图形', AufsErr_RunTime)
+  else AufScpt.IO_fptr.canvas.Shapes.Remove(shp_id);
 end;
 
 procedure cav_SetStyle(Sender:TObject);

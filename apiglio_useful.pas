@@ -7288,6 +7288,7 @@ begin
   Self.add_func('cav.move_by',        @cav_MoveBy,             'shp_id, x, y',              '将给定id的图形平移(x,y)');
   Self.add_func('cav.move_to',        @cav_MoveTo,             'shp_id, x, y',              '将给定id的图形平移到(x,y)');
 
+  Self.add_func('cav.remove',         @cav_Remove,             'shp_id',                    '移除给定id的图形');
 
   Self.add_func('cav.set_style',      @cav_SetStyle,           'shp_id, style_name, value', '设置给定id的图形的外观');
   Self.add_func('cav.get_style',      @cav_GetStyle,           'shp_id, style_name, @var',  '返回给定id图形的外观参数');
