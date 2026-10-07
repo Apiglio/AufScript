@@ -2827,6 +2827,7 @@ var AufScpt:TAufScript;
     arr:TObject;
     task_name, task_guid_str, searchKey:string;
     task_guid:TMsgUuid;
+    tmp_guid_aufbase:TAufBase;
 begin
   AufScpt:=Sender as TAufScript;
   AAuf:=AufScpt.Auf as TAuf;
@@ -2856,13 +2857,25 @@ begin
       task_name:=TAufScript(GlobalMultiTaskList.Objects[idx]).PSW.message.FName;
       task_guid:=TAufScript(GlobalMultiTaskList.Objects[idx]).PSW.message.FUUID;
       if (searchKey<>'') and (pos(searchKey, task_name)<=0) then continue;
-      TAufArray(arr).Append(TAufBase.CreateAsString(GUIDToString(task_guid)));
+      //TAufArray(arr).Append(TAufBase.CreateAsString(GUIDToString(task_guid)));
+      tmp_guid_aufbase:=TAufBase.CreateAsString(GUIDToString(task_guid));
+      with TAufArray(arr) do begin
+        //这里Find用=Count表示找不到，确实有点太神奇了
+        if Find(tmp_guid_aufbase)=Count then Append(tmp_guid_aufbase)
+        else tmp_guid_aufbase.Free;
+      end;
     end;
     for idx:=GlobalMultiTaskList.FOnlineTaskList.Count-1 downto 0 do begin
       task_name:=GlobalMultiTaskList.FOnlineTaskList.ValueFromIndex[idx];
       task_guid_str:=GlobalMultiTaskList.FOnlineTaskList.Names[idx];
       if (searchKey<>'') and (pos(searchKey, task_name)<=0) then continue;
-      TAufArray(arr).Append(TAufBase.CreateAsString(task_guid_str));
+      //TAufArray(arr).Append(TAufBase.CreateAsString(task_guid_str));
+      tmp_guid_aufbase:=TAufBase.CreateAsString(task_guid_str);
+      with TAufArray(arr) do begin
+        //这里Find用=Count表示找不到，确实有点太神奇了
+        if Find(tmp_guid_aufbase)=Count then Append(tmp_guid_aufbase)
+        else tmp_guid_aufbase.Free;
+      end;
     end;
   end;
 end;
@@ -5755,6 +5768,38 @@ begin
                         at_ofs:=0;
                       end;
                       AAuf.nargs[i]:=narg('&"',pRamToRawStr(pRam(Self.currentline+at_ofs)),'"');
+                    end else if pos('next[',at_expr) = 1 then begin
+                      at_num:=at_expr;
+                      delete(at_num,1,5);
+                      at_len:=length(at_num);
+                      if (at_len<>0) and (pos(']',at_num)=at_len) then delete(at_num,at_len,1);
+                      line:=currentline+1;
+                      while line<ScriptLines.Count do begin
+                        if pos(lowercase(at_num), lowercase(ScriptLines.Strings[line]))>0 then begin
+                          AAuf.nargs[i].pre:='&"';
+                          AAuf.nargs[i].post:='"';
+                          AAuf.nargs[i].arg:=pRamToRawStr(line);
+                          break;
+                        end;
+                        line:=line+1;
+                      end;
+                      if line=ScriptLines.Count then send_error('@next未找到符合条件的地址行', AufsErr_EncTime);
+                    end else if pos('prev[',at_expr) = 1 then begin
+                      at_num:=at_expr;
+                      delete(at_num,1,5);
+                      at_len:=length(at_num);
+                      if (at_len<>0) and (pos(']',at_num)=at_len) then delete(at_num,at_len,1);
+                      line:=currentline-1;
+                      while line>=0 do begin
+                        if pos(lowercase(at_num), lowercase(ScriptLines.Strings[line]))>0 then begin
+                          AAuf.nargs[i].pre:='&"';
+                          AAuf.nargs[i].post:='"';
+                          AAuf.nargs[i].arg:=pRamToRawStr(line);
+                          break;
+                        end;
+                        line:=line-1;
+                      end;
+                      if line=ScriptLines.Count then send_error('@prev未找到符合条件的地址行', AufsErr_EncTime);
                     end else begin
                       //以@开头的变量名依然进行硬解析
                       DefineNameDecode(AAuf.nargs[i]);
