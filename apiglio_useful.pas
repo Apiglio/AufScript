@@ -4224,7 +4224,7 @@ begin
     end;
   if not (res.VarType in TypeAllowance) then
     begin
-      Script.send_error('警告：第'+IntToStr(ArgNumber)+'个参数类型有误，代码未执行。',AufsErr_ParamType);
+      Script.send_error('警告：第'+IntToStr(ArgNumber)+'个参数类型有误，应为'+ARVTypeSetToString(TypeAllowance)+'类型，代码未执行。',AufsErr_ParamType);
       exit
     end;
   if maxsize>minsize then begin

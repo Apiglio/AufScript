@@ -206,10 +206,21 @@ var
   _arvconst_string_empty_:TAufRamVar;
 
 
+  function ARVTypeSetToString(arvtype_set:TAufRamVarTypeSet):string;
+
 implementation
 
 uses Apiglio_Useful, auf_ram_image, base64;
 
+
+function ARVTypeSetToString(arvtype_set:TAufRamVarTypeSet):string;
+begin
+  result:='';
+  if ARV_FixNum in arvtype_set then result:=result+'int, ';
+  if ARV_Float in arvtype_set then result:=result+'float, ';
+  if ARV_Char in arvtype_set then result:=result+'string, ';
+  if result<>'' then delete(result, length(result)-1,2);
+end;
 
 function DecimalStr(str:string):TDecimalStr;
 begin

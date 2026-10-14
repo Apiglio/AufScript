@@ -378,7 +378,7 @@ begin
       freeARV(arv_elem);
     end;
     else begin
-      if not AAuf.TryArgToARV(2,1,High(longint),[ARV_FixNum],arv_elem) then exit;
+      if not AAuf.TryArgToARV(2,1,High(longint),ARV_AllType,arv_elem) then exit;
       base_elem:=TAufBase.CreateAsARV(arv_elem);
     end;
   end;
